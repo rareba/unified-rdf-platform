@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rdf-forge-postgres
+    environment:
+      POSTGRES_DB: rdfforge
+      POSTGRES_USER: rdfforge
+      POSTGRES_PASSWORD: rdfforge_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rdfforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rdf-forge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: rdf-forge-minio
+    environment:
+      MINIO_ROOT_USER: rdfforge
+      MINIO_ROOT_PASSWORD: rdfforge_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: rdf-forge-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set minio http://minio:9000 rdfforge rdfforge_secret;
+      mc mb minio/rdf-forge-data --ignore-existing;
+      mc mb minio/rdf-forge-shapes --ignore-existing;
+      mc mb minio/rdf-forge-pipelines --ignore-existing;
+      exit 0;
+      "
+
+  fuseki:
+    image: stain/jena-fuseki:latest
+    container_name: rdf-forge-fuseki
+    environment:
+      ADMIN_PASSWORD: admin
+      JVM_ARGS: "-Xmx2g"
+    ports:
+      - "3030:3030"
+    volumes:
+      - fuseki_data:/fuseki
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/$/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: rdf-forge-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: rdfforge
+      KC_DB_PASSWORD: rdfforge_secret
+    ports:
+      - "8080:8080"
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ./rdf-forge-gateway
+      dockerfile: Dockerfile
+    container_name: rdf-forge-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - pipeline-service
+      - job-service
+      - shacl-service
+      - data-service
+
+  pipeline-service:
+    build:
+      context: ./rdf-forge-pipeline-service
+      dockerfile: Dockerfile
+    container_name: rdf-forge-pipeline-service
+    ports:
+      - "8001:8001"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  shacl-service:
+    build:
+      context: ./rdf-forge-shacl-service
+      dockerfile: Dockerfile
+    container_name: rdf-forge-shacl-service
+    ports:
+      - "8002:8002"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  job-service:
+    build:
+      context: ./rdf-forge-job-service
+      dockerfile: Dockerfile
+    container_name: rdf-forge-job-service
+    ports:
+      - "8003:8003"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  data-service:
+    build:
+      context: ./rdf-forge-data-service
+      dockerfile: Dockerfile
+    container_name: rdf-forge-data-service
+    ports:
+      - "8004:8004"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: rdfforge
+      MINIO_SECRET_KEY: rdfforge_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  fuseki_data:

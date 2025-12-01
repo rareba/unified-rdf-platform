@@ -7,7 +7,11 @@
       "Bash(dir /B:*)",
       "Bash(xargs ls:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__MCP_DOCKER__create_repository",
+      "Bash(gh repo create:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh repo:*)"
     ],
     "deny": [],
     "ask": []

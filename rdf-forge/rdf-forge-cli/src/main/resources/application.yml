@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: rdf-forge-cli
+  main:
+    web-application-type: none
+  shell:
+    interactive:
+      enabled: true
+
+rdf-forge:
+  gateway:
+    url: http://localhost:8000/api/v1
+
+logging:
+  level:
+    root: WARN
+    io.rdfforge: INFO
