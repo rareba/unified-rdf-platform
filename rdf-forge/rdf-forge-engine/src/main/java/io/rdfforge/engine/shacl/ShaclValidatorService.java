@@ -8,8 +8,8 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.shacl.ShaclValidator;
 import org.apache.jena.shacl.Shapes;
-import org.apache.jena.shacl.ValidationReport as JenaValidationReport;
 import org.apache.jena.shacl.validation.ReportEntry;
+import org.apache.jena.shacl.validation.Severity;
 import org.apache.jena.shacl.lib.ShLib;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +30,7 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
         Graph dataGraph = dataModel.getGraph();
         
         Shapes shapes = Shapes.parse(shapesGraph);
-        JenaValidationReport jenaReport = ShaclValidator.get().validate(shapes, dataGraph);
+        org.apache.jena.shacl.ValidationReport jenaReport = ShaclValidator.get().validate(shapes, dataGraph);
         
         List<ValidationReport.ValidationResult> results = new ArrayList<>();
         int violationCount = 0;
@@ -53,7 +53,7 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
                 .value(nodeToString(entry.value()))
                 .message(entry.message())
                 .sourceConstraintComponent(nodeToString(entry.sourceConstraintComponent()))
-                .sourceShape(nodeToString(entry.sourceShape()))
+                .sourceShape(nodeToString(entry.sourceConstraint()))
                 .build());
         }
 
@@ -91,14 +91,13 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
         }
     }
 
-    private ValidationReport.ValidationResult.Severity mapSeverity(Resource severity) {
+    private ValidationReport.ValidationResult.Severity mapSeverity(Severity severity) {
         if (severity == null) {
             return ValidationReport.ValidationResult.Severity.VIOLATION;
         }
-        String uri = severity.getURI();
-        if (uri.endsWith("Warning")) {
+        if (severity == Severity.Warning) {
             return ValidationReport.ValidationResult.Severity.WARNING;
-        } else if (uri.endsWith("Info")) {
+        } else if (severity == Severity.Info) {
             return ValidationReport.ValidationResult.Severity.INFO;
         }
         return ValidationReport.ValidationResult.Severity.VIOLATION;

@@ -19,6 +19,7 @@ public class Job {
     private Integer pipelineVersion;
     private JobStatus status;
     private Integer priority;
+    private boolean dryRun;
     private Map<String, Object> variables;
     private TriggerType triggeredBy;
     private Instant startedAt;

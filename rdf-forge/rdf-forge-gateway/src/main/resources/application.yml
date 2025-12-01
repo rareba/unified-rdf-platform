@@ -16,68 +16,34 @@ spring:
     gateway:
       routes:
         - id: pipeline-service
-          uri: ${PIPELINE_SERVICE_URL:http://localhost:8001}
+          uri: ${PIPELINE_SERVICE_URL:http://rdf-forge-pipeline-service:8001}
           predicates:
             - Path=/api/v1/pipelines/**,/api/v1/operations/**,/api/v1/templates/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: pipelineCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
-            - name: Retry
-              args:
-                retries: 3
-                statuses: BAD_GATEWAY
         
         - id: shacl-service
-          uri: ${SHACL_SERVICE_URL:http://localhost:8002}
+          uri: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
           predicates:
             - Path=/api/v1/shapes/**,/api/v1/validation/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: shaclCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
         
         - id: job-service
-          uri: ${JOB_SERVICE_URL:http://localhost:8003}
+          uri: ${JOB_SERVICE_URL:http://rdf-forge-job-service:8003}
           predicates:
             - Path=/api/v1/jobs/**,/api/v1/schedules/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: jobCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
         
         - id: data-service
-          uri: ${DATA_SERVICE_URL:http://localhost:8004}
+          uri: ${DATA_SERVICE_URL:http://rdf-forge-data-service:8004}
           predicates:
             - Path=/api/v1/data/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: dataCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
         
         - id: dimension-service
-          uri: ${DIMENSION_SERVICE_URL:http://localhost:8005}
+          uri: ${DIMENSION_SERVICE_URL:http://rdf-forge-dimension-service:8005}
           predicates:
             - Path=/api/v1/dimensions/**,/api/v1/hierarchies/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: dimensionCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
         
         - id: triplestore-service
-          uri: ${TRIPLESTORE_SERVICE_URL:http://localhost:8006}
+          uri: ${TRIPLESTORE_SERVICE_URL:http://rdf-forge-triplestore-service:8006}
           predicates:
             - Path=/api/v1/triplestores/**,/api/v1/sparql/**,/api/v1/graphs/**
-          filters:
-            - name: CircuitBreaker
-              args:
-                name: triplestoreCircuitBreaker
-                fallbackUri: forward:/api/v1/fallback
       
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin

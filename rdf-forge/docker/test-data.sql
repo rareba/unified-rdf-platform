@@ -1,0 +1,1 @@
+INSERT INTO pipelines (id, project_id, name, definition, definition_format, created_by) VALUES ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Test Pipeline', '{"steps": []}', 'JSON', '00000000-0000-0000-0000-000000000000');

@@ -53,6 +53,7 @@ public class JobController {
             request.pipelineId(),
             request.variables(),
             request.priority(),
+            Boolean.TRUE.equals(request.dryRun()),
             null
         );
         return ResponseEntity.ok(job);
@@ -101,6 +102,7 @@ public class JobController {
     public record CreateJobRequest(
         UUID pipelineId,
         Map<String, Object> variables,
-        Integer priority
+        Integer priority,
+        Boolean dryRun
     ) {}
 }

@@ -43,8 +43,9 @@ public class PipelineEntity {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> variables;
 
-    @Column(name = "tags")
-    private String[] tags;
+    // @JdbcTypeCode(SqlTypes.JSON)
+    // @Column(columnDefinition = "jsonb")
+    // private List<String> tags;
 
     @Column
     private Integer version;

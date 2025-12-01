@@ -25,6 +25,9 @@ public class JobEntity {
     
     @Column
     private Integer priority = 5;
+
+    @Column(name = "is_dry_run")
+    private boolean dryRun = false;
     
     @Column(columnDefinition = "jsonb")
     @Convert(converter = JsonMapConverter.class)
@@ -82,6 +85,9 @@ public class JobEntity {
     
     public Integer getPriority() { return priority; }
     public void setPriority(Integer priority) { this.priority = priority; }
+
+    public boolean isDryRun() { return dryRun; }
+    public void setDryRun(boolean dryRun) { this.dryRun = dryRun; }
     
     public Map<String, Object> getVariables() { return variables; }
     public void setVariables(Map<String, Object> variables) { this.variables = variables; }

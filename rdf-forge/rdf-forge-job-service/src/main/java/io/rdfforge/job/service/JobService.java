@@ -43,11 +43,12 @@ public class JobService {
         return jobRepository.findById(id);
     }
     
-    public JobEntity createJob(UUID pipelineId, Map<String, Object> variables, Integer priority, UUID userId) {
+    public JobEntity createJob(UUID pipelineId, Map<String, Object> variables, Integer priority, boolean dryRun, UUID userId) {
         JobEntity job = new JobEntity();
         job.setPipelineId(pipelineId);
         job.setVariables(variables);
         job.setPriority(priority != null ? priority : 5);
+        job.setDryRun(dryRun);
         job.setTriggeredBy(TriggerType.MANUAL);
         job.setCreatedBy(userId);
         job.setStatus(JobStatus.PENDING);
@@ -64,6 +65,7 @@ public class JobService {
         job.setPipelineId(pipelineId);
         job.setVariables(variables);
         job.setPriority(5);
+        job.setDryRun(false); // Scheduled jobs are real executions
         job.setTriggeredBy(TriggerType.SCHEDULE);
         job.setStatus(JobStatus.PENDING);
         
@@ -98,6 +100,7 @@ public class JobService {
             newJob.setPipelineVersion(originalJob.getPipelineVersion());
             newJob.setVariables(originalJob.getVariables());
             newJob.setPriority(originalJob.getPriority());
+            newJob.setDryRun(originalJob.isDryRun());
             newJob.setTriggeredBy(TriggerType.MANUAL);
             newJob.setCreatedBy(originalJob.getCreatedBy());
             newJob.setStatus(JobStatus.PENDING);

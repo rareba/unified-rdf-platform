@@ -1,0 +1,9 @@
+**/target
+**/*.class
+**/.git
+**/.idea
+**/.vscode
+**/node_modules
+**/dist
+rdf-forge-ui
+*.log

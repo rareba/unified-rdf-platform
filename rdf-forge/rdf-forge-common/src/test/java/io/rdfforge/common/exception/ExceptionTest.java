@@ -13,7 +13,7 @@ class ExceptionTest {
 
     @Test
     void testResourceNotFoundException() {
-        ResourceNotFoundException ex = new ResourceNotFoundException("Resource not found");
-        assertEquals("Resource not found", ex.getMessage());
+        ResourceNotFoundException ex = new ResourceNotFoundException("Resource", "123");
+        assertTrue(ex.getMessage().contains("Resource not found: 123"));
     }
 }

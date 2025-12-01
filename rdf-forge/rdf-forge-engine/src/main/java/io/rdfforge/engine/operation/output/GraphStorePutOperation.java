@@ -3,8 +3,6 @@ package io.rdfforge.engine.operation.output;
 import io.rdfforge.engine.operation.Operation;
 import io.rdfforge.engine.operation.OperationException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.jena.query.DatasetAccessor;
-import org.apache.jena.query.DatasetAccessorFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,11 +6,13 @@ services:
       POSTGRES_DB: rdfforge
       POSTGRES_USER: rdfforge
       POSTGRES_PASSWORD: rdfforge_secret
+      POSTGRES_MULTIPLE_DATABASES: keycloak
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/01-create-dbs.sh
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/02-init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rdfforge"]
       interval: 10s
@@ -45,7 +45,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,6 +82,16 @@ services:
       timeout: 5s
       retries: 5
 
+  ui:
+    build:
+      context: ./rdf-forge-ui
+      dockerfile: Dockerfile
+    container_name: rdf-forge-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: rdf-forge-keycloak
@@ -94,15 +104,19 @@ services:
       KC_DB_PASSWORD: rdfforge_secret
     ports:
       - "8080:8080"
-    command: start-dev
+    volumes:
+      - ./docker/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    command: start-dev --import-realm
     depends_on:
       postgres:
         condition: service_healthy
 
   gateway:
     build:
-      context: ./rdf-forge-gateway
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-gateway
     container_name: rdf-forge-gateway
     ports:
       - "8000:8000"
@@ -113,11 +127,15 @@ services:
       - job-service
       - shacl-service
       - data-service
+      - dimension-service
+      - triplestore-service
 
   pipeline-service:
     build:
-      context: ./rdf-forge-pipeline-service
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-pipeline-service
     container_name: rdf-forge-pipeline-service
     ports:
       - "8001:8001"
@@ -132,8 +150,10 @@ services:
 
   shacl-service:
     build:
-      context: ./rdf-forge-shacl-service
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-shacl-service
     container_name: rdf-forge-shacl-service
     ports:
       - "8002:8002"
@@ -148,8 +168,10 @@ services:
 
   job-service:
     build:
-      context: ./rdf-forge-job-service
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-job-service
     container_name: rdf-forge-job-service
     ports:
       - "8003:8003"
@@ -167,8 +189,10 @@ services:
 
   data-service:
     build:
-      context: ./rdf-forge-data-service
+      context: .
       dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-data-service
     container_name: rdf-forge-data-service
     ports:
       - "8004:8004"
@@ -185,6 +209,42 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+
+  dimension-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-dimension-service
+    container_name: rdf-forge-dimension-service
+    ports:
+      - "8015:8005"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  triplestore-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-triplestore-service
+    container_name: rdf-forge-triplestore-service
+    ports:
+      - "8006:8006"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

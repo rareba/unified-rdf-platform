@@ -23,11 +23,14 @@ public class PipelineExecutor {
     private final OperationRegistry operationRegistry;
 
     public ExecutionResult execute(PipelineDefinition pipeline, Map<String, Object> variables, 
-                                    ExecutionCallback callback) {
-        ExecutionContext context = new ExecutionContext(pipeline.getId(), variables, callback);
+                                    boolean dryRun, ExecutionCallback callback) {
+        ExecutionContext context = new ExecutionContext(pipeline.getId(), variables, dryRun, callback);
         
         try {
             callback.onStart(pipeline.getId());
+            if (dryRun) {
+                callback.onLog(null, "INFO", "Starting pipeline execution in DRY RUN mode");
+            }
             
             List<PipelineStep> sortedSteps = topologicalSort(pipeline.getSteps());
             
@@ -59,6 +62,15 @@ public class PipelineExecutor {
 
     private StepResult executeStep(PipelineStep step, ExecutionContext context) {
         Operation operation = operationRegistry.getOrThrow(step.getOperationType());
+        
+        if (context.isDryRun() && operation.getType() == Operation.OperationType.OUTPUT) {
+            context.getCallback().onLog(step.getId(), "INFO", "Dry run: Skipping output operation " + step.getName());
+            return StepResult.builder()
+                .stepId(step.getId())
+                .success(true)
+                .metadata(Map.of("dryRun", true, "skipped", true))
+                .build();
+        }
         
         Map<String, Object> resolvedParams = resolveParameters(step.getParameters(), context.getVariables());
         
@@ -237,6 +249,7 @@ public class PipelineExecutor {
     private static class ExecutionContext {
         private final String pipelineId;
         private final Map<String, Object> variables;
+        private final boolean dryRun;
         private final ExecutionCallback callback;
         private final Instant startTime = Instant.now();
         private final Map<String, StepResult> stepResults = new ConcurrentHashMap<>();

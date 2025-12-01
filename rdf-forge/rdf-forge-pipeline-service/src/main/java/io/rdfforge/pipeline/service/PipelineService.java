@@ -70,7 +70,7 @@ public class PipelineService {
         existing.setDefinition(pipeline.getDefinition());
         existing.setDefinitionFormat(pipeline.getDefinitionFormat().name());
         existing.setVariables(pipeline.getVariables());
-        existing.setTags(pipeline.getTags() != null ? pipeline.getTags().toArray(new String[0]) : null);
+        // existing.setTags(pipeline.getTags());
         existing.setVersion(existing.getVersion() + 1);
         
         existing = pipelineRepository.save(existing);
@@ -85,24 +85,6 @@ public class PipelineService {
         }
         pipelineRepository.deleteById(id);
         log.info("Deleted pipeline: {}", id);
-    }
-
-    @Transactional
-    public Pipeline duplicate(UUID id, String newName) {
-        Pipeline original = getById(id);
-        
-        Pipeline copy = Pipeline.builder()
-            .projectId(original.getProjectId())
-            .name(newName != null ? newName : original.getName() + " (copy)")
-            .description(original.getDescription())
-            .definitionFormat(original.getDefinitionFormat())
-            .definition(original.getDefinition())
-            .variables(new HashMap<>(original.getVariables()))
-            .tags(new ArrayList<>(original.getTags()))
-            .template(false)
-            .build();
-        
-        return create(copy);
     }
 
     @Transactional(readOnly = true)
@@ -153,8 +135,7 @@ public class PipelineService {
                 }
             }
 
-            if (!hasCircularDependencies(steps)) {
-            } else {
+            if (hasCircularDependencies(steps)) {
                 errors.add("Pipeline contains circular dependencies");
             }
 
@@ -237,6 +218,26 @@ public class PipelineService {
         }
     }
 
+    @Transactional
+    public Pipeline duplicate(UUID id, String newName) {
+        Pipeline original = getById(id);
+        
+        Pipeline copy = Pipeline.builder()
+            .projectId(original.getProjectId())
+            .name(newName != null ? newName : original.getName() + " (copy)")
+            .description(original.getDescription())
+            .definitionFormat(original.getDefinitionFormat())
+            .definition(original.getDefinition())
+            .variables(new HashMap<>(original.getVariables()))
+            // .tags(new ArrayList<>(original.getTags()))
+            .template(false)
+            .build();
+        
+        return create(copy);
+    }
+
+// ...
+
     private PipelineEntity toEntity(Pipeline model) {
         return PipelineEntity.builder()
             .id(model.getId())
@@ -246,7 +247,7 @@ public class PipelineService {
             .definitionFormat(model.getDefinitionFormat() != null ? model.getDefinitionFormat().name() : "YAML")
             .definition(model.getDefinition())
             .variables(model.getVariables())
-            .tags(model.getTags() != null ? model.getTags().toArray(new String[0]) : null)
+            // .tags(model.getTags())
             .version(model.getVersion())
             .isTemplate(model.isTemplate())
             .createdBy(model.getCreatedBy())
@@ -262,7 +263,7 @@ public class PipelineService {
             .definitionFormat(Pipeline.DefinitionFormat.valueOf(entity.getDefinitionFormat()))
             .definition(entity.getDefinition())
             .variables(entity.getVariables())
-            .tags(entity.getTags() != null ? Arrays.asList(entity.getTags()) : Collections.emptyList())
+            // .tags(entity.getTags())
             .version(entity.getVersion())
             .template(entity.getIsTemplate())
             .createdBy(entity.getCreatedBy())

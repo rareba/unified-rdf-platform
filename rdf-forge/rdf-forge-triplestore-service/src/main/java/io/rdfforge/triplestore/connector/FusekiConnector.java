@@ -6,6 +6,7 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdfconnection.RDFConnection;
 import org.apache.jena.rdfconnection.RDFConnectionRemote;
+import org.apache.jena.rdfconnection.RDFConnectionRemoteBuilder;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.update.UpdateFactory;
@@ -233,7 +234,7 @@ public class FusekiConnector implements TriplestoreConnector {
     }
     
     private RDFConnection createConnection() {
-        RDFConnectionRemote.Builder builder = RDFConnectionRemote.newBuilder()
+        RDFConnectionRemoteBuilder builder = RDFConnectionRemote.newBuilder()
             .destination(endpoint)
             .queryEndpoint(queryEndpoint)
             .updateEndpoint(updateEndpoint)

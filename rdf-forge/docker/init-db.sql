@@ -1,7 +1,5 @@
 -- RDF Forge Database Initialization Script
 
-CREATE DATABASE IF NOT EXISTS keycloak;
-
 -- Users table (cached from Keycloak)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -24,6 +24,12 @@ public class OperationException extends RdfForgeException {
         this.stepId = stepId;
     }
 
+    public OperationException(String operationId, String message, Throwable cause) {
+        super("OPERATION_ERROR", message, cause);
+        this.operationId = operationId;
+        this.stepId = null;
+    }
+
     public String getOperationId() {
         return operationId;
     }

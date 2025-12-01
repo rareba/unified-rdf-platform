@@ -1,0 +1,56 @@
+# Docker Environment Configuration for Pipeline Service
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/rdfforge}
+    username: ${SPRING_DATASOURCE_USERNAME:rdfforge}
+    password: ${SPRING_DATASOURCE_PASSWORD:rdfforge_secret}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/rdfforge}
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://keycloak:8080/realms/rdfforge/protocol/openid-connect/certs}
+
+# Service discovery in Docker
+services:
+  job-service:
+    url: ${JOB_SERVICE_URL:http://rdf-forge-job-service:8003}
+  shacl-service:
+    url: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
+  data-service:
+    url: ${DATA_SERVICE_URL:http://rdf-forge-data-service:8004}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    io.rdfforge: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
