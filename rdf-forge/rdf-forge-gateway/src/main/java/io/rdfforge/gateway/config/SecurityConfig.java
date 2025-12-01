@@ -2,6 +2,7 @@ package io.rdfforge.gateway.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -9,8 +10,14 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
+/**
+ * Security configuration for OAuth2/JWT authentication via Keycloak.
+ * This configuration is active when the 'noauth' profile is NOT active.
+ * For development without Keycloak, use the 'noauth' profile instead.
+ */
 @Configuration
 @EnableWebFluxSecurity
+@Profile("!noauth")
 public class SecurityConfig {
     
     @Bean

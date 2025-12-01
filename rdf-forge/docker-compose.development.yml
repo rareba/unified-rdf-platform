@@ -1,0 +1,386 @@
+# =============================================================================
+# RDF Forge - Development Mode (Connect to External Services)
+# =============================================================================
+#
+# Purpose: Development with external Kubernetes cluster or remote services
+# Features:
+#   - Configurable API endpoints via environment variables
+#   - Optional local infrastructure (can use remote triplestore/database)
+#   - No authentication or optional authentication
+#   - Flexible - run only what you need locally
+#
+# Usage Examples:
+#
+#   1. UI only (connect to remote K8s):
+#      REMOTE_API_URL=https://api.k8s.example.com docker compose -f docker-compose.development.yml up ui
+#
+#   2. UI + local gateway (remote services):
+#      docker compose -f docker-compose.development.yml up ui gateway
+#
+#   3. UI + local gateway + local infrastructure:
+#      docker compose -f docker-compose.development.yml --profile infrastructure up
+#
+#   4. Full local stack for development:
+#      docker compose -f docker-compose.development.yml --profile full up
+#
+# Access Points:
+#   - UI:           http://localhost:4200
+#   - API Gateway:  http://localhost:9080 (when running locally)
+#   - GraphDB:      http://localhost:7200 (with --profile infrastructure)
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Frontend (Always Available)
+  # ---------------------------------------------------------------------------
+
+  # Angular UI - Development mode
+  ui:
+    build:
+      context: ./rdf-forge-ui
+      dockerfile: Dockerfile
+      args:
+        BUILD_CONFIG: ${UI_BUILD_CONFIG:-development}
+    container_name: rdf-forge-ui-dev
+    ports:
+      - "${UI_PORT:-4200}:80"
+    environment:
+      # Point to remote API or local gateway
+      API_BASE_URL: ${REMOTE_API_URL:-http://gateway:8080}
+      # Optional Keycloak configuration
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-rdfforge}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-rdf-forge-ui}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+    volumes:
+      # Mount custom nginx config if needed
+      - ./docker/nginx-dev.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - rdf-forge-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Local Gateway (Optional - use --profile local-backend)
+  # ---------------------------------------------------------------------------
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-gateway
+    container_name: rdf-forge-gateway-dev
+    ports:
+      - "${GATEWAY_PORT:-9080}:8080"
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      # Database - can point to remote or local
+      SPRING_DATASOURCE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${DATABASE_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD:-rdfforge}
+      # Redis - can point to remote or local
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
+      # Service URLs - point to remote K8s services or local containers
+      PIPELINE_SERVICE_URL: ${PIPELINE_SERVICE_URL:-http://pipeline-service:8080}
+      SHACL_SERVICE_URL: ${SHACL_SERVICE_URL:-http://shacl-service:8080}
+      JOB_SERVICE_URL: ${JOB_SERVICE_URL:-http://job-service:8080}
+      DATA_SERVICE_URL: ${DATA_SERVICE_URL:-http://data-service:8080}
+      DIMENSION_SERVICE_URL: ${DIMENSION_SERVICE_URL:-http://dimension-service:8080}
+      TRIPLESTORE_SERVICE_URL: ${TRIPLESTORE_SERVICE_URL:-http://triplestore-service:8080}
+      # Optional Keycloak
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${JWT_ISSUER_URI:-}
+    profiles:
+      - local-backend
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure Services (Optional - use --profile infrastructure or --profile full)
+  # ---------------------------------------------------------------------------
+
+  graphdb:
+    image: ontotext/graphdb:10.6.0
+    container_name: rdf-forge-graphdb-dev
+    ports:
+      - "${GRAPHDB_PORT:-7200}:7200"
+    volumes:
+      - graphdb-dev-data:/opt/graphdb/home
+    environment:
+      GDB_HEAP_SIZE: ${GDB_HEAP_SIZE:-2g}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7200/rest/repositories"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    profiles:
+      - infrastructure
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: rdf-forge-redis-dev
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-dev-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - infrastructure
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rdf-forge-postgres-dev
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rdfforge}
+      POSTGRES_USER: ${POSTGRES_USER:-rdfforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdfforge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - infrastructure
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: rdf-forge-minio-dev
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-dev-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - infrastructure
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: rdf-forge-minio-init-dev
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set minio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb minio/rdf-forge-data --ignore-existing;
+      mc mb minio/rdf-forge-shapes --ignore-existing;
+      mc mb minio/rdf-forge-pipelines --ignore-existing;
+      exit 0;
+      "
+    profiles:
+      - infrastructure
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  # ---------------------------------------------------------------------------
+  # Backend Microservices (Optional - use --profile full)
+  # ---------------------------------------------------------------------------
+
+  pipeline-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-pipeline-service
+    container_name: rdf-forge-pipeline-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  shacl-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-shacl-service
+    container_name: rdf-forge-shacl-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  job-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-job-service
+    container_name: rdf-forge-job-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  data-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-data-service
+    container_name: rdf-forge-data-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  dimension-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-dimension-service
+    container_name: rdf-forge-dimension-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+  triplestore-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-triplestore-service
+    container_name: rdf-forge-triplestore-service-dev
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES:-noauth,graphdb}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rdfforge}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    profiles:
+      - full
+    networks:
+      - rdf-forge-dev-network
+
+# =============================================================================
+# Volumes (for local infrastructure)
+# =============================================================================
+volumes:
+  graphdb-dev-data:
+    name: rdf-forge-graphdb-dev-data
+  redis-dev-data:
+    name: rdf-forge-redis-dev-data
+  postgres-dev-data:
+    name: rdf-forge-postgres-dev-data
+  minio-dev-data:
+    name: rdf-forge-minio-dev-data
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  rdf-forge-dev-network:
+    name: rdf-forge-dev-network
+    driver: bridge

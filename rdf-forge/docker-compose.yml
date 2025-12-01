@@ -122,6 +122,12 @@ services:
       - "8000:8000"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      PIPELINE_SERVICE_URL: http://pipeline-service:8001
+      SHACL_SERVICE_URL: http://shacl-service:8002
+      JOB_SERVICE_URL: http://job-service:8003
+      DATA_SERVICE_URL: http://data-service:8004
+      DIMENSION_SERVICE_URL: http://dimension-service:8005
+      TRIPLESTORE_SERVICE_URL: http://triplestore-service:8006
     depends_on:
       - pipeline-service
       - job-service

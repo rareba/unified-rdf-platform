@@ -1,0 +1,29 @@
+# GraphDB triplestore profile configuration
+# Activates GraphDB as the triplestore backend
+#
+# Usage: Run with --spring.profiles.active=graphdb
+# or set SPRING_PROFILES_ACTIVE=graphdb environment variable
+
+triplestore:
+  type: graphdb
+  graphdb:
+    # GraphDB server URL
+    server-url: ${GRAPHDB_URL:http://localhost:7200}
+    # Repository name
+    repository: ${GRAPHDB_REPOSITORY:rdfforge}
+    # Authentication (optional)
+    username: ${GRAPHDB_USERNAME:}
+    password: ${GRAPHDB_PASSWORD:}
+    # Connection settings
+    connection:
+      timeout: ${GRAPHDB_CONNECTION_TIMEOUT:30000}
+      max-connections: ${GRAPHDB_MAX_CONNECTIONS:20}
+    # SPARQL endpoint paths
+    endpoints:
+      sparql: /repositories/${triplestore.graphdb.repository}
+      sparql-update: /repositories/${triplestore.graphdb.repository}/statements
+      graph-store: /repositories/${triplestore.graphdb.repository}/rdf-graphs/service
+
+logging:
+  level:
+    io.rdfforge.triplestore.graphdb: DEBUG

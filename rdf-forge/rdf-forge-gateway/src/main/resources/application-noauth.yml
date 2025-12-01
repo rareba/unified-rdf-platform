@@ -1,0 +1,21 @@
+# No-auth profile configuration for rdf-forge-gateway
+# Used for local development/offline mode without Keycloak authentication
+#
+# Usage: Run with --spring.profiles.active=noauth
+# or set SPRING_PROFILES_ACTIVE=noauth environment variable
+#
+# WARNING: Do not use this profile in production environments!
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Disable JWT validation in noauth mode by not configuring issuer
+          issuer-uri: 
+
+# Enhanced logging for debugging authentication-related issues
+logging:
+  level:
+    io.rdfforge.gateway.config: DEBUG
+    org.springframework.security: DEBUG

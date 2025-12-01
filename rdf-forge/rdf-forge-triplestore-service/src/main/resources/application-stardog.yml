@@ -1,0 +1,35 @@
+# Stardog triplestore profile configuration
+# Activates Stardog as the triplestore backend
+#
+# Usage: Run with --spring.profiles.active=stardog
+# or set SPRING_PROFILES_ACTIVE=stardog environment variable
+
+triplestore:
+  type: stardog
+  stardog:
+    # Stardog server URL
+    server-url: ${STARDOG_URL:http://localhost:5820}
+    # Database name
+    database: ${STARDOG_DATABASE:rdfforge}
+    # Authentication credentials
+    username: ${STARDOG_USERNAME:admin}
+    password: ${STARDOG_PASSWORD:admin}
+    # Connection pool settings
+    connection:
+      timeout: ${STARDOG_CONNECTION_TIMEOUT:30000}
+      max-connections: ${STARDOG_MAX_CONNECTIONS:20}
+      min-connections: ${STARDOG_MIN_CONNECTIONS:5}
+    # Reasoning settings
+    reasoning:
+      enabled: ${STARDOG_REASONING_ENABLED:false}
+      type: ${STARDOG_REASONING_TYPE:SL}
+    # SPARQL endpoint paths
+    endpoints:
+      sparql: /${triplestore.stardog.database}/query
+      sparql-update: /${triplestore.stardog.database}/update
+      graph-store: /${triplestore.stardog.database}/data
+
+logging:
+  level:
+    io.rdfforge.triplestore.stardog: DEBUG
+    com.complexible.stardog: INFO
