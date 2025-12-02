@@ -1,13 +1,16 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { TagModule } from 'primeng/tag';
-import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { ShaclService } from '../../../core/services';
 import { Shape } from '../../../core/models';
 
@@ -16,24 +19,47 @@ import { Shape } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    TagModule,
-    ToastModule
+    MatTableModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatChipsModule,
+    MatProgressSpinnerModule,
+    MatPaginatorModule
   ],
-  providers: [MessageService],
   templateUrl: './shacl-studio.html',
   styleUrl: './shacl-studio.scss',
 })
 export class ShaclStudio implements OnInit {
   private readonly router = inject(Router);
   private readonly shaclService = inject(ShaclService);
-  private readonly messageService = inject(MessageService);
+  private readonly snackBar = inject(MatSnackBar);
 
   loading = signal(true);
   searchQuery = signal('');
   shapes = signal<Shape[]>([]);
+  displayedColumns: string[] = ['name', 'targetClass', 'format', 'updated', 'actions'];
+
+  pageSize = signal(10);
+  pageIndex = signal(0);
+
+  filteredShapes = computed(() => {
+    const query = this.searchQuery().toLowerCase().trim();
+    if (!query) return this.shapes();
+    return this.shapes().filter(shape =>
+      shape.name.toLowerCase().includes(query) ||
+      shape.uri.toLowerCase().includes(query) ||
+      (shape.targetClass && shape.targetClass.toLowerCase().includes(query))
+    );
+  });
+
+  paginatedShapes = computed(() => {
+    const filtered = this.filteredShapes();
+    const start = this.pageIndex() * this.pageSize();
+    const end = start + this.pageSize();
+    return filtered.slice(start, end);
+  });
 
   ngOnInit(): void {
     this.loadShapes();
@@ -47,7 +73,7 @@ export class ShaclStudio implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load shapes' });
+        this.snackBar.open('Failed to load shapes', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -65,13 +91,18 @@ export class ShaclStudio implements OnInit {
     event.stopPropagation();
     this.shaclService.delete(shape.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Shape deleted' });
+        this.snackBar.open('Shape deleted', 'Close', { duration: 3000 });
         this.loadShapes();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete shape' });
+        this.snackBar.open('Failed to delete shape', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageSize.set(event.pageSize);
+    this.pageIndex.set(event.pageIndex);
   }
 
   formatDate(date: Date): string {

@@ -19,9 +19,56 @@
   align-items: center;
 }
 
+.search-field {
+  width: 300px;
+
+  mat-icon {
+    margin-right: 0.5rem;
+  }
+}
+
+.table-container {
+  position: relative;
+  min-height: 400px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+}
+
+.shapes-table {
+  width: 100%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  .name-column {
+    min-width: 200px;
+  }
+
+  .target-class-column {
+    width: 150px;
+  }
+
+  .format-column {
+    width: 120px;
+  }
+
+  .updated-column {
+    width: 120px;
+  }
+
+  .actions-column {
+    width: 100px;
+  }
+}
+
 .shape-name {
   display: flex;
   flex-direction: column;
+  gap: 0.25rem;
 }
 
 .shape-name .name {
@@ -30,7 +77,7 @@
 
 .shape-name .uri {
   font-size: 0.75rem;
-  color: var(--text-color-secondary);
+  color: rgba(0, 0, 0, 0.6);
   font-family: monospace;
 }
 
@@ -45,13 +92,37 @@
   align-items: center;
   padding: 3rem;
   gap: 1rem;
-}
 
-.empty-state i {
-  font-size: 3rem;
-  color: var(--text-color-secondary);
+  .empty-icon {
+    font-size: 3rem;
+    width: 3rem;
+    height: 3rem;
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  p {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.6);
+  }
 }
 
 .cursor-pointer {
   cursor: pointer;
+}
+
+mat-chip {
+  &.turtle-chip {
+    background-color: #4caf50;
+    color: white;
+  }
+
+  &.info-chip {
+    background-color: #2196f3;
+    color: white;
+  }
+}
+
+mat-paginator {
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
