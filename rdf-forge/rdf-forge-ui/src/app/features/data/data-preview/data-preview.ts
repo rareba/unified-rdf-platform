@@ -1,56 +1,49 @@
 import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TableModule } from 'primeng/table';
-import { SkeletonModule } from 'primeng/skeleton';
-import { MessageModule } from 'primeng/message';
+import { MatTableModule } from '@angular/material/table';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSortModule } from '@angular/material/sort';
 import { DataService } from '../../../core/services';
 import { DataPreview, UploadOptions } from '../../../core/models';
 
 @Component({
   selector: 'app-data-preview',
   standalone: true,
-  imports: [CommonModule, TableModule, SkeletonModule, MessageModule],
+  imports: [CommonModule, MatTableModule, MatProgressSpinnerModule, MatSortModule],
   template: `
     <div class="data-preview">
       @if (loading()) {
-        <div class="p-4">
-          <p-skeleton width="100%" height="200px"></p-skeleton>
+        <div class="loading-container">
+          <mat-spinner diameter="50"></mat-spinner>
         </div>
       } @else if (error()) {
-        <p-message severity="error" [text]="error() || undefined" styleClass="w-full"></p-message>
+        <div class="error-message">
+          <span>{{ error() }}</span>
+        </div>
       } @else if (previewData()) {
-        <p-table 
-          [value]="previewData()!.data" 
-          [columns]="previewData()!.columns" 
-          [scrollable]="true" 
-          scrollHeight="400px"
-          styleClass="p-datatable-sm p-datatable-gridlines p-datatable-striped"
-          [tableStyle]="{'min-width': '50rem'}">
-          <ng-template pTemplate="header" let-columns>
-            <tr>
-              <th *ngFor="let col of columns" [pSortableColumn]="col">
-                {{col}} <p-sortIcon [field]="col"></p-sortIcon>
-              </th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-rowData let-columns="columns">
-            <tr>
-              <td *ngFor="let col of columns">
-                {{rowData[col]}}
+        <div class="table-container">
+          <table mat-table [dataSource]="previewData()!.data" matSort class="mat-elevation-z2">
+            @for (col of previewData()!.columns; track col) {
+              <ng-container [matColumnDef]="col">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ col }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+              </ng-container>
+            }
+
+            <tr mat-header-row *matHeaderRowDef="previewData()!.columns"></tr>
+            <tr mat-row *matRowDef="let row; columns: previewData()!.columns"></tr>
+
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="previewData()?.columns?.length">
+                No data found.
               </td>
             </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td [attr.colspan]="previewData()?.columns?.length">No data found.</td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="summary">
-            <div class="flex align-items-center justify-content-between">
-              In total there are {{previewData()?.totalRows || 0}} rows.
-            </div>
-          </ng-template>
-        </p-table>
+          </table>
+
+          <div class="table-summary">
+            In total there are {{ previewData()?.totalRows || 0 }} rows.
+          </div>
+        </div>
       }
     </div>
   `,
@@ -58,6 +51,57 @@ import { DataPreview, UploadOptions } from '../../../core/models';
     :host {
       display: block;
       width: 100%;
+    }
+
+    .data-preview {
+      width: 100%;
+    }
+
+    .loading-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      min-height: 200px;
+    }
+
+    .error-message {
+      padding: 1rem;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      margin: 1rem 0;
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 50rem;
+    }
+
+    .table-summary {
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
+      background-color: #fafafa;
+    }
+
+    th.mat-header-cell {
+      font-weight: 600;
+      background-color: #f5f5f5;
+    }
+
+    tr.mat-row:hover {
+      background-color: #f5f5f5;
     }
   `]
 })
