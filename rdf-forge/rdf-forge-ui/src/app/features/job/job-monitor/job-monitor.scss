@@ -6,27 +6,76 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 1rem;
 }
 
 .header h1 {
   margin: 0;
+  font-size: 2rem;
+  font-weight: 500;
 }
 
 .pipeline-name {
-  color: var(--text-color-secondary);
+  color: rgba(0, 0, 0, 0.6);
   margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
 }
 
 .actions {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+
+  button {
+    mat-icon {
+      margin-right: 0.25rem;
+    }
+  }
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+
+  @media (min-width: 992px) {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+.mt-3 {
+  margin-top: 1rem;
+}
+
+.mt-4 {
+  margin-top: 1.5rem;
+}
+
+mat-card {
+  mat-card-content {
+    padding-top: 1rem;
+  }
+}
+
+.status-info {
+  margin-bottom: 1rem;
+
+  mat-chip-set {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.progress-text {
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .info-row {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--surface-200);
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .info-row:last-child {
@@ -34,37 +83,97 @@
 }
 
 .info-row .label {
-  color: var(--text-color-secondary);
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 0.875rem;
 }
 
 .info-row .value {
   font-weight: 500;
+  text-align: right;
 }
 
 .error-message {
-  color: var(--red-500);
-  font-family: monospace;
+  color: #d32f2f;
+  font-family: 'Roboto Mono', monospace;
   font-size: 0.875rem;
   white-space: pre-wrap;
+  padding: 1rem;
+  background-color: #ffebee;
+  border-radius: 4px;
 }
 
-.log-time {
-  font-family: monospace;
+.logs-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.logs-table {
+  width: 100%;
+
+  th {
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.87);
+  }
+
+  .log-time {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.6);
+    width: 150px;
+  }
+
+  .log-message {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.875rem;
+  }
+
+  mat-cell, mat-header-cell {
+    padding: 0.5rem;
+  }
+}
+
+.log-chip {
+  min-height: 24px;
   font-size: 0.75rem;
-  color: var(--text-color-secondary);
 }
 
-.log-message {
-  font-family: monospace;
-  font-size: 0.875rem;
+.status-success, .log-info {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-error, .log-error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-warn, .log-warn {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.status-info {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-default, .log-debug {
+  background-color: #f5f5f5;
+  color: #616161;
 }
 
 .loading, .not-found {
   text-align: center;
   padding: 3rem;
-  color: var(--text-color-secondary);
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 1.125rem;
+}
+
+.text-center {
+  text-align: center;
 }
 
 .text-muted {
-  color: var(--text-color-secondary);
+  color: rgba(0, 0, 0, 0.6);
+  padding: 2rem;
 }
