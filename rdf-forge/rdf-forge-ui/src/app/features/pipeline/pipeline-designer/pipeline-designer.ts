@@ -2,23 +2,20 @@ import { Component, inject, OnInit, signal, computed, ElementRef, ViewChild, Hos
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, KeyValuePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardModule } from 'primeng/card';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { TextareaModule } from 'primeng/textarea';
-import { SelectModule } from 'primeng/select';
-import { ButtonModule } from 'primeng/button';
-import { ToastModule } from 'primeng/toast';
-import { CheckboxModule } from 'primeng/checkbox';
-import { DialogModule } from 'primeng/dialog';
-import { PanelModule } from 'primeng/panel';
-import { AccordionModule } from 'primeng/accordion';
-import { TagModule } from 'primeng/tag';
-import { TooltipModule } from 'primeng/tooltip';
-import { DividerModule } from 'primeng/divider';
-import { TabsModule } from 'primeng/tabs';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MatCardModule } from '@angular/material/card';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatMenuModule } from '@angular/material/menu';
 import { PipelineService } from '../../../core/services';
 import {
   Pipeline,
@@ -43,24 +40,20 @@ interface OperationGroup {
   imports: [
     CommonModule,
     FormsModule,
-    CardModule,
-    InputTextModule,
-    InputNumberModule,
-    TextareaModule,
-    SelectModule,
-    ButtonModule,
-    ToastModule,
-    CheckboxModule,
-    DialogModule,
-    PanelModule,
-    AccordionModule,
-    TagModule,
-    TooltipModule,
-    DividerModule,
-    TabsModule,
-    ConfirmDialogModule
+    MatCardModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatDialogModule,
+    MatExpansionModule,
+    MatTooltipModule,
+    MatDividerModule,
+    MatTabsModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatMenuModule
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './pipeline-designer.html',
   styleUrl: './pipeline-designer.scss',
 })
@@ -68,8 +61,7 @@ export class PipelineDesigner implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
-  private readonly messageService = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
 
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLDivElement>;
 
@@ -190,7 +182,7 @@ export class PipelineDesigner implements OnInit {
   loadOperations(): void {
     this.pipelineService.getOperations().subscribe({
       next: (ops) => this.availableOperations.set(ops),
-      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load operations' })
+      error: () => this.snackBar.open('Failed to load operations', 'Close', { duration: 3000 })
     });
   }
 
@@ -205,7 +197,7 @@ export class PipelineDesigner implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load pipeline' });
+        this.snackBar.open('Failed to load pipeline', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -319,17 +311,14 @@ export class PipelineDesigner implements OnInit {
 
   removeNode(id: string, event: Event): void {
     event.stopPropagation();
-    this.confirmationService.confirm({
-      message: 'Remove this step from the pipeline?',
-      accept: () => {
-        this.nodes.update(n => n.filter(node => node.id !== id));
-        this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
-        if (this.selectedNode()?.id === id) {
-          this.selectedNode.set(null);
-          this.configDialogVisible.set(false);
-        }
+    if (confirm('Remove this step from the pipeline?')) {
+      this.nodes.update(n => n.filter(node => node.id !== id));
+      this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
+      if (this.selectedNode()?.id === id) {
+        this.selectedNode.set(null);
+        this.configDialogVisible.set(false);
       }
-    });
+    }
   }
 
   // Node dragging
@@ -529,7 +518,7 @@ export class PipelineDesigner implements OnInit {
 
     request.subscribe({
       next: (result) => {
-        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Pipeline saved successfully' });
+        this.snackBar.open('Pipeline saved successfully', 'Close', { duration: 3000 });
         this.saving.set(false);
         if (this.isNew()) {
           this.isNew.set(false);
@@ -538,7 +527,7 @@ export class PipelineDesigner implements OnInit {
         }
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to save pipeline' });
+        this.snackBar.open(err?.error?.message || 'Failed to save pipeline', 'Close', { duration: 3000 });
         this.saving.set(false);
       }
     });
@@ -552,18 +541,18 @@ export class PipelineDesigner implements OnInit {
   run(): void {
     const id = this.pipelineId();
     if (!id) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Save pipeline first' });
+      this.snackBar.open('Save pipeline first', 'Close', { duration: 3000 });
       return;
     }
 
     this.pipelineService.run(id, this.runVariables()).subscribe({
       next: (result) => {
-        this.messageService.add({ severity: 'success', summary: 'Started', detail: `Job started: ${result.jobId}` });
+        this.snackBar.open(`Job started: ${result.jobId}`, 'Close', { duration: 3000 });
         this.runDialogVisible.set(false);
         this.router.navigate(['/jobs']);
       },
       error: (err) => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to run pipeline' });
+        this.snackBar.open(err?.error?.message || 'Failed to run pipeline', 'Close', { duration: 3000 });
       }
     });
   }
@@ -571,9 +560,9 @@ export class PipelineDesigner implements OnInit {
   validate(): void {
     const errors = this.validationErrors();
     if (errors.length === 0) {
-      this.messageService.add({ severity: 'success', summary: 'Valid', detail: 'Pipeline is valid and ready to run' });
+      this.snackBar.open('Pipeline is valid and ready to run', 'Close', { duration: 3000 });
     } else {
-      this.messageService.add({ severity: 'error', summary: 'Validation Failed', detail: errors.join('\n'), life: 10000 });
+      this.snackBar.open(`Validation Failed: ${errors.join(', ')}`, 'Close', { duration: 10000 });
     }
   }
 
@@ -584,12 +573,12 @@ export class PipelineDesigner implements OnInit {
   importPipelineJson(json: string): void {
     this.parsePipelineDefinition(json);
     this.jsonDialogVisible.set(false);
-    this.messageService.add({ severity: 'success', summary: 'Imported', detail: 'Pipeline definition imported' });
+    this.snackBar.open('Pipeline definition imported', 'Close', { duration: 3000 });
   }
 
   copyPipelineJson(): void {
     navigator.clipboard.writeText(this.pipelineJson()).then(() => {
-      this.messageService.add({ severity: 'info', summary: 'Copied', detail: 'Pipeline JSON copied to clipboard' });
+      this.snackBar.open('Pipeline JSON copied to clipboard', 'Close', { duration: 3000 });
     });
   }
 
@@ -610,14 +599,11 @@ export class PipelineDesigner implements OnInit {
   }
 
   clearCanvas(): void {
-    this.confirmationService.confirm({
-      message: 'Clear all nodes from the canvas?',
-      accept: () => {
-        this.nodes.set([]);
-        this.edges.set([]);
-        this.selectedNode.set(null);
-      }
-    });
+    if (confirm('Clear all nodes from the canvas?')) {
+      this.nodes.set([]);
+      this.edges.set([]);
+      this.selectedNode.set(null);
+    }
   }
 
   cancel(): void {

@@ -1,24 +1,21 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardModule } from 'primeng/card';
-import { InputTextModule } from 'primeng/inputtext';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { ButtonModule } from 'primeng/button';
-import { SelectModule } from 'primeng/select';
-import { CheckboxModule } from 'primeng/checkbox';
-import { ToastModule } from 'primeng/toast';
-import { TooltipModule } from 'primeng/tooltip';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { DialogModule } from 'primeng/dialog';
-import { TextareaModule } from 'primeng/textarea';
-import { DividerModule } from 'primeng/divider';
-import { TagModule } from 'primeng/tag';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { TableModule } from 'primeng/table';
-import { TabsModule } from 'primeng/tabs';
-import { AccordionModule } from 'primeng/accordion';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MatCardModule } from '@angular/material/card';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
@@ -109,31 +106,26 @@ const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   imports: [
     CommonModule,
     FormsModule,
-    CardModule,
-    InputTextModule,
-    InputNumberModule,
-    ButtonModule,
-    SelectModule,
-    CheckboxModule,
-    ToastModule,
-    TooltipModule,
-    ConfirmDialogModule,
-    DialogModule,
-    TextareaModule,
-    DividerModule,
-    TagModule,
-    ProgressBarModule,
-    TableModule,
-    TabsModule,
-    AccordionModule
+    MatCardModule,
+    MatInputModule,
+    MatButtonModule,
+    MatSelectModule,
+    MatCheckboxModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatDividerModule,
+    MatProgressBarModule,
+    MatTableModule,
+    MatTabsModule,
+    MatExpansionModule,
+    MatIconModule,
+    MatFormFieldModule
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
 })
 export class Settings implements OnInit {
-  private readonly messageService = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
 
@@ -240,17 +232,9 @@ export class Settings implements OnInit {
       };
       localStorage.setItem('rdf-forge-settings', JSON.stringify(data));
       this.applyTheme(this.settings().theme);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Saved',
-        detail: 'Settings saved successfully'
-      });
+      this.snackBar.open('Settings saved successfully', 'Close', { duration: 3000 });
     } catch (e) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to save settings'
-      });
+      this.snackBar.open('Failed to save settings', 'Close', { duration: 3000 });
     }
     this.saving.set(false);
   }
@@ -317,50 +301,30 @@ export class Settings implements OnInit {
   addPrefix(): void {
     const prefix = this.newPrefix();
     if (!prefix.prefix || !prefix.uri) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Warning',
-        detail: 'Prefix and URI are required'
-      });
+      this.snackBar.open('Prefix and URI are required', 'Close', { duration: 3000 });
       return;
     }
 
     // Check for duplicates
     if (this.prefixes().some(p => p.prefix === prefix.prefix)) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Warning',
-        detail: 'Prefix already exists'
-      });
+      this.snackBar.open('Prefix already exists', 'Close', { duration: 3000 });
       return;
     }
 
     this.prefixes.update(list => [...list, { ...prefix, builtin: false }]);
     this.prefixDialogVisible.set(false);
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Added',
-      detail: 'Prefix mapping added'
-    });
+    this.snackBar.open('Prefix mapping added', 'Close', { duration: 3000 });
   }
 
   removePrefix(prefix: PrefixMapping): void {
     if (prefix.builtin) return;
     this.prefixes.update(list => list.filter(p => p.prefix !== prefix.prefix));
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Removed',
-      detail: 'Prefix mapping removed'
-    });
+    this.snackBar.open('Prefix mapping removed', 'Close', { duration: 3000 });
   }
 
   copyPrefix(prefix: PrefixMapping): void {
     navigator.clipboard.writeText(`PREFIX ${prefix.prefix}: <${prefix.uri}>`);
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Copied',
-      detail: 'SPARQL PREFIX declaration copied'
-    });
+    this.snackBar.open('SPARQL PREFIX declaration copied', 'Close', { duration: 3000 });
   }
 
   // Import/Export
@@ -377,11 +341,7 @@ export class Settings implements OnInit {
 
   copyExport(): void {
     navigator.clipboard.writeText(this.exportData());
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Copied',
-      detail: 'Settings copied to clipboard'
-    });
+    this.snackBar.open('Settings copied to clipboard', 'Close', { duration: 3000 });
   }
 
   downloadExport(): void {
@@ -413,31 +373,17 @@ export class Settings implements OnInit {
       }
       this.importDialogVisible.set(false);
       this.saveSettings();
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Imported',
-        detail: 'Settings imported successfully'
-      });
+      this.snackBar.open('Settings imported successfully', 'Close', { duration: 3000 });
     } catch (e) {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Invalid settings format'
-      });
+      this.snackBar.open('Invalid settings format', 'Close', { duration: 3000 });
     }
   }
 
   // Reset
   confirmReset(): void {
-    this.confirmationService.confirm({
-      message: 'Are you sure you want to reset all settings to defaults? This cannot be undone.',
-      header: 'Reset Settings',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.resetSettings();
-      }
-    });
+    if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+      this.resetSettings();
+    }
   }
 
   resetSettings(): void {
@@ -445,23 +391,14 @@ export class Settings implements OnInit {
     this.prefixes.set([...BUILTIN_PREFIXES]);
     localStorage.removeItem('rdf-forge-settings');
     this.applyTheme('light');
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Reset',
-      detail: 'Settings reset to defaults'
-    });
+    this.snackBar.open('Settings reset to defaults', 'Close', { duration: 3000 });
   }
 
   // Cache
   confirmClearCache(): void {
-    this.confirmationService.confirm({
-      message: 'Clear all cached data? This will not affect your settings.',
-      header: 'Clear Cache',
-      icon: 'pi pi-info-circle',
-      accept: () => {
-        this.clearCache();
-      }
-    });
+    if (confirm('Clear all cached data? This will not affect your settings.')) {
+      this.clearCache();
+    }
   }
 
   clearCache(): void {
@@ -471,11 +408,7 @@ export class Settings implements OnInit {
     if (settings) {
       localStorage.setItem('rdf-forge-settings', settings);
     }
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Cleared',
-      detail: 'Cache cleared successfully'
-    });
+    this.snackBar.open('Cache cleared successfully', 'Close', { duration: 3000 });
   }
 
   // Service Health
