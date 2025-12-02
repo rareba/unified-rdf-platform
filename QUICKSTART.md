@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cube Creator X is a unified platform for creating RDF data cubes, managing pipelines, and working with triplestores.
+Cube Creator X (formerly RDF Forge) is a unified platform for creating RDF data cubes, managing pipelines, and working with triplestores.
 
 ## Features
 
@@ -110,3 +110,20 @@ npm run build -- --configuration=standalone
 - **RDF Storage**: GraphDB triplestore
 - **Object Storage**: MinIO S3-compatible storage
 - **Database**: PostgreSQL for metadata
+
+## Recent Fixes (December 2025)
+
+### Pagination Handling
+Fixed critical issue where Angular frontend expected plain arrays but Spring Boot backend returned paginated responses with `{content: [], pageable: {}}` structure.
+
+**Changes Made:**
+- Added `getArray<T>()` method to `ApiService` that automatically extracts content from paginated responses
+- Updated all service methods (`data.service.ts`, `dimension.service.ts`, `job.service.ts`, `pipeline.service.ts`, `shacl.service.ts`, `triplestore.service.ts`) to use `getArray()` for list operations
+- This resolves errors like `t.slice is not a function` and `a.filter is not a function`
+
+### API Gateway Configuration
+Fixed nginx proxy configuration to correctly route API calls from port 80 to the gateway service on port 8080 (was incorrectly set to 8000).
+
+### Branding Updates
+- Renamed application from "RDF Forge" to "Cube Creator X" throughout the UI
+- Updated page titles, headers, and package naming
