@@ -1,18 +1,18 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="cube-wizard">
   <!-- Header -->
   <div class="header">
     <div class="header-left">
-      <i class="pi pi-box header-icon"></i>
+      <mat-icon class="header-icon">inventory_2</mat-icon>
       <div>
         <h1>Create Data Cube</h1>
         <p class="header-subtitle">Build an RDF Data Cube from your tabular data</p>
       </div>
     </div>
     <div class="header-actions">
-      <p-button label="Cancel" icon="pi pi-times" severity="secondary" [text]="true" routerLink="/"></p-button>
+      <button mat-button routerLink="/">
+        <mat-icon>close</mat-icon>
+        Cancel
+      </button>
     </div>
   </div>
 
@@ -26,7 +26,7 @@
            (click)="goToStep(i)">
         <div class="step-number">
           @if (getStepStatus(i) === 'completed') {
-            <i class="pi pi-check"></i>
+            <mat-icon>check</mat-icon>
           } @else {
             {{ i + 1 }}
           }
@@ -45,7 +45,7 @@
     @if (activeStep() === 0) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-info-circle"></i>
+          <mat-icon>info</mat-icon>
           <div>
             <h2>Cube Information</h2>
             <p>Define the basic properties of your data cube</p>
@@ -54,40 +54,43 @@
 
         <div class="form-content">
           <div class="form-section">
-            <div class="form-field">
-              <label for="cubeName">Cube Name <span class="required">*</span></label>
-              <input id="cubeName" type="text" pInputText [ngModel]="cubeName()" (ngModelChange)="cubeName.set($event)"
-                     placeholder="e.g., Population Statistics 2024" class="w-full" />
-              <small>A descriptive name for your data cube</small>
-            </div>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Cube Name <span class="required">*</span></mat-label>
+              <input matInput [ngModel]="cubeName()" (ngModelChange)="cubeName.set($event)"
+                     placeholder="e.g., Population Statistics 2024" />
+              <mat-hint>A descriptive name for your data cube</mat-hint>
+            </mat-form-field>
 
-            <div class="form-field">
-              <label for="cubeDesc">Description</label>
-              <textarea id="cubeDesc" pTextarea [ngModel]="cubeDescription()" (ngModelChange)="cubeDescription.set($event)"
-                        rows="3" placeholder="Describe the content and purpose of this cube..." class="w-full"></textarea>
-            </div>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Description</mat-label>
+              <textarea matInput [ngModel]="cubeDescription()" (ngModelChange)="cubeDescription.set($event)"
+                        rows="3" placeholder="Describe the content and purpose of this cube..."></textarea>
+            </mat-form-field>
 
             <div class="form-row">
-              <div class="form-field">
-                <label for="baseUri">Base URI <span class="required">*</span></label>
-                <input id="baseUri" type="text" pInputText [ngModel]="baseUri()" (ngModelChange)="baseUri.set($event)"
-                       placeholder="https://example.org/cube/" class="w-full" />
-                <small>The namespace for all cube resources</small>
-              </div>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Base URI <span class="required">*</span></mat-label>
+                <input matInput [ngModel]="baseUri()" (ngModelChange)="baseUri.set($event)"
+                       placeholder="https://example.org/cube/" />
+                <mat-hint>The namespace for all cube resources</mat-hint>
+              </mat-form-field>
 
               <div class="form-field">
-                <label for="cubeId">Cube Identifier</label>
+                <label>Cube Identifier</label>
                 <div class="id-input-group">
-                  <p-checkbox [ngModel]="useAutoId()" (ngModelChange)="useAutoId.set($event)" [binary]="true" inputId="autoId"></p-checkbox>
-                  <label for="autoId" class="auto-id-label">Auto-generate from name</label>
+                  <mat-checkbox [ngModel]="useAutoId()" (ngModelChange)="useAutoId.set($event)" id="autoId">
+                    Auto-generate from name
+                  </mat-checkbox>
                 </div>
                 @if (useAutoId()) {
                   <div class="generated-id">
                     <code>{{ generatedId() || '...' }}</code>
                   </div>
                 } @else {
-                  <input type="text" pInputText [ngModel]="cubeId()" (ngModelChange)="cubeId.set($event)"
-                         placeholder="my-cube-id" class="w-full" />
+                  <mat-form-field appearance="outline" class="w-full">
+                    <input matInput [ngModel]="cubeId()" (ngModelChange)="cubeId.set($event)"
+                           placeholder="my-cube-id" />
+                  </mat-form-field>
                 }
               </div>
             </div>
@@ -107,7 +110,7 @@
     @if (activeStep() === 1) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-database"></i>
+          <mat-icon>storage</mat-icon>
           <div>
             <h2>Select Data Source</h2>
             <p>Choose an existing data source or upload a new file</p>
@@ -116,23 +119,34 @@
 
         <div class="form-content">
           <div class="source-type-selector">
-            <p-selectButton [options]="sourceTypeOptions" [ngModel]="sourceType()" (ngModelChange)="sourceType.set($event)"
-                           optionLabel="label" optionValue="value"></p-selectButton>
+            <mat-button-toggle-group [value]="sourceType()" (change)="sourceType.set($event.value)">
+              <mat-button-toggle value="existing">
+                <mat-icon>storage</mat-icon>
+                Existing Data Source
+              </mat-button-toggle>
+              <mat-button-toggle value="upload">
+                <mat-icon>upload</mat-icon>
+                Upload New File
+              </mat-button-toggle>
+            </mat-button-toggle-group>
           </div>
 
           @if (sourceType() === 'existing') {
             <div class="data-source-list">
               @if (loadingDataSources()) {
                 <div class="loading-state">
-                  <i class="pi pi-spin pi-spinner"></i>
+                  <mat-spinner diameter="40"></mat-spinner>
                   <span>Loading data sources...</span>
                 </div>
               } @else if (dataSources().length === 0) {
                 <div class="empty-state">
-                  <i class="pi pi-inbox"></i>
+                  <mat-icon>inbox</mat-icon>
                   <h4>No Data Sources</h4>
                   <p>Upload a file to get started</p>
-                  <p-button label="Upload File" icon="pi pi-upload" (onClick)="sourceType.set('upload')"></p-button>
+                  <button mat-raised-button color="primary" (click)="sourceType.set('upload')">
+                    <mat-icon>upload</mat-icon>
+                    Upload File
+                  </button>
                 </div>
               } @else {
                 <div class="source-grid">
@@ -141,8 +155,7 @@
                          [class.selected]="selectedDataSource()?.id === source.id"
                          (click)="onDataSourceSelect(source)">
                       <div class="source-icon">
-                        <i class="pi" [class.pi-file-excel]="source.format === 'csv' || source.format === 'xlsx'"
-                                       [class.pi-file]="source.format !== 'csv' && source.format !== 'xlsx'"></i>
+                        <mat-icon>{{ source.format === 'csv' || source.format === 'xlsx' ? 'table_chart' : 'description' }}</mat-icon>
                       </div>
                       <div class="source-info">
                         <div class="source-name">{{ source.name }}</div>
@@ -154,7 +167,7 @@
                         </div>
                       </div>
                       @if (selectedDataSource()?.id === source.id) {
-                        <i class="pi pi-check-circle selected-icon"></i>
+                        <mat-icon class="selected-icon" color="primary">check_circle</mat-icon>
                       }
                     </div>
                   }
@@ -163,51 +176,51 @@
             </div>
           } @else {
             <div class="upload-section">
-              <p-accordion>
-                <p-accordion-panel value="options">
-                  <p-accordion-header>
-                    <i class="pi pi-cog"></i>
-                    <span>CSV Options</span>
-                  </p-accordion-header>
-                  <p-accordion-content>
-                    <div class="options-grid">
-                      <div class="form-field">
-                        <label>Delimiter</label>
-                        <p-select [options]="delimiterOptions" [ngModel]="delimiter()" (ngModelChange)="delimiter.set($event)"
-                                 optionLabel="label" optionValue="value" styleClass="w-full"></p-select>
-                      </div>
-                      <div class="form-field">
-                        <label>Encoding</label>
-                        <p-select [options]="encodingOptions" [ngModel]="encoding()" (ngModelChange)="encoding.set($event)"
-                                 optionLabel="label" optionValue="value" styleClass="w-full"></p-select>
-                      </div>
-                      <div class="form-field checkbox-field">
-                        <p-checkbox [ngModel]="hasHeader()" (ngModelChange)="hasHeader.set($event)" [binary]="true" inputId="hasHeader"></p-checkbox>
-                        <label for="hasHeader">First row contains headers</label>
-                      </div>
-                    </div>
-                  </p-accordion-content>
-                </p-accordion-panel>
-              </p-accordion>
+              <mat-expansion-panel>
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <mat-icon>settings</mat-icon>
+                    CSV Options
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="options-grid">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Delimiter</mat-label>
+                    <mat-select [value]="delimiter()" (valueChange)="delimiter.set($event)">
+                      @for (opt of delimiterOptions; track opt.value) {
+                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Encoding</mat-label>
+                    <mat-select [value]="encoding()" (valueChange)="encoding.set($event)">
+                      @for (opt of encodingOptions; track opt.value) {
+                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <div class="form-field checkbox-field">
+                    <mat-checkbox [checked]="hasHeader()" (change)="hasHeader.set($event.checked)">
+                      First row contains headers
+                    </mat-checkbox>
+                  </div>
+                </div>
+              </mat-expansion-panel>
 
               <div class="upload-dropzone" [class.uploading]="uploading()">
-                <p-fileUpload mode="advanced" [customUpload]="true" (uploadHandler)="onFileSelect($event)"
-                             accept=".csv,.xls,.xlsx,.tsv" [maxFileSize]="50000000"
-                             chooseLabel="Choose File" uploadLabel="Upload" [auto]="true"
-                             [showUploadButton]="false" [showCancelButton]="false">
-                  <ng-template pTemplate="content">
-                    <div class="upload-content">
-                      @if (uploading()) {
-                        <i class="pi pi-spin pi-spinner"></i>
-                        <p>Uploading...</p>
-                      } @else {
-                        <i class="pi pi-cloud-upload"></i>
-                        <p>Drag and drop files here or click to browse</p>
-                        <small>Supported formats: CSV, XLS, XLSX, TSV (max 50MB)</small>
-                      }
-                    </div>
-                  </ng-template>
-                </p-fileUpload>
+                <input type="file" #fileInput hidden accept=".csv,.xls,.xlsx,.tsv"
+                       (change)="onFileSelect({files: [$event.target.files[0]]})">
+                <div class="upload-content" (click)="fileInput.click()">
+                  @if (uploading()) {
+                    <mat-spinner diameter="40"></mat-spinner>
+                    <p>Uploading...</p>
+                  } @else {
+                    <mat-icon>cloud_upload</mat-icon>
+                    <p>Drag and drop files here or click to browse</p>
+                    <small>Supported formats: CSV, XLS, XLSX, TSV (max 50MB)</small>
+                  }
+                </div>
               </div>
             </div>
           }
@@ -216,13 +229,13 @@
           @if (selectedDataSource()) {
             <div class="data-preview-section">
               <div class="section-title">
-                <i class="pi pi-eye"></i>
+                <mat-icon>visibility</mat-icon>
                 <span>Data Preview</span>
-                <p-tag [value]="selectedDataSource()?.name || ''" severity="info"></p-tag>
+                <mat-chip>{{ selectedDataSource()?.name || '' }}</mat-chip>
               </div>
               @if (loadingColumns()) {
                 <div class="loading-state small">
-                  <i class="pi pi-spin pi-spinner"></i>
+                  <mat-spinner diameter="30"></mat-spinner>
                   <span>Analyzing data...</span>
                 </div>
               } @else {
@@ -238,7 +251,7 @@
     @if (activeStep() === 2) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-sitemap"></i>
+          <mat-icon>account_tree</mat-icon>
           <div>
             <h2>Map Columns</h2>
             <p>Define how each column maps to RDF cube components</p>
@@ -249,101 +262,122 @@
           <!-- Mapping Stats -->
           <div class="mapping-stats">
             <div class="stat-badge dimension">
-              <i class="pi pi-th-large"></i>
+              <mat-icon>apps</mat-icon>
               <span>{{ mappingStats().dimensions }} Dimensions</span>
             </div>
             <div class="stat-badge measure">
-              <i class="pi pi-chart-bar"></i>
+              <mat-icon>bar_chart</mat-icon>
               <span>{{ mappingStats().measures }} Measures</span>
             </div>
             <div class="stat-badge attribute">
-              <i class="pi pi-tag"></i>
+              <mat-icon>label</mat-icon>
               <span>{{ mappingStats().attributes }} Attributes</span>
             </div>
             @if (mappingStats().ignored > 0) {
               <div class="stat-badge ignored">
-                <i class="pi pi-eye-slash"></i>
+                <mat-icon>visibility_off</mat-icon>
                 <span>{{ mappingStats().ignored }} Ignored</span>
               </div>
             }
             <div class="stat-actions">
-              <p-button label="Auto-Assign Dimensions" icon="pi pi-magic" [text]="true" size="small"
-                       (onClick)="autoAssignDimensions()" pTooltip="Match columns to existing dimensions by name"></p-button>
+              <button mat-button (click)="autoAssignDimensions()"
+                      matTooltip="Match columns to existing dimensions by name">
+                <mat-icon>auto_fix_high</mat-icon>
+                Auto-Assign Dimensions
+              </button>
             </div>
           </div>
 
           <!-- Mapping Table -->
-          <p-table [value]="columnMappings()" styleClass="p-datatable-sm mapping-table" [scrollable]="true" scrollHeight="400px">
-            <ng-template pTemplate="header">
-              <tr>
-                <th style="width: 180px">Column</th>
-                <th style="width: 140px">Role</th>
-                <th style="width: 140px">Datatype</th>
-                <th>Dimension Reference</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-mapping let-i="rowIndex">
-              <tr [class.ignored-row]="mapping.role === 'ignore'">
-                <td>
+          <div class="mapping-table-container">
+            <table mat-table [dataSource]="columnMappings()" class="mapping-table">
+              <!-- Column Definition -->
+              <ng-container matColumnDef="column">
+                <th mat-header-cell *matHeaderCellDef style="width: 180px">Column</th>
+                <td mat-cell *matCellDef="let mapping">
                   <div class="column-info">
                     <span class="column-name">{{ mapping.name }}</span>
                     <span class="column-type">{{ mapping.sourceType }}</span>
                   </div>
                 </td>
-                <td>
-                  <p-select [options]="roleOptions" [ngModel]="mapping.role"
-                           (ngModelChange)="updateMapping(i, 'role', $event)"
-                           optionLabel="label" optionValue="value" styleClass="w-full">
-                    <ng-template let-item pTemplate="selectedItem">
-                      <div class="role-item">
-                        <p-tag [value]="item.label" [severity]="getRoleSeverity(item.value)"></p-tag>
-                      </div>
-                    </ng-template>
-                    <ng-template let-item pTemplate="item">
-                      <div class="role-option">
-                        <p-tag [value]="item.label" [severity]="getRoleSeverity(item.value)"></p-tag>
-                        <small>{{ item.description }}</small>
-                      </div>
-                    </ng-template>
-                  </p-select>
+              </ng-container>
+
+              <!-- Role Definition -->
+              <ng-container matColumnDef="role">
+                <th mat-header-cell *matHeaderCellDef style="width: 140px">Role</th>
+                <td mat-cell *matCellDef="let mapping; let i = index">
+                  <mat-form-field appearance="outline" class="w-full">
+                    <mat-select [value]="mapping.role" (valueChange)="updateMapping(i, 'role', $event)">
+                      @for (opt of roleOptions; track opt.value) {
+                        <mat-option [value]="opt.value">
+                          <mat-chip [class]="'role-' + opt.value">{{ opt.label }}</mat-chip>
+                        </mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
                 </td>
-                <td>
-                  <p-select [options]="datatypeOptions" [ngModel]="mapping.datatype"
-                           (ngModelChange)="updateMapping(i, 'datatype', $event)"
-                           optionLabel="label" optionValue="value" styleClass="w-full"
-                           [disabled]="mapping.role === 'ignore'"></p-select>
+              </ng-container>
+
+              <!-- Datatype Definition -->
+              <ng-container matColumnDef="datatype">
+                <th mat-header-cell *matHeaderCellDef style="width: 140px">Datatype</th>
+                <td mat-cell *matCellDef="let mapping; let i = index">
+                  <mat-form-field appearance="outline" class="w-full">
+                    <mat-select [value]="mapping.datatype" (valueChange)="updateMapping(i, 'datatype', $event)"
+                               [disabled]="mapping.role === 'ignore'">
+                      @for (opt of datatypeOptions; track opt.value) {
+                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
                 </td>
-                <td>
+              </ng-container>
+
+              <!-- Dimension Reference Definition -->
+              <ng-container matColumnDef="dimension">
+                <th mat-header-cell *matHeaderCellDef>Dimension Reference</th>
+                <td mat-cell *matCellDef="let mapping; let i = index">
                   @if (mapping.role === 'dimension') {
                     <div class="dimension-select-group">
-                      <p-select [options]="availableDimensions()" [ngModel]="mapping.dimensionId"
-                               (ngModelChange)="updateMapping(i, 'dimensionId', $event)"
-                               optionLabel="name" optionValue="id" placeholder="Link to dimension..."
-                               [showClear]="true" styleClass="flex-1" [filter]="true"></p-select>
-                      <p-button icon="pi pi-plus" [text]="true" severity="secondary" size="small"
-                               (onClick)="openNewDimensionDialog(mapping.name)" pTooltip="Create new dimension"></p-button>
+                      <mat-form-field appearance="outline" class="flex-1">
+                        <mat-select [value]="mapping.dimensionId" (valueChange)="updateMapping(i, 'dimensionId', $event)"
+                                   placeholder="Link to dimension...">
+                          <mat-option [value]="null">None</mat-option>
+                          @for (dim of availableDimensions(); track dim.id) {
+                            <mat-option [value]="dim.id">{{ dim.name }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                      <button mat-icon-button (click)="openNewDimensionDialog(mapping.name)"
+                              matTooltip="Create new dimension">
+                        <mat-icon>add</mat-icon>
+                      </button>
                     </div>
                   } @else {
                     <span class="text-muted">-</span>
                   }
                 </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr>
-                <td colspan="4" class="text-center">
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="['column', 'role', 'datatype', 'dimension']"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['column', 'role', 'datatype', 'dimension'];"
+                  [class.ignored-row]="row.role === 'ignore'"></tr>
+
+              <!-- Empty state -->
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell" colspan="4">
                   <div class="empty-hint">
-                    <i class="pi pi-info-circle"></i>
+                    <mat-icon>info</mat-icon>
                     <p>Select a data source to see column mappings</p>
                   </div>
                 </td>
               </tr>
-            </ng-template>
-          </p-table>
+            </table>
+          </div>
 
           @if (mappingStats().dimensions === 0 || mappingStats().measures === 0) {
             <div class="validation-hint warning">
-              <i class="pi pi-exclamation-triangle"></i>
+              <mat-icon>warning</mat-icon>
               <span>A valid cube requires at least one dimension and one measure</span>
             </div>
           }
@@ -355,7 +389,7 @@
     @if (activeStep() === 3) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-tags"></i>
+          <mat-icon>local_offer</mat-icon>
           <div>
             <h2>Cube Metadata</h2>
             <p>Add Dublin Core metadata to describe your data cube</p>
@@ -366,86 +400,97 @@
           <div class="form-section">
             <h3>Basic Information</h3>
             <div class="form-row">
-              <div class="form-field">
-                <label for="metaTitle">Title <span class="required">*</span></label>
-                <input id="metaTitle" type="text" pInputText [ngModel]="metadata().title"
-                       (ngModelChange)="updateMetadataTitle($event)" class="w-full" />
-              </div>
-              <div class="form-field">
-                <label for="metaLang">Language</label>
-                <p-select id="metaLang" [options]="languageOptions" [ngModel]="metadata().language"
-                         (ngModelChange)="updateMetadataLanguage($event)"
-                         optionLabel="label" optionValue="value" styleClass="w-full"></p-select>
-              </div>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Title <span class="required">*</span></mat-label>
+                <input matInput [ngModel]="metadata().title"
+                       (ngModelChange)="updateMetadataTitle($event)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Language</mat-label>
+                <mat-select [value]="metadata().language"
+                           (valueChange)="updateMetadataLanguage($event)">
+                  @for (opt of languageOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
 
-            <div class="form-field">
-              <label for="metaDesc">Description</label>
-              <textarea id="metaDesc" pTextarea [ngModel]="metadata().description"
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Description</mat-label>
+              <textarea matInput [ngModel]="metadata().description"
                        (ngModelChange)="updateMetadataDescription($event)"
-                       rows="3" class="w-full"></textarea>
-            </div>
+                       rows="3"></textarea>
+            </mat-form-field>
           </div>
 
-          <p-divider></p-divider>
+          <mat-divider></mat-divider>
 
           <div class="form-section">
             <h3>Publisher & License</h3>
             <div class="form-row">
-              <div class="form-field">
-                <label for="metaPub">Publisher</label>
-                <input id="metaPub" type="text" pInputText [ngModel]="metadata().publisher"
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Publisher</mat-label>
+                <input matInput [ngModel]="metadata().publisher"
                        (ngModelChange)="updateMetadataPublisher($event)"
-                       placeholder="Organization name" class="w-full" />
-              </div>
-              <div class="form-field">
-                <label for="metaLicense">License <span class="required">*</span></label>
-                <p-select id="metaLicense" [options]="licenseOptions" [ngModel]="metadata().license"
-                         (ngModelChange)="updateMetadataLicense($event)"
-                         optionLabel="label" optionValue="value" placeholder="Select license..." styleClass="w-full"></p-select>
-              </div>
+                       placeholder="Organization name" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>License <span class="required">*</span></mat-label>
+                <mat-select [value]="metadata().license"
+                           (valueChange)="updateMetadataLicense($event)"
+                           placeholder="Select license...">
+                  @for (opt of licenseOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
           </div>
 
-          <p-divider></p-divider>
+          <mat-divider></mat-divider>
 
           <div class="form-section">
             <h3>Additional Properties</h3>
             <div class="form-row">
-              <div class="form-field">
-                <label for="metaIssued">Issued Date</label>
-                <input id="metaIssued" type="date" pInputText [ngModel]="metadata().issued"
-                       (ngModelChange)="updateMetadataIssued($event)" class="w-full" />
-              </div>
-              <div class="form-field">
-                <label for="metaPeriod">Accrual Periodicity</label>
-                <p-select id="metaPeriod" [options]="periodicityOptions" [ngModel]="metadata().accrualPeriodicity"
-                         (ngModelChange)="updateMetadataAccrualPeriodicity($event)"
-                         optionLabel="label" optionValue="value" placeholder="How often updated?" styleClass="w-full"></p-select>
-              </div>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Issued Date</mat-label>
+                <input matInput type="date" [ngModel]="metadata().issued"
+                       (ngModelChange)="updateMetadataIssued($event)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Accrual Periodicity</mat-label>
+                <mat-select [value]="metadata().accrualPeriodicity"
+                           (valueChange)="updateMetadataAccrualPeriodicity($event)"
+                           placeholder="How often updated?">
+                  @for (opt of periodicityOptions; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
 
-            <div class="form-field">
-              <label for="metaKeywords">Keywords</label>
-              <input id="metaKeywords" type="text" pInputText [ngModel]="keywordsInput()"
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Keywords</mat-label>
+              <input matInput [ngModel]="keywordsInput()"
                      (ngModelChange)="keywordsInput.set($event)"
-                     placeholder="statistics, population, census (comma separated)" class="w-full" />
-              <small>Separate multiple keywords with commas</small>
-            </div>
+                     placeholder="statistics, population, census (comma separated)" />
+              <mat-hint>Separate multiple keywords with commas</mat-hint>
+            </mat-form-field>
 
             <div class="form-row">
-              <div class="form-field">
-                <label for="metaSpatial">Spatial Coverage</label>
-                <input id="metaSpatial" type="text" pInputText [ngModel]="metadata().spatial"
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Spatial Coverage</mat-label>
+                <input matInput [ngModel]="metadata().spatial"
                        (ngModelChange)="updateMetadataSpatial($event)"
-                       placeholder="e.g., Switzerland, Europe" class="w-full" />
-              </div>
-              <div class="form-field">
-                <label for="metaTemporal">Temporal Coverage</label>
-                <input id="metaTemporal" type="text" pInputText [ngModel]="metadata().temporal"
+                       placeholder="e.g., Switzerland, Europe" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Temporal Coverage</mat-label>
+                <input matInput [ngModel]="metadata().temporal"
                        (ngModelChange)="updateMetadataTemporal($event)"
-                       placeholder="e.g., 2020-2024" class="w-full" />
-              </div>
+                       placeholder="e.g., 2020-2024" />
+              </mat-form-field>
             </div>
           </div>
         </div>
@@ -456,7 +501,7 @@
     @if (activeStep() === 4) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-check-circle"></i>
+          <mat-icon>check_circle</mat-icon>
           <div>
             <h2>Validation & Preview</h2>
             <p>Verify your cube configuration before publishing</p>
@@ -468,15 +513,32 @@
           <div class="validation-section">
             <div class="validation-header">
               <h3>Validation Checks</h3>
-              <p-button label="Run Validation" icon="pi pi-play" (onClick)="runValidation()"
-                       [loading]="validating()" [disabled]="validating()"></p-button>
+              <button mat-raised-button color="primary" (click)="runValidation()"
+                     [disabled]="validating()">
+                @if (validating()) {
+                  <mat-spinner diameter="20"></mat-spinner>
+                } @else {
+                  <mat-icon>play_arrow</mat-icon>
+                }
+                Run Validation
+              </button>
             </div>
 
             <div class="validation-list">
               @for (check of validationChecks(); track check.id) {
                 <div class="validation-item" [class]="'status-' + check.status">
                   <div class="validation-icon">
-                    <i class="pi" [class]="getValidationIcon(check.status)"></i>
+                    @if (check.status === 'passed') {
+                      <mat-icon color="primary">check_circle</mat-icon>
+                    } @else if (check.status === 'failed') {
+                      <mat-icon color="warn">cancel</mat-icon>
+                    } @else if (check.status === 'warning') {
+                      <mat-icon color="accent">warning</mat-icon>
+                    } @else if (check.status === 'running') {
+                      <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                      <mat-icon>radio_button_unchecked</mat-icon>
+                    }
                   </div>
                   <div class="validation-info">
                     <div class="validation-name">{{ check.name }}</div>
@@ -485,7 +547,7 @@
                       <div class="validation-message">{{ check.message }}</div>
                     }
                   </div>
-                  <p-tag [value]="check.status | titlecase" [severity]="getValidationSeverity(check.status)"></p-tag>
+                  <mat-chip [class]="'status-' + check.status">{{ check.status | titlecase }}</mat-chip>
                 </div>
               }
             </div>
@@ -493,36 +555,35 @@
             @if (validationComplete()) {
               <div class="validation-summary" [class.success]="validationSummary().failed === 0">
                 @if (validationSummary().failed === 0) {
-                  <i class="pi pi-check-circle"></i>
+                  <mat-icon>check_circle</mat-icon>
                   <span>All validations passed! Ready to publish.</span>
                 } @else {
-                  <i class="pi pi-times-circle"></i>
+                  <mat-icon>cancel</mat-icon>
                   <span>{{ validationSummary().failed }} validation(s) failed. Please fix issues before proceeding.</span>
                 }
               </div>
             }
           </div>
 
-          <p-divider></p-divider>
+          <mat-divider></mat-divider>
 
           <!-- Preview Section -->
           <div class="preview-section">
             <div class="preview-header">
               <h3>Generated Output Preview</h3>
-              <div class="preview-tabs">
-                <p-button label="DSD" [text]="previewTab() !== 'dsd'" [severity]="previewTab() === 'dsd' ? 'primary' : 'secondary'"
-                         size="small" (onClick)="previewTab.set('dsd')"></p-button>
-                <p-button label="Turtle" [text]="previewTab() !== 'turtle'" [severity]="previewTab() === 'turtle' ? 'primary' : 'secondary'"
-                         size="small" (onClick)="previewTab.set('turtle')"></p-button>
-                <p-button label="Pipeline" [text]="previewTab() !== 'pipeline'" [severity]="previewTab() === 'pipeline' ? 'primary' : 'secondary'"
-                         size="small" (onClick)="previewTab.set('pipeline')"></p-button>
-              </div>
+              <mat-button-toggle-group [value]="previewTab()" (change)="previewTab.set($event.value)">
+                <mat-button-toggle value="dsd">DSD</mat-button-toggle>
+                <mat-button-toggle value="turtle">Turtle</mat-button-toggle>
+                <mat-button-toggle value="pipeline">Pipeline</mat-button-toggle>
+              </mat-button-toggle-group>
             </div>
 
             <div class="preview-content">
               <div class="preview-toolbar">
-                <p-button icon="pi pi-copy" [text]="true" size="small" pTooltip="Copy to clipboard"
-                         (onClick)="copyToClipboard(previewTab() === 'dsd' ? generateDsdPreview() : previewTab() === 'turtle' ? generateTurtlePreview() : generatePipelinePreview())"></p-button>
+                <button mat-icon-button matTooltip="Copy to clipboard"
+                       (click)="copyToClipboard(previewTab() === 'dsd' ? generateDsdPreview() : previewTab() === 'turtle' ? generateTurtlePreview() : generatePipelinePreview())">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
               </div>
               <pre class="preview-code">@switch (previewTab()) {
                 @case ('dsd') { {{ generateDsdPreview() }} }
@@ -539,7 +600,7 @@
     @if (activeStep() === 5) {
       <div class="step-panel">
         <div class="step-header">
-          <i class="pi pi-cloud-upload"></i>
+          <mat-icon>cloud_upload</mat-icon>
           <div>
             <h2>Publish Cube</h2>
             <p>Configure publishing options and create your data cube</p>
@@ -578,66 +639,70 @@
             </div>
           </div>
 
-          <p-divider></p-divider>
+          <mat-divider></mat-divider>
 
           <!-- Publish Options -->
           <div class="form-section">
             <h3>Publishing Options</h3>
 
             <div class="form-row">
-              <div class="form-field">
-                <label for="triplestore">Destination Triplestore</label>
-                <p-select id="triplestore" [options]="triplestoreOptions()" [ngModel]="publishOptions().triplestore"
-                         (ngModelChange)="updatePublishTriplestore($event)"
-                         optionLabel="label" optionValue="value" placeholder="Select triplestore..." styleClass="w-full"></p-select>
-              </div>
-              <div class="form-field">
-                <label for="graphUri">Target Graph URI</label>
-                <input id="graphUri" type="text" pInputText [ngModel]="publishOptions().graphUri"
-                       (ngModelChange)="updatePublishGraphUri($event)" class="w-full" />
-              </div>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Destination Triplestore</mat-label>
+                <mat-select [value]="publishOptions().triplestore"
+                           (valueChange)="updatePublishTriplestore($event)"
+                           placeholder="Select triplestore...">
+                  @for (opt of triplestoreOptions(); track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Target Graph URI</mat-label>
+                <input matInput [ngModel]="publishOptions().graphUri"
+                       (ngModelChange)="updatePublishGraphUri($event)" />
+              </mat-form-field>
             </div>
 
             <div class="form-field checkbox-field">
-              <p-checkbox [ngModel]="publishOptions().createNamedGraph"
-                         (ngModelChange)="updatePublishCreateNamedGraph($event)"
-                         [binary]="true" inputId="createGraph"></p-checkbox>
-              <label for="createGraph">Create named graph if it doesn't exist</label>
+              <mat-checkbox [checked]="publishOptions().createNamedGraph"
+                           (change)="updatePublishCreateNamedGraph($event.checked)">
+                Create named graph if it doesn't exist
+              </mat-checkbox>
             </div>
           </div>
 
-          <p-divider></p-divider>
+          <mat-divider></mat-divider>
 
           <div class="form-section">
             <h3>Pipeline Options</h3>
 
             <div class="form-field checkbox-field">
-              <p-checkbox [ngModel]="publishOptions().savePipeline"
-                         (ngModelChange)="updatePublishSavePipeline($event)"
-                         [binary]="true" inputId="savePipeline"></p-checkbox>
-              <label for="savePipeline">Save pipeline for future updates</label>
+              <mat-checkbox [checked]="publishOptions().savePipeline"
+                           (change)="updatePublishSavePipeline($event.checked)">
+                Save pipeline for future updates
+              </mat-checkbox>
             </div>
 
             @if (publishOptions().savePipeline) {
-              <div class="form-field">
-                <label for="pipelineName">Pipeline Name</label>
-                <input id="pipelineName" type="text" pInputText [ngModel]="publishOptions().pipelineName"
-                       (ngModelChange)="updatePublishPipelineName($event)" class="w-full" />
-              </div>
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Pipeline Name</mat-label>
+                <input matInput [ngModel]="publishOptions().pipelineName"
+                       (ngModelChange)="updatePublishPipelineName($event)" />
+              </mat-form-field>
             }
 
             <div class="form-field checkbox-field">
-              <p-checkbox [ngModel]="publishOptions().runImmediately"
-                         (ngModelChange)="updatePublishRunImmediately($event)"
-                         [binary]="true" inputId="runNow"></p-checkbox>
-              <label for="runNow">Run pipeline immediately after creation</label>
+              <mat-checkbox [checked]="publishOptions().runImmediately"
+                           (change)="updatePublishRunImmediately($event.checked)">
+                Run pipeline immediately after creation
+              </mat-checkbox>
             </div>
           </div>
 
           @if (publishing()) {
             <div class="publish-progress">
-              <p-progressBar [value]="publishProgress()" [showValue]="true"></p-progressBar>
-              <p>Publishing cube...</p>
+              <mat-progress-bar mode="determinate" [value]="publishProgress()"></mat-progress-bar>
+              <p>Publishing cube... {{ publishProgress() }}%</p>
             </div>
           }
         </div>
@@ -649,62 +714,95 @@
   <div class="wizard-footer">
     <div class="footer-left">
       @if (activeStep() > 0) {
-        <p-button label="Back" icon="pi pi-arrow-left" severity="secondary" (onClick)="prevStep()" [disabled]="publishing()"></p-button>
+        <button mat-stroked-button (click)="prevStep()" [disabled]="publishing()">
+          <mat-icon>arrow_back</mat-icon>
+          Back
+        </button>
       }
     </div>
     <div class="footer-right">
       @if (activeStep() < 5) {
-        <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" (onClick)="nextStep()"
-                 [disabled]="!canProceed(activeStep())"></p-button>
+        <button mat-raised-button color="primary" (click)="nextStep()"
+               [disabled]="!canProceed(activeStep())">
+          Next
+          <mat-icon>arrow_forward</mat-icon>
+        </button>
       } @else {
-        <p-button label="Publish Cube" icon="pi pi-cloud-upload" (onClick)="publishCube()"
-                 [loading]="publishing()" [disabled]="publishing() || !publishOptions().triplestore"></p-button>
+        <button mat-raised-button color="primary" (click)="publishCube()"
+               [disabled]="publishing() || !publishOptions().triplestore">
+          @if (publishing()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <mat-icon>cloud_upload</mat-icon>
+          }
+          Publish Cube
+        </button>
       }
     </div>
   </div>
 </div>
 
 <!-- New Dimension Dialog -->
-<p-dialog header="Create New Dimension" [(visible)]="showNewDimensionDialog" [modal]="true" [style]="{width: '500px'}" [closable]="!savingDimension()">
-  <div class="dialog-content">
-    <div class="form-field">
-      <label for="dimName">Name <span class="required">*</span></label>
-      <input id="dimName" type="text" pInputText [ngModel]="newDimension().name"
-             (ngModelChange)="updateNewDimensionName($event)" class="w-full" />
+@if (showNewDimensionDialog()) {
+  <div class="dialog-backdrop" (click)="showNewDimensionDialog.set(false)"></div>
+  <div class="dialog-container">
+    <div class="dialog-header">
+      <h2>Create New Dimension</h2>
+      @if (!savingDimension()) {
+        <button mat-icon-button (click)="showNewDimensionDialog.set(false)">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
     </div>
+    <div class="dialog-content">
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Name <span class="required">*</span></mat-label>
+        <input matInput [ngModel]="newDimension().name"
+               (ngModelChange)="updateNewDimensionName($event)" />
+      </mat-form-field>
 
-    <div class="form-field">
-      <label for="dimType">Type</label>
-      <p-select id="dimType" [options]="dimensionTypes" [ngModel]="newDimension().type"
-               (ngModelChange)="updateNewDimensionType($event)"
-               optionLabel="label" optionValue="value" styleClass="w-full">
-        <ng-template let-item pTemplate="item">
-          <div class="dim-type-option">
-            <span class="dim-type-label">{{ item.label }}</span>
-            <small class="dim-type-desc">{{ item.description }}</small>
-          </div>
-        </ng-template>
-      </p-select>
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Type</mat-label>
+        <mat-select [value]="newDimension().type"
+                   (valueChange)="updateNewDimensionType($event)">
+          @for (item of dimensionTypes; track item.value) {
+            <mat-option [value]="item.value">
+              <div class="dim-type-option">
+                <span class="dim-type-label">{{ item.label }}</span>
+                <small class="dim-type-desc">{{ item.description }}</small>
+              </div>
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>URI (optional)</mat-label>
+        <input matInput [ngModel]="newDimension().uri"
+               (ngModelChange)="updateNewDimensionUri($event)"
+               placeholder="Auto-generated if empty" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Description</mat-label>
+        <textarea matInput [ngModel]="newDimension().description"
+                 (ngModelChange)="updateNewDimensionDescription($event)"
+                 rows="2"></textarea>
+      </mat-form-field>
     </div>
-
-    <div class="form-field">
-      <label for="dimUri">URI (optional)</label>
-      <input id="dimUri" type="text" pInputText [ngModel]="newDimension().uri"
-             (ngModelChange)="updateNewDimensionUri($event)"
-             placeholder="Auto-generated if empty" class="w-full" />
-    </div>
-
-    <div class="form-field">
-      <label for="dimDesc">Description</label>
-      <textarea id="dimDesc" pTextarea [ngModel]="newDimension().description"
-               (ngModelChange)="updateNewDimensionDescription($event)"
-               rows="2" class="w-full"></textarea>
+    <div class="dialog-footer">
+      <button mat-button (click)="showNewDimensionDialog.set(false)" [disabled]="savingDimension()">
+        <mat-icon>close</mat-icon>
+        Cancel
+      </button>
+      <button mat-raised-button color="primary" (click)="saveNewDimension()" [disabled]="savingDimension()">
+        @if (savingDimension()) {
+          <mat-spinner diameter="20"></mat-spinner>
+        } @else {
+          <mat-icon>check</mat-icon>
+        }
+        Create
+      </button>
     </div>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button label="Cancel" icon="pi pi-times" severity="secondary" [text]="true"
-             (onClick)="showNewDimensionDialog.set(false)" [disabled]="savingDimension()"></p-button>
-    <p-button label="Create" icon="pi pi-check" (onClick)="saveNewDimension()" [loading]="savingDimension()"></p-button>
-  </ng-template>
-</p-dialog>
+}

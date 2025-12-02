@@ -19,6 +19,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { DataService, DimensionService, PipelineService } from '../../../core/services';
@@ -80,6 +81,7 @@ interface CubeMetadata {
     MatDividerModule,
     MatTooltipModule,
     MatProgressBarModule,
+    MatProgressSpinnerModule,
     MatIconModule,
     MatFormFieldModule,
     DataPreviewComponent
@@ -112,10 +114,6 @@ export class CubeWizard implements OnInit {
   useAutoId = signal(true);
 
   // Step 2: Data Source
-  sourceTypeOptions = [
-    { label: 'Existing Data Source', value: 'existing', icon: 'pi pi-database' },
-    { label: 'Upload New File', value: 'upload', icon: 'pi pi-upload' }
-  ];
   sourceType = signal<'existing' | 'upload'>('existing');
   dataSources = signal<DataSource[]>([]);
   selectedDataSource = signal<DataSource | null>(null);
@@ -150,10 +148,10 @@ export class CubeWizard implements OnInit {
   columnMappings = signal<ColumnMapping[]>([]);
 
   roleOptions = [
-    { label: 'Dimension', value: 'dimension', icon: 'pi pi-th-large', description: 'Categorical data for grouping' },
-    { label: 'Measure', value: 'measure', icon: 'pi pi-chart-bar', description: 'Numeric values to aggregate' },
-    { label: 'Attribute', value: 'attribute', icon: 'pi pi-tag', description: 'Additional metadata' },
-    { label: 'Ignore', value: 'ignore', icon: 'pi pi-eye-slash', description: 'Exclude from cube' }
+    { label: 'Dimension', value: 'dimension', description: 'Categorical data for grouping' },
+    { label: 'Measure', value: 'measure', description: 'Numeric values to aggregate' },
+    { label: 'Attribute', value: 'attribute', description: 'Additional metadata' },
+    { label: 'Ignore', value: 'ignore', description: 'Exclude from cube' }
   ];
 
   datatypeOptions = [
@@ -882,46 +880,11 @@ export class CubeWizard implements OnInit {
   }
 
   // Utility
-  getStepIcon(step: number): string {
-    const icons = ['pi-info-circle', 'pi-database', 'pi-sitemap', 'pi-tags', 'pi-check-circle', 'pi-cloud-upload'];
-    return icons[step] || 'pi-circle';
-  }
-
   getStepStatus(step: number): 'completed' | 'current' | 'pending' {
     const current = this.activeStep();
     if (step < current) return 'completed';
     if (step === current) return 'current';
     return 'pending';
-  }
-
-  getRoleSeverity(role: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
-    switch (role) {
-      case 'dimension': return 'info';
-      case 'measure': return 'success';
-      case 'attribute': return 'warn';
-      case 'ignore': return 'secondary';
-      default: return undefined;
-    }
-  }
-
-  getValidationIcon(status: string): string {
-    switch (status) {
-      case 'passed': return 'pi-check-circle';
-      case 'failed': return 'pi-times-circle';
-      case 'warning': return 'pi-exclamation-triangle';
-      case 'running': return 'pi-spin pi-spinner';
-      default: return 'pi-circle';
-    }
-  }
-
-  getValidationSeverity(status: string): 'success' | 'danger' | 'warn' | 'info' | 'secondary' | 'contrast' | undefined {
-    switch (status) {
-      case 'passed': return 'success';
-      case 'failed': return 'danger';
-      case 'warning': return 'warn';
-      case 'running': return 'info';
-      default: return 'secondary';
-    }
   }
 
   copyToClipboard(text: string): void {
