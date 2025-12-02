@@ -37,17 +37,17 @@ The standalone mode runs all services without requiring Keycloak authentication,
    ```
 
 3. **Access the application:**
-   Open your browser to http://localhost:8080
+   Open your browser to http://localhost:4200
 
 ### Services
 
 The standalone deployment includes:
 
-- **Frontend (UI)**: http://localhost:8080
-- **API Gateway**: http://localhost:8080/api/v1
+- **Frontend (UI)**: http://localhost:4200
+- **API Gateway**: http://localhost:9080 (proxied through UI at /api/v1)
 - **GraphDB**: http://localhost:7200
 - **PostgreSQL**: localhost:5432
-- **MinIO**: http://localhost:9001
+- **MinIO Console**: http://localhost:9001 (S3 API on port 9000)
 
 ### Development
 
