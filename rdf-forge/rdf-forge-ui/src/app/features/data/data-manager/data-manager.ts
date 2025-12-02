@@ -1,19 +1,18 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { FileUploadModule, FileUpload } from 'primeng/fileupload';
-import { TagModule } from 'primeng/tag';
-import { TooltipModule } from 'primeng/tooltip';
-import { ToastModule } from 'primeng/toast';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { CardModule } from 'primeng/card';
-import { DividerModule } from 'primeng/divider';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
 import { DataService } from '../../../core/services';
 import { DataSource, DataPreview } from '../../../core/models';
 
@@ -22,27 +21,25 @@ import { DataSource, DataPreview } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    FileUploadModule,
-    TagModule,
-    TooltipModule,
-    ToastModule,
-    ProgressBarModule,
-    ConfirmDialogModule,
-    CardModule,
-    DividerModule
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatTooltipModule,
+    MatSnackBarModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
+    MatPaginatorModule,
+    MatSortModule
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './data-manager.html',
   styleUrl: './data-manager.scss',
 })
 export class DataManager implements OnInit {
   private readonly dataService = inject(DataService);
-  private readonly messageService = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
 
   loading = signal(true);
   searchQuery = signal('');
@@ -55,6 +52,12 @@ export class DataManager implements OnInit {
   previewLoading = signal(false);
   uploading = signal(false);
   uploadProgress = signal(0);
+  selectedFile = signal<File | null>(null);
+
+  // Table
+  displayedColumns = ['name', 'format', 'size', 'rows', 'uploadedAt', 'actions'];
+  pageSize = 10;
+  pageIndex = 0;
 
   filteredDataSources = computed(() => {
     const query = this.searchQuery().toLowerCase();
@@ -74,6 +77,12 @@ export class DataManager implements OnInit {
     return this.dataSources().reduce((sum, ds) => sum + (ds.rowCount || 0), 0);
   });
 
+  pagedDataSources = computed(() => {
+    const filtered = this.filteredDataSources();
+    const start = this.pageIndex * this.pageSize;
+    return filtered.slice(start, start + this.pageSize);
+  });
+
   ngOnInit(): void {
     this.loadDataSources();
   }
@@ -87,42 +96,59 @@ export class DataManager implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load data sources:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load data sources' });
+        this.snackBar.open('Failed to load data sources', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
   }
 
-  onUpload(event: { files: File[] }, fileUpload: FileUpload): void {
-    const file = event.files[0];
-    if (!file) return;
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
+
+  onFileSelect(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.selectedFile.set(input.files[0]);
+    }
+  }
+
+  uploadFile(): void {
+    const file = this.selectedFile();
+    if (!file) {
+      this.snackBar.open('Please select a file', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.uploading.set(true);
     this.uploadProgress.set(0);
 
     this.dataService.upload(file, { analyze: true }).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Uploaded', detail: `${file.name} uploaded successfully` });
+        this.snackBar.open(`${file.name} uploaded successfully`, 'Close', { duration: 3000 });
         this.uploading.set(false);
         this.uploadDialogVisible.set(false);
-        fileUpload.clear();
+        this.selectedFile.set(null);
         this.loadDataSources();
       },
       error: (err) => {
         console.error('Upload failed:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to upload file' });
+        this.snackBar.open('Failed to upload file', 'Close', { duration: 3000 });
         this.uploading.set(false);
-        fileUpload.clear();
       }
     });
   }
 
-  onFileSelect(event: { files: File[] }): void {
-    // File selected - user can review before clicking Upload
-    const file = event.files[0];
-    if (file) {
-      this.messageService.add({ severity: 'info', summary: 'File Selected', detail: `${file.name} ready to upload` });
-    }
+  clearSelectedFile(): void {
+    this.selectedFile.set(null);
+  }
+
+  closeUploadDialog(): void {
+    this.uploadDialogVisible.set(false);
+    this.uploading.set(false);
+    this.uploadProgress.set(0);
+    this.selectedFile.set(null);
   }
 
   viewDetails(source: DataSource, event: Event): void {
@@ -144,7 +170,7 @@ export class DataManager implements OnInit {
       },
       error: (err) => {
         console.error('Preview failed:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load preview' });
+        this.snackBar.open('Failed to load preview', 'Close', { duration: 3000 });
         this.previewLoading.set(false);
       }
     });
@@ -152,40 +178,34 @@ export class DataManager implements OnInit {
 
   downloadData(source: DataSource, event: Event): void {
     event.stopPropagation();
-    this.messageService.add({ severity: 'info', summary: 'Downloading', detail: `Preparing ${source.originalFilename}...` });
+    this.snackBar.open(`Preparing ${source.originalFilename}...`, 'Close', { duration: 2000 });
     this.dataService.download(source.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Downloaded', detail: 'File download started' });
+        this.snackBar.open('File download started', 'Close', { duration: 3000 });
       },
       error: (err) => {
         console.error('Download failed:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to download file' });
+        this.snackBar.open('Failed to download file', 'Close', { duration: 3000 });
       }
     });
   }
 
   confirmDelete(source: DataSource, event: Event): void {
     event.stopPropagation();
-    this.confirmationService.confirm({
-      message: `Are you sure you want to delete "${source.name}"? This action cannot be undone.`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.deleteData(source);
-      }
-    });
+    if (confirm(`Are you sure you want to delete "${source.name}"? This action cannot be undone.`)) {
+      this.deleteData(source);
+    }
   }
 
   private deleteData(source: DataSource): void {
     this.dataService.delete(source.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: `${source.name} deleted` });
+        this.snackBar.open(`${source.name} deleted`, 'Close', { duration: 3000 });
         this.loadDataSources();
       },
       error: (err) => {
         console.error('Delete failed:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete file' });
+        this.snackBar.open('Failed to delete file', 'Close', { duration: 3000 });
       }
     });
   }
@@ -207,30 +227,32 @@ export class DataManager implements OnInit {
     });
   }
 
-  getFormatSeverity(format: string): 'success' | 'info' | 'warn' | 'secondary' | 'danger' {
+  getFormatClass(format: string): string {
     switch (format?.toLowerCase()) {
-      case 'csv': return 'success';
-      case 'json': return 'info';
-      case 'xlsx': return 'warn';
-      case 'parquet': return 'danger';
-      default: return 'secondary';
+      case 'csv': return 'format-success';
+      case 'json': return 'format-info';
+      case 'xlsx': return 'format-warn';
+      case 'parquet': return 'format-danger';
+      default: return 'format-secondary';
     }
   }
 
   getFormatIcon(format: string): string {
     switch (format?.toLowerCase()) {
-      case 'csv': return 'pi pi-file';
-      case 'json': return 'pi pi-code';
-      case 'xlsx': return 'pi pi-file-excel';
-      case 'parquet': return 'pi pi-database';
-      case 'xml': return 'pi pi-sitemap';
-      default: return 'pi pi-file';
+      case 'csv': return 'description';
+      case 'json': return 'code';
+      case 'xlsx': return 'table_chart';
+      case 'parquet': return 'storage';
+      case 'xml': return 'account_tree';
+      default: return 'insert_drive_file';
     }
   }
 
-  closeUploadDialog(): void {
-    this.uploadDialogVisible.set(false);
-    this.uploading.set(false);
-    this.uploadProgress.set(0);
+  closeDetailsDialog(): void {
+    this.detailDialogVisible.set(false);
+  }
+
+  closePreviewDialog(): void {
+    this.previewDialogVisible.set(false);
   }
 }

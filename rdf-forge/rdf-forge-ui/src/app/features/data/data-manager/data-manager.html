@@ -1,40 +1,39 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="data-manager">
   <div class="header">
     <div class="header-left">
       <h1>Data Sources</h1>
-      <p-tag [value]="filteredDataSources().length + ' files'" severity="secondary"></p-tag>
+      <span class="file-count">{{ filteredDataSources().length }} files</span>
     </div>
     <div class="actions">
-      <span class="p-input-icon-left">
-        <i class="pi pi-search"></i>
-        <input type="text" pInputText placeholder="Search files..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </span>
-      <p-button label="Upload Data" icon="pi pi-upload" (click)="uploadDialogVisible.set(true)"></p-button>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput placeholder="Search files..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </mat-form-field>
+      <button mat-raised-button color="primary" (click)="uploadDialogVisible.set(true)">
+        <mat-icon>cloud_upload</mat-icon>
+        Upload Data
+      </button>
     </div>
   </div>
 
-  <!-- Stats Cards -->
   @if (dataSources().length > 0) {
     <div class="stats-row">
       <div class="stat-card">
-        <i class="pi pi-file"></i>
+        <mat-icon>insert_drive_file</mat-icon>
         <div class="stat-info">
           <span class="stat-value">{{ dataSources().length }}</span>
           <span class="stat-label">Total Files</span>
         </div>
       </div>
       <div class="stat-card">
-        <i class="pi pi-database"></i>
+        <mat-icon>storage</mat-icon>
         <div class="stat-info">
           <span class="stat-value">{{ formatSize(totalSize()) }}</span>
           <span class="stat-label">Total Size</span>
         </div>
       </div>
       <div class="stat-card">
-        <i class="pi pi-list"></i>
+        <mat-icon>format_list_numbered</mat-icon>
         <div class="stat-info">
           <span class="stat-value">{{ totalRows() | number }}</span>
           <span class="stat-label">Total Rows</span>
@@ -43,233 +42,290 @@
     </div>
   }
 
-  <p-table
-    [value]="filteredDataSources()"
-    [loading]="loading()"
-    [paginator]="true"
-    [rows]="10"
-    [rowsPerPageOptions]="[10, 25, 50]"
-    dataKey="id"
-    responsiveLayout="scroll"
-    styleClass="p-datatable-sm p-datatable-striped"
-    [globalFilterFields]="['name', 'originalFilename', 'format']">
+  <mat-card class="table-card">
+    <div class="table-header">
+      <span>Uploaded data files available for pipelines</span>
+      <button mat-icon-button (click)="loadDataSources()" matTooltip="Refresh">
+        <mat-icon [class.spinning]="loading()">refresh</mat-icon>
+      </button>
+    </div>
 
-    <ng-template pTemplate="caption">
-      <div class="table-header">
-        <span>Uploaded data files available for pipelines</span>
-        <p-button icon="pi pi-refresh" [text]="true" [rounded]="true" (click)="loadDataSources()" pTooltip="Refresh" [loading]="loading()"></p-button>
+    @if (loading() && dataSources().length === 0) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading data sources...</p>
       </div>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="6">
-          <div class="empty-state">
-            <i class="pi pi-cloud-upload"></i>
-            <h3>No data sources yet</h3>
-            <p>Upload your first data file to get started</p>
-            <p-button label="Upload Data" icon="pi pi-upload" (click)="uploadDialogVisible.set(true)"></p-button>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="header">
-      <tr>
-        <th style="min-width: 200px" pSortableColumn="name">Name <p-sortIcon field="name"></p-sortIcon></th>
-        <th style="width: 100px" pSortableColumn="format">Format <p-sortIcon field="format"></p-sortIcon></th>
-        <th style="width: 100px" pSortableColumn="sizeBytes">Size <p-sortIcon field="sizeBytes"></p-sortIcon></th>
-        <th style="width: 100px" pSortableColumn="rowCount">Rows <p-sortIcon field="rowCount"></p-sortIcon></th>
-        <th style="width: 150px" pSortableColumn="uploadedAt">Uploaded <p-sortIcon field="uploadedAt"></p-sortIcon></th>
-        <th style="width: 160px">Actions</th>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="body" let-source>
-      <tr>
-        <td>
-          <div class="source-name">
-            <div class="name-row">
-              <i [class]="getFormatIcon(source.format)" class="format-icon"></i>
-              <span class="name">{{ source.name || source.originalFilename }}</span>
+    } @else if (filteredDataSources().length === 0) {
+      <div class="empty-state">
+        <mat-icon>cloud_upload</mat-icon>
+        <h3>No data sources yet</h3>
+        <p>Upload your first data file to get started</p>
+        <button mat-raised-button color="primary" (click)="uploadDialogVisible.set(true)">
+          <mat-icon>cloud_upload</mat-icon>
+          Upload Data
+        </button>
+      </div>
+    } @else {
+      <table mat-table [dataSource]="pagedDataSources()" class="data-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let source">
+            <div class="source-name">
+              <div class="name-row">
+                <mat-icon [class]="'format-icon'">{{ getFormatIcon(source.format) }}</mat-icon>
+                <span class="name">{{ source.name || source.originalFilename }}</span>
+              </div>
+              <span class="filename">{{ source.originalFilename }}</span>
             </div>
-            <span class="filename">{{ source.originalFilename }}</span>
-          </div>
-        </td>
-        <td><p-tag [value]="source.format?.toUpperCase()" [severity]="getFormatSeverity(source.format)"></p-tag></td>
-        <td>{{ formatSize(source.sizeBytes) }}</td>
-        <td>{{ source.rowCount | number }}</td>
-        <td>{{ formatDate(source.uploadedAt) }}</td>
-        <td>
-          <div class="row-actions">
-            <p-button icon="pi pi-info-circle" severity="secondary" [text]="true" [rounded]="true" (click)="viewDetails(source, $event)" pTooltip="Details"></p-button>
-            <p-button icon="pi pi-eye" severity="info" [text]="true" [rounded]="true" (click)="previewData(source, $event)" pTooltip="Preview"></p-button>
-            <p-button icon="pi pi-download" severity="secondary" [text]="true" [rounded]="true" (click)="downloadData(source, $event)" pTooltip="Download"></p-button>
-            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="confirmDelete(source, $event)" pTooltip="Delete"></p-button>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+          </td>
+        </ng-container>
 
-  <!-- Upload Dialog -->
-  <p-dialog [(visible)]="uploadDialogVisible" header="Upload Data File" [modal]="true" [style]="{ width: '550px' }" [closable]="!uploading()">
-    <div class="upload-dialog">
-      <p-fileUpload
-        #fileUpload
-        mode="advanced"
-        [auto]="false"
-        [customUpload]="true"
-        accept=".csv,.json,.xlsx,.xml,.parquet,.tsv"
-        [maxFileSize]="104857600"
-        (onSelect)="onFileSelect($event)"
-        (uploadHandler)="onUpload($event, fileUpload)"
-        [disabled]="uploading()"
-        chooseLabel="Browse Files"
-        uploadLabel="Upload"
-        cancelLabel="Clear">
-        <ng-template pTemplate="content" let-files>
-          <div class="upload-content" [class.uploading]="uploading()" [class.has-files]="files.length > 0">
+        <ng-container matColumnDef="format">
+          <th mat-header-cell *matHeaderCellDef>Format</th>
+          <td mat-cell *matCellDef="let source">
+            <span class="format-chip" [class]="getFormatClass(source.format)">{{ source.format?.toUpperCase() }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="size">
+          <th mat-header-cell *matHeaderCellDef>Size</th>
+          <td mat-cell *matCellDef="let source">{{ formatSize(source.sizeBytes) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="rows">
+          <th mat-header-cell *matHeaderCellDef>Rows</th>
+          <td mat-cell *matCellDef="let source">{{ source.rowCount | number }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="uploadedAt">
+          <th mat-header-cell *matHeaderCellDef>Uploaded</th>
+          <td mat-cell *matCellDef="let source">{{ formatDate(source.uploadedAt) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let source">
+            <div class="row-actions">
+              <button mat-icon-button (click)="viewDetails(source, $event)" matTooltip="Details">
+                <mat-icon>info</mat-icon>
+              </button>
+              <button mat-icon-button color="primary" (click)="previewData(source, $event)" matTooltip="Preview">
+                <mat-icon>visibility</mat-icon>
+              </button>
+              <button mat-icon-button (click)="downloadData(source, $event)" matTooltip="Download">
+                <mat-icon>download</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="confirmDelete(source, $event)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="filteredDataSources().length"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[10, 25, 50]"
+        (page)="onPageChange($event)"
+        showFirstLastButtons>
+      </mat-paginator>
+    }
+  </mat-card>
+
+  @if (uploadDialogVisible()) {
+    <div class="dialog-overlay" (click)="closeUploadDialog()">
+      <div class="dialog-content upload-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Upload Data File</h2>
+          <button mat-icon-button (click)="closeUploadDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="upload-content" [class.uploading]="uploading()" [class.has-file]="selectedFile()">
             @if (uploading()) {
-              <i class="pi pi-spin pi-spinner"></i>
+              <mat-spinner diameter="48"></mat-spinner>
               <p>Uploading file...</p>
-              <p-progressBar mode="indeterminate" styleClass="w-full"></p-progressBar>
-            } @else if (files.length > 0) {
-              <div class="selected-files">
-                @for (file of files; track file.name) {
-                  <div class="file-item">
-                    <i class="pi pi-file"></i>
-                    <span class="file-name">{{ file.name }}</span>
-                    <span class="file-size">{{ formatSize(file.size) }}</span>
-                  </div>
-                }
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            } @else if (selectedFile()) {
+              <div class="file-item">
+                <mat-icon>insert_drive_file</mat-icon>
+                <span class="file-name">{{ selectedFile()!.name }}</span>
+                <span class="file-size">{{ formatSize(selectedFile()!.size) }}</span>
+                <button mat-icon-button (click)="clearSelectedFile()">
+                  <mat-icon>close</mat-icon>
+                </button>
               </div>
               <p class="upload-hint">Click "Upload" to upload the file</p>
             } @else {
-              <i class="pi pi-cloud-upload"></i>
-              <p>Drag and drop a file here</p>
-              <p>or click "Browse Files" to select</p>
+              <mat-icon>cloud_upload</mat-icon>
+              <p>Click the button below to select a file</p>
+              <input type="file" #fileInput (change)="onFileSelect($event)" accept=".csv,.json,.xlsx,.xml,.parquet,.tsv" style="display: none" />
+              <button mat-raised-button color="primary" (click)="fileInput.click()">
+                <mat-icon>folder_open</mat-icon>
+                Browse Files
+              </button>
             }
           </div>
-        </ng-template>
-      </p-fileUpload>
 
-      <p-divider></p-divider>
+          <div class="divider"></div>
 
-      <div class="upload-info">
-        <h4>Supported Formats</h4>
-        <div class="format-tags">
-          <p-tag value="CSV" severity="success"></p-tag>
-          <p-tag value="JSON" severity="info"></p-tag>
-          <p-tag value="XLSX" severity="warn"></p-tag>
-          <p-tag value="TSV" severity="secondary"></p-tag>
-          <p-tag value="XML" severity="secondary"></p-tag>
-          <p-tag value="Parquet" severity="danger"></p-tag>
+          <div class="upload-info">
+            <h4>Supported Formats</h4>
+            <div class="format-chips">
+              <span class="format-chip format-success">CSV</span>
+              <span class="format-chip format-info">JSON</span>
+              <span class="format-chip format-warn">XLSX</span>
+              <span class="format-chip format-secondary">TSV</span>
+              <span class="format-chip format-secondary">XML</span>
+              <span class="format-chip format-danger">Parquet</span>
+            </div>
+            <p class="text-hint">Maximum file size: 100 MB</p>
+          </div>
         </div>
-        <p class="text-sm text-500 mt-2">Maximum file size: 100 MB</p>
+        <div class="dialog-footer">
+          <button mat-button (click)="closeUploadDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="uploadFile()" [disabled]="!selectedFile() || uploading()">
+            @if (uploading()) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>cloud_upload</mat-icon>
+              Upload
+            }
+          </button>
+        </div>
       </div>
     </div>
-  </p-dialog>
+  }
 
-  <!-- Details Dialog -->
-  <p-dialog [(visible)]="detailDialogVisible" [header]="'Details: ' + (selectedDataSource()?.name || '')" [modal]="true" [style]="{ width: '500px' }">
-    @if (selectedDataSource(); as source) {
-      <div class="details-grid">
-        <div class="detail-item">
-          <label>Name</label>
-          <span>{{ source.name || source.originalFilename }}</span>
+  @if (detailDialogVisible()) {
+    <div class="dialog-overlay" (click)="closeDetailsDialog()">
+      <div class="dialog-content details-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Details: {{ selectedDataSource()?.name || '' }}</h2>
+          <button mat-icon-button (click)="closeDetailsDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
-        <div class="detail-item">
-          <label>Original Filename</label>
-          <span>{{ source.originalFilename }}</span>
-        </div>
-        <div class="detail-item">
-          <label>Format</label>
-          <p-tag [value]="source.format?.toUpperCase()" [severity]="getFormatSeverity(source.format)"></p-tag>
-        </div>
-        <div class="detail-item">
-          <label>Size</label>
-          <span>{{ formatSize(source.sizeBytes) }}</span>
-        </div>
-        <div class="detail-item">
-          <label>Row Count</label>
-          <span>{{ source.rowCount | number }}</span>
-        </div>
-        <div class="detail-item">
-          <label>Column Count</label>
-          <span>{{ source.columnCount }}</span>
-        </div>
-        <div class="detail-item">
-          <label>Uploaded</label>
-          <span>{{ formatDate(source.uploadedAt) }}</span>
-        </div>
-        <div class="detail-item">
-          <label>ID</label>
-          <code class="text-sm">{{ source.id }}</code>
-        </div>
+        @if (selectedDataSource(); as source) {
+          <div class="dialog-body">
+            <div class="details-grid">
+              <div class="detail-item">
+                <label>Name</label>
+                <span>{{ source.name || source.originalFilename }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Original Filename</label>
+                <span>{{ source.originalFilename }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Format</label>
+                <span class="format-chip" [class]="getFormatClass(source.format)">{{ source.format?.toUpperCase() }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Size</label>
+                <span>{{ formatSize(source.sizeBytes) }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Row Count</label>
+                <span>{{ source.rowCount | number }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Column Count</label>
+                <span>{{ source.columnCount }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Uploaded</label>
+                <span>{{ formatDate(source.uploadedAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <label>ID</label>
+                <code>{{ source.id }}</code>
+              </div>
 
-        @if (source.metadata?.columns && source.metadata?.columns?.length) {
-          <div class="detail-item full-width">
-            <label>Columns</label>
-            <div class="columns-list">
-              @for (col of source.metadata?.columns || []; track col.name) {
-                <div class="column-chip">
-                  <span class="col-name">{{ col.name }}</span>
-                  <span class="col-type">{{ col.type }}</span>
+              @if (source.metadata?.columns && source.metadata?.columns?.length) {
+                <div class="detail-item full-width">
+                  <label>Columns</label>
+                  <div class="columns-list">
+                    @for (col of source.metadata?.columns || []; track col.name) {
+                      <div class="column-chip">
+                        <span class="col-name">{{ col.name }}</span>
+                        <span class="col-type">{{ col.type }}</span>
+                      </div>
+                    }
+                  </div>
                 </div>
               }
             </div>
           </div>
         }
-      </div>
-    }
-    <ng-template pTemplate="footer">
-      <p-button label="Preview Data" icon="pi pi-eye" (click)="previewData(selectedDataSource()!, $event); detailDialogVisible.set(false)"></p-button>
-      <p-button label="Close" [text]="true" (click)="detailDialogVisible.set(false)"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- Preview Dialog -->
-  <p-dialog [(visible)]="previewDialogVisible" [header]="'Preview: ' + (selectedDataSource()?.name || '')" [modal]="true" [style]="{ width: '90vw', maxWidth: '1400px' }" [contentStyle]="{'max-height': '70vh', 'overflow': 'auto'}">
-    @if (previewLoading()) {
-      <div class="preview-loading">
-        <i class="pi pi-spin pi-spinner text-4xl"></i>
-        <p>Loading preview...</p>
-      </div>
-    } @else if (preview()) {
-      <div class="preview-header">
-        <div class="preview-info">
-          <span><strong>{{ preview()!.columns?.length || 0 }}</strong> columns</span>
-          <span class="separator">|</span>
-          <span>Showing <strong>{{ preview()!.data?.length || 0 }}</strong> of <strong>{{ preview()!.totalRows | number }}</strong> rows</span>
+        <div class="dialog-footer">
+          <button mat-stroked-button (click)="previewData(selectedDataSource()!, $event); closeDetailsDialog()">
+            <mat-icon>visibility</mat-icon>
+            Preview Data
+          </button>
+          <button mat-button (click)="closeDetailsDialog()">Close</button>
         </div>
       </div>
-      <p-table [value]="preview()!.data || []" [scrollable]="true" scrollHeight="400px" styleClass="p-datatable-sm p-datatable-gridlines">
-        <ng-template pTemplate="header">
-          <tr>
-            <th class="row-num">#</th>
-            @for (col of preview()!.columns || []; track col) {
-              <th>{{ col }}</th>
-            }
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-row let-i="rowIndex">
-          <tr>
-            <td class="row-num text-500">{{ i + 1 }}</td>
-            @for (col of preview()!.columns || []; track col) {
-              <td>{{ row[col] }}</td>
-            }
-          </tr>
-        </ng-template>
-      </p-table>
-    } @else {
-      <div class="preview-loading">
-        <i class="pi pi-exclamation-triangle text-4xl text-orange-500"></i>
-        <p>No preview data available</p>
+    </div>
+  }
+
+  @if (previewDialogVisible()) {
+    <div class="dialog-overlay" (click)="closePreviewDialog()">
+      <div class="dialog-content preview-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Preview: {{ selectedDataSource()?.name || '' }}</h2>
+          <button mat-icon-button (click)="closePreviewDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="dialog-body">
+          @if (previewLoading()) {
+            <div class="preview-loading">
+              <mat-spinner diameter="48"></mat-spinner>
+              <p>Loading preview...</p>
+            </div>
+          } @else if (preview()) {
+            <div class="preview-header">
+              <div class="preview-info">
+                <span><strong>{{ preview()!.columns?.length || 0 }}</strong> columns</span>
+                <span class="separator">|</span>
+                <span>Showing <strong>{{ preview()!.data?.length || 0 }}</strong> of <strong>{{ preview()!.totalRows | number }}</strong> rows</span>
+              </div>
+            </div>
+            <div class="preview-table-container">
+              <table mat-table [dataSource]="preview()!.data || []" class="preview-table">
+                <ng-container matColumnDef="rowNum">
+                  <th mat-header-cell *matHeaderCellDef class="row-num">#</th>
+                  <td mat-cell *matCellDef="let row; let i = index" class="row-num">{{ i + 1 }}</td>
+                </ng-container>
+
+                @for (col of preview()!.columns || []; track col) {
+                  <ng-container [matColumnDef]="col">
+                    <th mat-header-cell *matHeaderCellDef>{{ col }}</th>
+                    <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+                  </ng-container>
+                }
+
+                <tr mat-header-row *matHeaderRowDef="['rowNum'].concat(preview()!.columns || [])"></tr>
+                <tr mat-row *matRowDef="let row; columns: ['rowNum'].concat(preview()!.columns || []);"></tr>
+              </table>
+            </div>
+          } @else {
+            <div class="preview-loading">
+              <mat-icon color="warn">warning</mat-icon>
+              <p>No preview data available</p>
+            </div>
+          }
+        </div>
+        <div class="dialog-footer">
+          <button mat-button (click)="closePreviewDialog()">Close</button>
+        </div>
       </div>
-    }
-    <ng-template pTemplate="footer">
-      <p-button label="Close" [text]="true" (click)="previewDialogVisible.set(false)"></p-button>
-    </ng-template>
-  </p-dialog>
+    </div>
+  }
 </div>
