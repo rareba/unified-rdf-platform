@@ -4,14 +4,42 @@
 @import 'primeicons/primeicons.css';
 @import 'primeflex/primeflex.css';
 
+// Swiss Government Oblique Framework
+// Note: Oblique styles are imported via angular.json for proper SCSS preprocessing
+
+// Oblique Theme Configuration
+// Swiss Federal colors aligned with Oblique brand guidelines
+$ob-brand: (
+  primary: #dc0018,        // Swiss Federal red
+  primary-dark: #b2000f,
+  accent: #006699,         // Swiss Federal blue
+  success: #3c763d,
+  warning: #f5a623,
+  error: #dc0018
+);
+
 :root {
-  --primary-color: #6366f1;
-  --primary-dark: #4f46e5;
+  // Swiss Federal Design System colors (aligned with Oblique)
+  --ob-primary: #dc0018;
+  --ob-primary-dark: #b2000f;
+  --ob-accent: #006699;
+  --ob-success: #3c763d;
+  --ob-warning: #f5a623;
+  --ob-error: #dc0018;
+
+  // Keep PrimeNG variables for backward compatibility during migration
+  --primary-color: #dc0018;  // Updated to Swiss Federal red
+  --primary-dark: #b2000f;
   --secondary-color: #0f172a;
-  --text-color: #334155;
-  --bg-color: #f1f5f9;
+  --text-color: #333333;
+  --bg-color: #f5f5f5;
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 70px;
+
+  // Surface colors for Oblique compatibility
+  --surface-card: #ffffff;
+  --surface-border: #d5d5d5;
+  --surface-hover: #f0f0f0;
 }
 
 * {

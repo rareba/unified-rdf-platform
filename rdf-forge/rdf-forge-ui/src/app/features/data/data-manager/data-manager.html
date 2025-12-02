@@ -122,21 +122,33 @@
         [customUpload]="true"
         accept=".csv,.json,.xlsx,.xml,.parquet,.tsv"
         [maxFileSize]="104857600"
-        (onSelect)="onFileSelect($event, fileUpload)"
-        [disabled]="uploading()">
-        <ng-template pTemplate="toolbar">
-          <div class="upload-toolbar">Select a file to upload</div>
-        </ng-template>
-        <ng-template pTemplate="content">
-          <div class="upload-content" [class.uploading]="uploading()">
+        (onSelect)="onFileSelect($event)"
+        (uploadHandler)="onUpload($event, fileUpload)"
+        [disabled]="uploading()"
+        chooseLabel="Browse Files"
+        uploadLabel="Upload"
+        cancelLabel="Clear">
+        <ng-template pTemplate="content" let-files>
+          <div class="upload-content" [class.uploading]="uploading()" [class.has-files]="files.length > 0">
             @if (uploading()) {
               <i class="pi pi-spin pi-spinner"></i>
               <p>Uploading file...</p>
               <p-progressBar mode="indeterminate" styleClass="w-full"></p-progressBar>
+            } @else if (files.length > 0) {
+              <div class="selected-files">
+                @for (file of files; track file.name) {
+                  <div class="file-item">
+                    <i class="pi pi-file"></i>
+                    <span class="file-name">{{ file.name }}</span>
+                    <span class="file-size">{{ formatSize(file.size) }}</span>
+                  </div>
+                }
+              </div>
+              <p class="upload-hint">Click "Upload" to upload the file</p>
             } @else {
               <i class="pi pi-cloud-upload"></i>
               <p>Drag and drop a file here</p>
-              <p>or click to browse</p>
+              <p>or click "Browse Files" to select</p>
             }
           </div>
         </ng-template>

@@ -14,6 +14,8 @@ import { ToastModule } from 'primeng/toast';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ToggleButtonModule } from 'primeng/togglebutton';
 import { PanelModule } from 'primeng/panel';
+import { DividerModule } from 'primeng/divider';
+import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import { ShaclService } from '../../../core/services';
 import { ShapeCreateRequest, ContentFormat, ValidationResult } from '../../../core/models';
@@ -34,6 +36,134 @@ interface PropertyShape {
   nodeKind?: string;
 }
 
+interface ShapeTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  targetClass: string;
+  properties: Omit<PropertyShape, 'id'>[];
+}
+
+// Common constraint presets for non-experts
+interface ConstraintPreset {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  apply: (prop: PropertyShape) => void;
+}
+
+const SHAPE_TEMPLATES: ShapeTemplate[] = [
+  {
+    id: 'person',
+    name: 'Person',
+    description: 'Validate personal information like name, email, and birthdate',
+    icon: 'pi pi-user',
+    category: 'Common',
+    targetClass: 'http://schema.org/Person',
+    properties: [
+      { path: 'http://schema.org/name', name: 'Name', kind: 'LITERAL', datatype: 'xsd:string', minCount: 1, maxCount: 1 },
+      { path: 'http://schema.org/email', name: 'Email', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: null, pattern: '^[^@]+@[^@]+\\.[^@]+$' },
+      { path: 'http://schema.org/birthDate', name: 'Birth Date', kind: 'LITERAL', datatype: 'xsd:date', minCount: 0, maxCount: 1 }
+    ]
+  },
+  {
+    id: 'organization',
+    name: 'Organization',
+    description: 'Validate organization data with name, website, and contact info',
+    icon: 'pi pi-building',
+    category: 'Common',
+    targetClass: 'http://schema.org/Organization',
+    properties: [
+      { path: 'http://schema.org/name', name: 'Organization Name', kind: 'LITERAL', datatype: 'xsd:string', minCount: 1, maxCount: 1 },
+      { path: 'http://schema.org/url', name: 'Website', kind: 'LITERAL', datatype: 'xsd:anyURI', minCount: 0, maxCount: 1 },
+      { path: 'http://schema.org/email', name: 'Contact Email', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: null }
+    ]
+  },
+  {
+    id: 'datacube-observation',
+    name: 'Data Cube Observation',
+    description: 'Validate RDF Data Cube observations with dimensions and measures',
+    icon: 'pi pi-chart-bar',
+    category: 'Data Cube',
+    targetClass: 'http://purl.org/linked-data/cube#Observation',
+    properties: [
+      { path: 'http://purl.org/linked-data/cube#dataSet', name: 'Dataset', kind: 'RESOURCE', datatype: 'http://purl.org/linked-data/cube#DataSet', minCount: 1, maxCount: 1 },
+      { path: 'http://purl.org/linked-data/cube#measureType', name: 'Measure Type', kind: 'RESOURCE', datatype: '', minCount: 0, maxCount: 1 }
+    ]
+  },
+  {
+    id: 'skos-concept',
+    name: 'SKOS Concept',
+    description: 'Validate SKOS vocabulary concepts with labels and relationships',
+    icon: 'pi pi-tags',
+    category: 'Vocabulary',
+    targetClass: 'http://www.w3.org/2004/02/skos/core#Concept',
+    properties: [
+      { path: 'http://www.w3.org/2004/02/skos/core#prefLabel', name: 'Preferred Label', kind: 'LITERAL', datatype: 'xsd:string', minCount: 1, maxCount: null },
+      { path: 'http://www.w3.org/2004/02/skos/core#altLabel', name: 'Alternative Label', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: null },
+      { path: 'http://www.w3.org/2004/02/skos/core#definition', name: 'Definition', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: 1 },
+      { path: 'http://www.w3.org/2004/02/skos/core#inScheme', name: 'In Scheme', kind: 'RESOURCE', datatype: 'http://www.w3.org/2004/02/skos/core#ConceptScheme', minCount: 1, maxCount: 1 }
+    ]
+  },
+  {
+    id: 'dublin-core',
+    name: 'Dublin Core Metadata',
+    description: 'Validate resources with Dublin Core metadata elements',
+    icon: 'pi pi-book',
+    category: 'Metadata',
+    targetClass: 'http://purl.org/dc/terms/BibliographicResource',
+    properties: [
+      { path: 'http://purl.org/dc/terms/title', name: 'Title', kind: 'LITERAL', datatype: 'xsd:string', minCount: 1, maxCount: 1 },
+      { path: 'http://purl.org/dc/terms/creator', name: 'Creator', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: null },
+      { path: 'http://purl.org/dc/terms/date', name: 'Date', kind: 'LITERAL', datatype: 'xsd:date', minCount: 0, maxCount: 1 },
+      { path: 'http://purl.org/dc/terms/description', name: 'Description', kind: 'LITERAL', datatype: 'xsd:string', minCount: 0, maxCount: 1 }
+    ]
+  },
+  {
+    id: 'empty',
+    name: 'Empty Shape',
+    description: 'Start from scratch with a blank shape',
+    icon: 'pi pi-file',
+    category: 'Basic',
+    targetClass: '',
+    properties: []
+  }
+];
+
+const CONSTRAINT_PRESETS: ConstraintPreset[] = [
+  {
+    id: 'required',
+    label: 'Required Field',
+    description: 'This field must have at least one value',
+    icon: 'pi pi-exclamation-circle',
+    apply: (prop) => { prop.minCount = 1; }
+  },
+  {
+    id: 'single-value',
+    label: 'Single Value Only',
+    description: 'This field can have at most one value',
+    icon: 'pi pi-check',
+    apply: (prop) => { prop.maxCount = 1; }
+  },
+  {
+    id: 'required-single',
+    label: 'Required Single Value',
+    description: 'Exactly one value is required',
+    icon: 'pi pi-check-circle',
+    apply: (prop) => { prop.minCount = 1; prop.maxCount = 1; }
+  },
+  {
+    id: 'optional-multiple',
+    label: 'Optional, Multiple Allowed',
+    description: 'Zero or more values allowed',
+    icon: 'pi pi-list',
+    apply: (prop) => { prop.minCount = 0; prop.maxCount = null; }
+  }
+];
+
 @Component({
   selector: 'app-shape-editor',
   imports: [
@@ -50,7 +180,9 @@ interface PropertyShape {
     ToastModule,
     CheckboxModule,
     ToggleButtonModule,
-    PanelModule
+    PanelModule,
+    DividerModule,
+    TooltipModule
   ],
   providers: [MessageService],
   templateUrl: './shape-editor.html',
@@ -71,12 +203,21 @@ export class ShapeEditor implements OnInit {
   // Mode
   visualMode = signal(true);
 
+  // Wizard mode for new shapes
+  showTemplateSelector = signal(true);
+  wizardStep = signal(1);
+
+  // Templates and presets
+  templates = SHAPE_TEMPLATES;
+  constraintPresets = CONSTRAINT_PRESETS;
+  selectedTemplate = signal<ShapeTemplate | null>(null);
+
   // Shape Data
   name = signal('');
   uri = signal('');
   targetClass = signal('');
   description = signal('');
-  
+
   // Visual Editor Properties
   properties = signal<PropertyShape[]>([]);
   selectedProperty = signal<PropertyShape | null>(null);
@@ -84,7 +225,7 @@ export class ShapeEditor implements OnInit {
   // Raw Content (Synced or Manual)
   content = signal('');
   contentFormat = signal<ContentFormat>('turtle');
-  
+
   // Test Validation Data
   testData = signal('');
   testDataFormat = signal<'turtle' | 'jsonld' | 'ntriples'>('turtle');
@@ -131,8 +272,118 @@ export class ShapeEditor implements OnInit {
     if (id && id !== 'new') {
       this.isNew.set(false);
       this.shapeId.set(id);
+      this.showTemplateSelector.set(false);
       this.loadShape(id);
     }
+  }
+
+  // Template selection
+  selectTemplate(template: ShapeTemplate): void {
+    this.selectedTemplate.set(template);
+  }
+
+  applyTemplate(): void {
+    const template = this.selectedTemplate();
+    if (!template) return;
+
+    this.name.set(template.name + ' Shape');
+    this.targetClass.set(template.targetClass);
+    this.uri.set('');
+
+    // Convert template properties to PropertyShape with IDs
+    const props: PropertyShape[] = template.properties.map(p => ({
+      ...p,
+      id: crypto.randomUUID()
+    }));
+    this.properties.set(props);
+
+    this.showTemplateSelector.set(false);
+    this.wizardStep.set(2);
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Template Applied',
+      detail: `Started with ${template.name} template`
+    });
+  }
+
+  skipTemplate(): void {
+    this.showTemplateSelector.set(false);
+    this.wizardStep.set(2);
+  }
+
+  // Constraint presets (user-friendly constraint application)
+  applyConstraintPreset(preset: ConstraintPreset): void {
+    const prop = this.selectedProperty();
+    if (!prop) return;
+
+    preset.apply(prop);
+    this.properties.update(props => [...props]); // Trigger update
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Constraint Applied',
+      detail: preset.label
+    });
+  }
+
+  // Get human-readable constraint summary
+  getConstraintSummary(prop: PropertyShape): string {
+    const parts: string[] = [];
+
+    if (prop.minCount && prop.minCount > 0) {
+      if (prop.maxCount === 1 && prop.minCount === 1) {
+        parts.push('Required (exactly one)');
+      } else if (prop.maxCount === null || prop.maxCount === undefined) {
+        parts.push(`Required (at least ${prop.minCount})`);
+      } else {
+        parts.push(`Required (${prop.minCount}-${prop.maxCount})`);
+      }
+    } else {
+      if (prop.maxCount === 1) {
+        parts.push('Optional (at most one)');
+      } else {
+        parts.push('Optional');
+      }
+    }
+
+    if (prop.kind === 'LITERAL') {
+      const typeLabel = this.getDatatypeLabel(prop.datatype);
+      parts.push(typeLabel);
+
+      if (prop.pattern) {
+        parts.push('Must match pattern');
+      }
+      if (prop.minLength || prop.maxLength) {
+        parts.push(`Length: ${prop.minLength || 0}-${prop.maxLength || 'unlimited'}`);
+      }
+    } else {
+      parts.push('Link to resource');
+    }
+
+    return parts.join(' | ');
+  }
+
+  getDatatypeLabel(datatype: string): string {
+    const labels: Record<string, string> = {
+      'xsd:string': 'Text',
+      'xsd:integer': 'Whole number',
+      'xsd:decimal': 'Decimal number',
+      'xsd:date': 'Date',
+      'xsd:dateTime': 'Date and time',
+      'xsd:boolean': 'Yes/No',
+      'xsd:anyURI': 'URL/URI'
+    };
+    return labels[datatype] || datatype;
+  }
+
+  // Get grouped templates by category
+  get templatesByCategory(): { category: string; templates: ShapeTemplate[] }[] {
+    const grouped = new Map<string, ShapeTemplate[]>();
+    for (const template of this.templates) {
+      const list = grouped.get(template.category) || [];
+      list.push(template);
+      grouped.set(template.category, list);
+    }
+    return Array.from(grouped.entries()).map(([category, templates]) => ({ category, templates }));
   }
 
   loadShape(id: string): void {

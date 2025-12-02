@@ -278,6 +278,34 @@ export class Settings implements OnInit {
 
   updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
     this.settings.update(s => ({ ...s, [key]: value }));
+
+    // Apply theme immediately when changed
+    if (key === 'theme') {
+      this.applyTheme(value as string);
+    }
+
+    // Auto-save settings
+    this.autoSave();
+  }
+
+  private autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  private autoSave(): void {
+    // Debounce auto-save to avoid too frequent writes
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+    }
+    this.autoSaveTimeout = setTimeout(() => {
+      try {
+        const data = {
+          settings: this.settings(),
+          prefixes: this.customPrefixes()
+        };
+        localStorage.setItem('rdf-forge-settings', JSON.stringify(data));
+      } catch (e) {
+        console.error('Auto-save failed', e);
+      }
+    }, 500);
   }
 
   // Prefix Management

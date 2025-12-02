@@ -31,6 +31,8 @@
               }
             ],
             "styles": [
+              "node_modules/@oblique/oblique/styles/scss/oblique-core.scss",
+              "node_modules/@oblique/oblique/styles/scss/oblique-material.scss",
               "src/styles.scss"
             ]
           },
@@ -110,6 +112,10 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "allowedHosts": ["all", "host.docker.internal", ".localhost"],
+            "proxyConfig": "proxy.conf.json"
+          },
           "configurations": {
             "production": {
               "buildTarget": "rdf-forge-ui:build:production"

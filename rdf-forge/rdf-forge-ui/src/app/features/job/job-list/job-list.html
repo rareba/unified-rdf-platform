@@ -18,11 +18,24 @@
     </div>
   </div>
 
+  <!-- Backend Unavailable Warning -->
+  @if (!backendAvailable()) {
+    <div class="backend-unavailable">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>Backend service is unavailable. Please check that the API server is running.</span>
+      <p-button label="Retry" icon="pi pi-refresh" [outlined]="true" (click)="loadJobs()"></p-button>
+    </div>
+  }
+
   <!-- Stats Cards -->
-  <div class="stats-row">
+  <div class="stats-row" [class.stats-disabled]="!backendAvailable()">
     <div class="stat-card running">
       <div class="stat-icon">
-        <i class="pi pi-spin pi-spinner"></i>
+        @if (runningCount() > 0) {
+          <i class="pi pi-spin pi-spinner"></i>
+        } @else {
+          <i class="pi pi-play"></i>
+        }
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ runningCount() }}</span>

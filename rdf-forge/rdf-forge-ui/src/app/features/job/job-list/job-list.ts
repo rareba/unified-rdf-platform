@@ -55,6 +55,8 @@ export class JobList implements OnInit, OnDestroy {
   statusFilter = signal<string | null>(null);
   jobs = signal<Job[]>([]);
   pipelines = signal<Pipeline[]>([]);
+  backendAvailable = signal(true);
+  initialLoadComplete = signal(false);
 
   // Dialogs
   logsDialogVisible = signal(false);
@@ -128,10 +130,16 @@ export class JobList implements OnInit, OnDestroy {
       next: (data) => {
         this.jobs.set(data);
         this.loading.set(false);
+        this.backendAvailable.set(true);
+        this.initialLoadComplete.set(true);
       },
       error: (err) => {
         console.error('Failed to load jobs:', err);
         this.loading.set(false);
+        this.backendAvailable.set(false);
+        this.initialLoadComplete.set(true);
+        // Clear jobs on error to avoid showing stale data
+        this.jobs.set([]);
       }
     });
   }

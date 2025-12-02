@@ -93,7 +93,7 @@ export class DataManager implements OnInit {
     });
   }
 
-  onFileSelect(event: { files: File[] }, fileUpload: FileUpload): void {
+  onUpload(event: { files: File[] }, fileUpload: FileUpload): void {
     const file = event.files[0];
     if (!file) return;
 
@@ -115,6 +115,14 @@ export class DataManager implements OnInit {
         fileUpload.clear();
       }
     });
+  }
+
+  onFileSelect(event: { files: File[] }): void {
+    // File selected - user can review before clicking Upload
+    const file = event.files[0];
+    if (file) {
+      this.messageService.add({ severity: 'info', summary: 'File Selected', detail: `${file.name} ready to upload` });
+    }
   }
 
   viewDetails(source: DataSource, event: Event): void {

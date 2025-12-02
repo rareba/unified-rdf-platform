@@ -271,11 +271,63 @@
   }
 }
 
+// Selected files
+.selected-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+
+  i {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+  }
+
+  .file-name {
+    flex: 1;
+    font-weight: 500;
+    word-break: break-all;
+  }
+
+  .file-size {
+    color: var(--text-color-secondary);
+    font-size: 0.875rem;
+  }
+}
+
+.upload-hint {
+  color: var(--primary-color);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+.upload-content.has-files {
+  border-color: var(--primary-color);
+  background: var(--primary-50);
+}
+
 // PrimeNG Overrides
 :host ::ng-deep {
   .p-fileupload {
     .p-fileupload-buttonbar {
-      display: none;
+      padding: 0.75rem;
+      background: var(--surface-50);
+      border: 1px solid var(--surface-border);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      gap: 0.5rem;
     }
 
     .p-fileupload-content {

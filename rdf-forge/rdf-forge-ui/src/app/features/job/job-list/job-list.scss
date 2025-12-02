@@ -2,6 +2,34 @@
   padding: 1.5rem;
 }
 
+// Backend Unavailable Warning
+.backend-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #b45309;
+
+  i {
+    font-size: 1.25rem;
+    color: #f59e0b;
+  }
+
+  span {
+    flex: 1;
+    font-weight: 500;
+  }
+}
+
+.stats-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .header {
   display: flex;
   justify-content: space-between;

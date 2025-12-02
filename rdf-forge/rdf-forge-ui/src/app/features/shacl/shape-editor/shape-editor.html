@@ -1,14 +1,49 @@
 <p-toast></p-toast>
 
 <div class="shape-editor">
+  <!-- Template Selector (shown for new shapes) -->
+  @if (isNew() && showTemplateSelector()) {
+    <div class="template-selector">
+      <div class="template-header">
+        <i class="pi pi-lightbulb text-4xl text-primary mb-3"></i>
+        <h1>Choose a Starting Template</h1>
+        <p class="text-500">Select a template to get started quickly, or start from scratch</p>
+      </div>
+
+      <div class="template-grid">
+        @for (group of templatesByCategory; track group.category) {
+          <div class="template-category">
+            <h3 class="text-500 text-sm font-bold mb-2">{{ group.category }}</h3>
+            <div class="template-cards">
+              @for (template of group.templates; track template.id) {
+                <div class="template-card"
+                     [class.selected]="selectedTemplate()?.id === template.id"
+                     (click)="selectTemplate(template)">
+                  <i [class]="template.icon" class="text-2xl mb-2"></i>
+                  <div class="template-name">{{ template.name }}</div>
+                  <div class="template-desc text-500 text-sm">{{ template.description }}</div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="template-actions mt-4">
+        <p-button label="Skip, start blank" [text]="true" (onClick)="skipTemplate()"></p-button>
+        <p-button label="Use This Template" icon="pi pi-check" [disabled]="!selectedTemplate()" (onClick)="applyTemplate()"></p-button>
+      </div>
+    </div>
+  } @else {
+  <!-- Main Editor -->
   <div class="header">
     <h1>{{ isNew() ? 'Create Shape' : 'Edit Shape' }}</h1>
     <div class="actions">
-      <p-toggleButton 
-        [(ngModel)]="visualMode" 
-        onLabel="Visual Mode" 
-        offLabel="Code Mode" 
-        onIcon="pi pi-eye" 
+      <p-toggleButton
+        [(ngModel)]="visualMode"
+        onLabel="Visual Mode"
+        offLabel="Code Mode"
+        onIcon="pi pi-eye"
         offIcon="pi pi-code"
         styleClass="mr-2">
       </p-toggleButton>
@@ -125,31 +160,54 @@
 
                   <!-- Constraints Tab -->
                   <p-tabpanel value="constraints">
+                    <!-- Quick Presets for Non-Experts -->
+                    <div class="constraint-presets mb-4">
+                      <label class="font-bold block mb-2">Quick Presets</label>
+                      <div class="flex flex-wrap gap-2">
+                        @for (preset of constraintPresets; track preset.id) {
+                          <p-button
+                            [label]="preset.label"
+                            [icon]="preset.icon"
+                            [outlined]="true"
+                            size="small"
+                            [pTooltip]="preset.description"
+                            (onClick)="applyConstraintPreset(preset)">
+                          </p-button>
+                        }
+                      </div>
+                    </div>
+
+                    <p-divider></p-divider>
+
                     <div class="formgrid grid p-fluid">
                       <div class="field col-12 md:col-6">
-                        <label class="font-bold">Min Count (Required)</label>
-                        <div class="flex align-items-center gap-2">
-                          <input pInputText type="number" [(ngModel)]="prop.minCount" min="0" class="w-full" />
-                          <p-checkbox [binary]="true" label="Required" [ngModel]="prop.minCount === 1" (ngModelChange)="$event ? prop.minCount = 1 : prop.minCount = 0"></p-checkbox>
+                        <label class="font-bold">Is this field required?</label>
+                        <div class="flex align-items-center gap-3 mt-2">
+                          <p-checkbox [binary]="true" label="Required (must have a value)" [ngModel]="prop.minCount !== null && prop.minCount > 0" (ngModelChange)="$event ? prop.minCount = 1 : prop.minCount = 0"></p-checkbox>
                         </div>
+                        <small class="text-500 mt-1 block">Minimum occurrences: {{ prop.minCount ?? 0 }}</small>
                       </div>
                       <div class="field col-12 md:col-6">
-                        <label class="font-bold">Max Count</label>
-                        <input pInputText type="number" [(ngModel)]="prop.maxCount" min="1" />
+                        <label class="font-bold">How many values allowed?</label>
+                        <div class="flex align-items-center gap-3 mt-2">
+                          <p-checkbox [binary]="true" label="Single value only" [ngModel]="prop.maxCount === 1" (ngModelChange)="prop.maxCount = $event ? 1 : null"></p-checkbox>
+                        </div>
+                        <small class="text-500 mt-1 block">Maximum: {{ prop.maxCount ?? 'Unlimited' }}</small>
                       </div>
-                      
+
                       @if (prop.kind === 'LITERAL') {
                         <div class="field col-12">
-                          <label class="font-bold">Pattern (Regex)</label>
-                          <input pInputText type="text" [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$" />
+                          <label class="font-bold">Must match a pattern?</label>
+                          <input pInputText type="text" [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
+                          <small class="text-500">Regular expression pattern the value must match</small>
                         </div>
                         <div class="field col-12 md:col-6">
-                          <label class="font-bold">Min Length</label>
-                          <input pInputText type="number" [(ngModel)]="prop.minLength" min="0" />
+                          <label class="font-bold">Minimum text length</label>
+                          <input pInputText type="number" [(ngModel)]="prop.minLength" min="0" placeholder="No minimum" />
                         </div>
                         <div class="field col-12 md:col-6">
-                          <label class="font-bold">Max Length</label>
-                          <input pInputText type="number" [(ngModel)]="prop.maxLength" min="0" />
+                          <label class="font-bold">Maximum text length</label>
+                          <input pInputText type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="No maximum" />
                         </div>
                       }
                     </div>
@@ -246,4 +304,5 @@
       </p-panel>
     </div>
   </div>
+  } <!-- end of else block for template selector -->
 </div>
