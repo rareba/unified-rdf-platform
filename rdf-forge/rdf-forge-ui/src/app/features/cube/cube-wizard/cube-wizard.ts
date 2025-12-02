@@ -2,29 +2,25 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { CardModule } from 'primeng/card';
-import { StepperModule } from 'primeng/stepper';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { TextareaModule } from 'primeng/textarea';
-import { SelectModule } from 'primeng/select';
-import { ListboxModule } from 'primeng/listbox';
-import { ToastModule } from 'primeng/toast';
-import { FileUploadModule } from 'primeng/fileupload';
-import { SelectButtonModule } from 'primeng/selectbutton';
-import { DialogModule } from 'primeng/dialog';
-import { CheckboxModule } from 'primeng/checkbox';
-import { PanelModule } from 'primeng/panel';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
-import { TabsModule } from 'primeng/tabs';
-import { DividerModule } from 'primeng/divider';
-import { InputNumberModule } from 'primeng/inputnumber';
-import { TooltipModule } from 'primeng/tooltip';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { AccordionModule } from 'primeng/accordion';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MatCardModule } from '@angular/material/card';
+import { MatStepperModule } from '@angular/material/stepper';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatListModule } from '@angular/material/list';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { DataService, DimensionService, PipelineService } from '../../../core/services';
 import { DataSource, Dimension, ColumnInfo, DimensionType, UploadOptions } from '../../../core/models';
 import { DataPreviewComponent } from '../../data/data-preview/data-preview';
@@ -68,31 +64,26 @@ interface CubeMetadata {
   imports: [
     CommonModule,
     FormsModule,
-    CardModule,
-    StepperModule,
-    ButtonModule,
-    InputTextModule,
-    TextareaModule,
-    SelectModule,
-    ListboxModule,
-    ToastModule,
-    FileUploadModule,
-    SelectButtonModule,
-    DialogModule,
-    CheckboxModule,
-    PanelModule,
-    TableModule,
-    TagModule,
-    TabsModule,
-    DividerModule,
-    InputNumberModule,
-    TooltipModule,
-    ProgressBarModule,
-    AccordionModule,
-    ConfirmDialogModule,
+    MatCardModule,
+    MatStepperModule,
+    MatButtonModule,
+    MatInputModule,
+    MatSelectModule,
+    MatListModule,
+    MatButtonToggleModule,
+    MatDialogModule,
+    MatCheckboxModule,
+    MatExpansionModule,
+    MatTableModule,
+    MatChipsModule,
+    MatTabsModule,
+    MatDividerModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    MatIconModule,
+    MatFormFieldModule,
     DataPreviewComponent
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './cube-wizard.html',
   styleUrl: './cube-wizard.scss',
 })
@@ -100,8 +91,7 @@ export class CubeWizard implements OnInit {
   private readonly dataService = inject(DataService);
   private readonly dimensionService = inject(DimensionService);
   private readonly pipelineService = inject(PipelineService);
-  private readonly messageService = inject(MessageService);
-  private readonly confirmService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
 
   activeStep = signal(0);
@@ -329,11 +319,7 @@ export class CubeWizard implements OnInit {
     const current = this.activeStep();
 
     if (!this.canProceed(current)) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Incomplete',
-        detail: 'Please complete all required fields before proceeding'
-      });
+      this.snackBar.open('Please complete all required fields before proceeding', 'Close', { duration: 3000 });
       return;
     }
 
@@ -382,7 +368,7 @@ export class CubeWizard implements OnInit {
         this.loadingDataSources.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load data sources' });
+        this.snackBar.open('Failed to load data sources', 'Close', { duration: 3000 });
         this.loadingDataSources.set(false);
       }
     });
@@ -396,7 +382,7 @@ export class CubeWizard implements OnInit {
         this.loadingDimensions.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load dimensions' });
+        this.snackBar.open('Failed to load dimensions', 'Close', { duration: 3000 });
         this.loadingDimensions.set(false);
       }
     });
@@ -426,7 +412,7 @@ export class CubeWizard implements OnInit {
         this.loadingColumns.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to analyze data source' });
+        this.snackBar.open('Failed to analyze data source', 'Close', { duration: 3000 });
         this.loadingColumns.set(false);
       }
     });
@@ -513,11 +499,7 @@ export class CubeWizard implements OnInit {
       });
     });
 
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Auto-Assign Complete',
-      detail: 'Dimensions matched where possible'
-    });
+    this.snackBar.open('Dimensions matched where possible', 'Close', { duration: 3000 });
   }
 
   // File upload
@@ -541,19 +523,11 @@ export class CubeWizard implements OnInit {
           this.loadColumnsFromSource(dataSource);
           this.sourceType.set('existing');
           this.uploading.set(false);
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Upload Complete',
-            detail: `File "${file.name}" uploaded successfully`
-          });
+          this.snackBar.open(`File "${file.name}" uploaded successfully`, 'Close', { duration: 3000 });
         },
         error: (err) => {
           this.uploading.set(false);
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Upload Failed',
-            detail: err.error?.message || 'Failed to upload file'
-          });
+          this.snackBar.open(err.error?.message || 'Failed to upload file', 'Close', { duration: 3000 });
         }
       });
     }
@@ -573,7 +547,7 @@ export class CubeWizard implements OnInit {
   saveNewDimension(): void {
     const dim = this.newDimension();
     if (!dim.name) {
-      this.messageService.add({ severity: 'warn', summary: 'Required', detail: 'Dimension name is required' });
+      this.snackBar.open('Dimension name is required', 'Close', { duration: 3000 });
       return;
     }
 
@@ -587,15 +561,11 @@ export class CubeWizard implements OnInit {
         this.loadDimensions();
         this.showNewDimensionDialog.set(false);
         this.savingDimension.set(false);
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Created',
-          detail: `Dimension "${created.name}" created`
-        });
+        this.snackBar.open(`Dimension "${created.name}" created`, 'Close', { duration: 3000 });
       },
       error: () => {
         this.savingDimension.set(false);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create dimension' });
+        this.snackBar.open('Failed to create dimension', 'Close', { duration: 3000 });
       }
     });
   }
@@ -823,12 +793,9 @@ export class CubeWizard implements OnInit {
 
   // Publishing
   publishCube(): void {
-    this.confirmService.confirm({
-      message: `Are you sure you want to publish the cube "${this.cubeName()}" to the triplestore?`,
-      header: 'Confirm Publication',
-      icon: 'pi pi-cloud-upload',
-      accept: () => this.doPublish()
-    });
+    if (confirm(`Are you sure you want to publish the cube "${this.cubeName()}" to the triplestore?`)) {
+      this.doPublish();
+    }
   }
 
   private doPublish(): void {
@@ -895,12 +862,7 @@ export class CubeWizard implements OnInit {
 
         setTimeout(() => {
           this.publishing.set(false);
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: `Cube "${this.cubeName()}" pipeline created successfully`,
-            life: 5000
-          });
+          this.snackBar.open(`Cube "${this.cubeName()}" pipeline created successfully`, 'Close', { duration: 5000 });
 
           // Navigate to pipeline or jobs
           if (this.publishOptions().runImmediately) {
@@ -914,11 +876,7 @@ export class CubeWizard implements OnInit {
         clearInterval(progressInterval);
         this.publishing.set(false);
         this.publishProgress.set(0);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Publication Failed',
-          detail: err.error?.message || 'Failed to create cube pipeline'
-        });
+        this.snackBar.open(err.error?.message || 'Failed to create cube pipeline', 'Close', { duration: 3000 });
       }
     });
   }
@@ -968,7 +926,7 @@ export class CubeWizard implements OnInit {
 
   copyToClipboard(text: string): void {
     navigator.clipboard.writeText(text);
-    this.messageService.add({ severity: 'info', summary: 'Copied', detail: 'Content copied to clipboard' });
+    this.snackBar.open('Content copied to clipboard', 'Close', { duration: 3000 });
   }
 
   // Form update helpers (Angular templates don't support arrow functions)
