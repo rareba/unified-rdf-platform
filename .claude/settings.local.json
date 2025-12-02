@@ -16,7 +16,10 @@
       "Bash(git log:*)",
       "Bash(dir:*)",
       "Bash(npm run build:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(docker exec:*)",
+      "Bash(winpty docker exec -it rdf-forge-ui sh -c \"ls -la //usr//share//nginx//html//\")"
     ],
     "deny": [],
     "ask": []
