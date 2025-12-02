@@ -68,11 +68,13 @@ public class DimensionService {
     }
     
     public Page<DimensionEntity> search(UUID projectId, DimensionType type, String search, Pageable pageable) {
-        return dimensionRepository.findByFilters(projectId, type, search, pageable);
+        String typeStr = type != null ? type.name() : null;
+        return dimensionRepository.findByFilters(projectId, typeStr, search, pageable);
     }
-    
+
     public Page<DimensionEntity> findShared(DimensionType type, String search, Pageable pageable) {
-        return dimensionRepository.findSharedByFilters(type, search, pageable);
+        String typeStr = type != null ? type.name() : null;
+        return dimensionRepository.findSharedByFilters(typeStr, search, pageable);
     }
     
     @CacheEvict(value = "dimensions", key = "#id")

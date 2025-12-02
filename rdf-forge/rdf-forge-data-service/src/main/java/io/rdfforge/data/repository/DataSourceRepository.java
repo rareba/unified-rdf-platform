@@ -14,25 +14,30 @@ import java.util.UUID;
 
 @Repository
 public interface DataSourceRepository extends JpaRepository<DataSourceEntity, UUID> {
-    
+
     List<DataSourceEntity> findByProjectIdOrderByUploadedAtDesc(UUID projectId);
-    
+
     Page<DataSourceEntity> findByProjectId(UUID projectId, Pageable pageable);
-    
+
     List<DataSourceEntity> findByFormat(DataFormat format);
-    
-    @Query("SELECT d FROM DataSourceEntity d WHERE " +
-           "(:projectId IS NULL OR d.projectId = :projectId) AND " +
-           "(:format IS NULL OR d.format = :format) AND " +
-           "(:search IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :search, '%'))) " +
-           "ORDER BY d.uploadedAt DESC")
+
+    @Query(value = "SELECT * FROM data_sources d WHERE " +
+           "(:projectId IS NULL OR d.project_id = :projectId) AND " +
+           "(:format IS NULL OR d.format = CAST(:format AS VARCHAR)) AND " +
+           "(:search IS NULL OR d.name ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%')) " +
+           "ORDER BY d.uploaded_at DESC",
+           countQuery = "SELECT COUNT(*) FROM data_sources d WHERE " +
+           "(:projectId IS NULL OR d.project_id = :projectId) AND " +
+           "(:format IS NULL OR d.format = CAST(:format AS VARCHAR)) AND " +
+           "(:search IS NULL OR d.name ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%'))",
+           nativeQuery = true)
     Page<DataSourceEntity> findWithFilters(
         @Param("projectId") UUID projectId,
-        @Param("format") DataFormat format,
+        @Param("format") String format,
         @Param("search") String search,
         Pageable pageable
     );
-    
+
     @Query("SELECT SUM(d.sizeBytes) FROM DataSourceEntity d WHERE d.projectId = :projectId")
     Long getTotalSizeByProject(@Param("projectId") UUID projectId);
 }

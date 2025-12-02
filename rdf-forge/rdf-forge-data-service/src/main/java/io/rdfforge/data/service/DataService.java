@@ -25,7 +25,8 @@ public class DataService {
     }
     
     public Page<DataSourceEntity> getDataSources(UUID projectId, DataFormat format, String search, int page, int size) {
-        return repository.findWithFilters(projectId, format, search, PageRequest.of(page, size));
+        String formatStr = format != null ? format.name() : null;
+        return repository.findWithFilters(projectId, formatStr, search, PageRequest.of(page, size));
     }
     
     public Optional<DataSourceEntity> getDataSource(UUID id) {

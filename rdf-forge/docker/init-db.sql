@@ -159,6 +159,52 @@ CREATE TABLE IF NOT EXISTS dimensions (
 
 CREATE INDEX idx_dimensions_project ON dimensions(project_id);
 
+-- Dimension Values
+CREATE TABLE IF NOT EXISTS dimension_values (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dimension_id UUID NOT NULL REFERENCES dimensions(id) ON DELETE CASCADE,
+    uri VARCHAR(500) NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    label_lang VARCHAR(10) DEFAULT 'en',
+    description TEXT,
+    parent_id UUID REFERENCES dimension_values(id),
+    hierarchy_level INT DEFAULT 0,
+    sort_order INT DEFAULT 0,
+    metadata JSONB,
+    alt_labels JSONB,
+    skos_notation VARCHAR(100),
+    is_deprecated BOOLEAN DEFAULT FALSE,
+    replaced_by VARCHAR(500),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP
+);
+
+CREATE INDEX idx_dim_values_dimension ON dimension_values(dimension_id);
+CREATE INDEX idx_dim_values_code ON dimension_values(code);
+CREATE INDEX idx_dim_values_uri ON dimension_values(uri);
+
+-- Hierarchies
+CREATE TABLE IF NOT EXISTS hierarchies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dimension_id UUID NOT NULL REFERENCES dimensions(id) ON DELETE CASCADE,
+    uri VARCHAR(500) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    hierarchy_type VARCHAR(50) DEFAULT 'SKOS_CONCEPT_SCHEME',
+    max_depth INT,
+    root_concept_uri VARCHAR(500),
+    skos_content TEXT,
+    properties JSONB,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP,
+    UNIQUE(dimension_id, uri)
+);
+
+CREATE INDEX idx_hierarchies_dimension ON hierarchies(dimension_id);
+
 -- Triplestore Connections
 CREATE TABLE IF NOT EXISTS triplestore_connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

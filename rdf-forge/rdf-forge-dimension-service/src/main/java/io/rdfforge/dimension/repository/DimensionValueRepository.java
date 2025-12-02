@@ -34,9 +34,13 @@ public interface DimensionValueRepository extends JpaRepository<DimensionValueEn
         @Param("level") Integer level
     );
     
-    @Query("SELECT v FROM DimensionValueEntity v WHERE v.dimensionId = :dimensionId " +
-           "AND (:search IS NULL OR LOWER(v.label) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(v.code) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query(value = "SELECT * FROM dimension_values v WHERE v.dimension_id = :dimensionId " +
+           "AND (:search IS NULL OR v.label ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%') " +
+           "OR v.code ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%'))",
+           countQuery = "SELECT COUNT(*) FROM dimension_values v WHERE v.dimension_id = :dimensionId " +
+           "AND (:search IS NULL OR v.label ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%') " +
+           "OR v.code ILIKE CONCAT('%', CAST(:search AS VARCHAR), '%'))",
+           nativeQuery = true)
     Page<DimensionValueEntity> searchValues(
         @Param("dimensionId") UUID dimensionId,
         @Param("search") String search,
