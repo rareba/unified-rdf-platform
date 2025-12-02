@@ -886,7 +886,7 @@ export class CubeWizard implements OnInit {
       name: this.publishOptions().pipelineName || `Cube Pipeline: ${this.cubeName()}`,
       description: `Pipeline to generate and publish ${this.cubeName()} data cube`,
       definition: JSON.stringify(pipelineDef, null, 2),
-      definitionFormat: 'json',
+      definitionFormat: 'JSON',
       tags: ['cube-generation', 'auto-generated']
     }).subscribe({
       next: (pipeline) => {

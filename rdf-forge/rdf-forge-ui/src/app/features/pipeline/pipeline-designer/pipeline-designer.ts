@@ -518,7 +518,7 @@ export class PipelineDesigner implements OnInit {
       name: this.name(),
       description: this.description(),
       definition: JSON.stringify(definition),
-      definitionFormat: 'json',
+      definitionFormat: 'JSON',
       tags: this.tags()
     };
 

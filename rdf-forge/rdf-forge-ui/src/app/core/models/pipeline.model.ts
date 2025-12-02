@@ -1,9 +1,11 @@
+export type DefinitionFormat = 'YAML' | 'TURTLE' | 'JSON';
+
 export interface Pipeline {
   id: string;
   name: string;
   description: string;
   definition: string;
-  definitionFormat: 'yaml' | 'turtle' | 'json';
+  definitionFormat: DefinitionFormat;
   variables: Record<string, unknown>;
   tags: string[];
   stepsCount: number;
@@ -18,7 +20,7 @@ export interface PipelineCreateRequest {
   name: string;
   description?: string;
   definition: string;
-  definitionFormat: 'yaml' | 'turtle' | 'json';
+  definitionFormat: DefinitionFormat;
   variables?: Record<string, unknown>;
   tags?: string[];
 }
