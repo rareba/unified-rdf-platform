@@ -1,42 +1,60 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="pipeline-designer">
   <!-- Header -->
   <div class="header">
     <div class="header-left">
       <h1>{{ isNew() ? 'New Pipeline' : 'Edit Pipeline' }}</h1>
       @if (!isNew()) {
-        <p-tag [value]="pipelineId()?.substring(0, 8) + '...'" severity="secondary" styleClass="ml-2"></p-tag>
+        <span class="pipeline-id-chip">{{ pipelineId()?.substring(0, 8) + '...' }}</span>
       }
     </div>
     <div class="actions">
       @if (validationErrors().length > 0) {
-        <p-tag severity="danger" icon="pi pi-exclamation-triangle" [value]="validationErrors().length + ' issues'"></p-tag>
+        <span class="status-chip error">
+          <mat-icon>error</mat-icon>
+          {{ validationErrors().length }} issues
+        </span>
       } @else if (nodes().length > 0) {
-        <p-tag severity="success" icon="pi pi-check" value="Valid"></p-tag>
+        <span class="status-chip success">
+          <mat-icon>check_circle</mat-icon>
+          Valid
+        </span>
       }
-      <p-button label="Cancel" [text]="true" (click)="cancel()"></p-button>
-      <p-button label="Clear" icon="pi pi-trash" severity="secondary" [text]="true" (click)="clearCanvas()"></p-button>
-      <p-button label="JSON" icon="pi pi-code" severity="secondary" [outlined]="true" (click)="showJson()"></p-button>
-      <p-button label="Validate" icon="pi pi-check" severity="secondary" (click)="validate()"></p-button>
-      <p-button label="Save" icon="pi pi-save" (click)="save()" [loading]="saving()"></p-button>
+      <button mat-button (click)="cancel()">Cancel</button>
+      <button mat-button (click)="clearCanvas()">
+        <mat-icon>delete</mat-icon>
+        Clear
+      </button>
+      <button mat-stroked-button (click)="showJson()">
+        <mat-icon>code</mat-icon>
+        JSON
+      </button>
+      <button mat-stroked-button color="primary" (click)="validate()">
+        <mat-icon>check</mat-icon>
+        Validate
+      </button>
+      <button mat-raised-button color="primary" (click)="save()" [disabled]="saving()">
+        <mat-icon>save</mat-icon>
+        Save
+      </button>
       @if (!isNew()) {
-        <p-button label="Run" icon="pi pi-play" severity="success" (click)="openRunDialog()" [disabled]="!isValid()"></p-button>
+        <button mat-raised-button color="accent" (click)="openRunDialog()" [disabled]="!isValid()">
+          <mat-icon>play_arrow</mat-icon>
+          Run
+        </button>
       }
     </div>
   </div>
 
   <!-- Pipeline Metadata -->
   <div class="metadata-row">
-    <div class="flex-1">
-      <label for="pipeline-name" class="block text-sm font-medium mb-1">Pipeline Name</label>
-      <input id="pipeline-name" type="text" pInputText class="w-full" [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Enter pipeline name" />
-    </div>
-    <div class="flex-1">
-      <label for="pipeline-desc" class="block text-sm font-medium mb-1">Description</label>
-      <input id="pipeline-desc" type="text" pInputText class="w-full" [ngModel]="description()" (ngModelChange)="description.set($event)" placeholder="Optional description" />
-    </div>
+    <mat-form-field class="flex-1">
+      <mat-label>Pipeline Name</mat-label>
+      <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Enter pipeline name" />
+    </mat-form-field>
+    <mat-form-field class="flex-1">
+      <mat-label>Description</mat-label>
+      <input matInput [ngModel]="description()" (ngModelChange)="description.set($event)" placeholder="Optional description" />
+    </mat-form-field>
   </div>
 
   <!-- Main Content -->
@@ -44,46 +62,48 @@
     <!-- Operations Palette -->
     <div class="palette">
       <div class="palette-header">
-        <i class="pi pi-th-large"></i>
+        <mat-icon>grid_view</mat-icon>
         <span>Operations</span>
       </div>
       <div class="palette-content">
-        <p-accordion [multiple]="true" [value]="['source']">
+        <mat-accordion [multi]="true">
           @for (group of operationGroups(); track group.type) {
-            <p-accordion-panel [value]="group.type">
-              <p-accordion-header>
-                <div class="flex align-items-center gap-2">
-                  <i [class]="group.icon"></i>
-                  <span>{{ group.label }}</span>
-                  <p-tag [value]="group.operations.length + ''" [severity]="getTypeColor(group.type)" styleClass="ml-auto"></p-tag>
-                </div>
-              </p-accordion-header>
-              <p-accordion-content>
-                <div class="operations-list">
-                  @for (op of group.operations; track op.id) {
-                    <div class="operation-item"
-                         draggable="true"
-                         (dragstart)="onDragStart($event, op)"
-                         [pTooltip]="op.description"
-                         tooltipPosition="right">
-                      <div class="op-icon" [style.background-color]="getNodeBorderColor(op.type)">
-                        <i [class]="group.icon" class="text-white text-xs"></i>
-                      </div>
-                      <div class="op-info">
-                        <span class="op-name">{{ op.name }}</span>
-                        <span class="op-params">{{ (op.parameters | keyvalue).length }} params</span>
-                      </div>
+            <mat-expansion-panel [expanded]="group.type === 'SOURCE'">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <div class="operation-group-header">
+                    <mat-icon>{{ group.icon }}</mat-icon>
+                    <span>{{ group.label }}</span>
+                    <span class="operation-count" [attr.data-type]="group.type.toLowerCase()">
+                      {{ group.operations.length }}
+                    </span>
+                  </div>
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <div class="operations-list">
+                @for (op of group.operations; track op.id) {
+                  <div class="operation-item"
+                       draggable="true"
+                       (dragstart)="onDragStart($event, op)"
+                       [matTooltip]="op.description"
+                       matTooltipPosition="right">
+                    <div class="op-icon" [style.background-color]="getNodeBorderColor(op.type)">
+                      <mat-icon class="icon-white">{{ group.icon }}</mat-icon>
                     </div>
-                  }
-                </div>
-              </p-accordion-content>
-            </p-accordion-panel>
+                    <div class="op-info">
+                      <span class="op-name">{{ op.name }}</span>
+                      <span class="op-params">{{ (op.parameters | keyvalue).length }} params</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </mat-expansion-panel>
           }
-        </p-accordion>
+        </mat-accordion>
 
         @if (availableOperations().length === 0) {
-          <div class="text-center p-4 text-500">
-            <i class="pi pi-spin pi-spinner text-2xl mb-2"></i>
+          <div class="loading-state">
+            <mat-spinner diameter="40"></mat-spinner>
             <p>Loading operations...</p>
           </div>
         }
@@ -137,10 +157,12 @@
             </div>
 
             <div class="node-header">
-              <p-tag [value]="node.operationType" [severity]="getTypeColor(node.operationType)" styleClass="text-xs"></p-tag>
+              <span class="node-type-chip" [attr.data-type]="node.operationType.toLowerCase()">
+                {{ node.operationType }}
+              </span>
               <div class="node-actions">
-                <i class="pi pi-cog cursor-pointer hover:text-primary" (click)="configureNode(node, $event)" pTooltip="Configure"></i>
-                <i class="pi pi-trash cursor-pointer hover:text-red-500" (click)="removeNode(node.id, $event)" pTooltip="Remove"></i>
+                <mat-icon class="action-icon" (click)="configureNode(node, $event)" matTooltip="Configure">settings</mat-icon>
+                <mat-icon class="action-icon delete" (click)="removeNode(node.id, $event)" matTooltip="Remove">delete</mat-icon>
               </div>
             </div>
 
@@ -150,13 +172,11 @@
               @if (getOperationById(node.operationId); as op) {
                 @for (entry of op.parameters | keyvalue; track entry.key) {
                   @if (entry.value.required && !node.params[entry.key]) {
-                    <span class="param-missing" [pTooltip]="'Missing: ' + entry.key">
-                      <i class="pi pi-exclamation-circle"></i>
-                    </span>
+                    <mat-icon class="param-missing" [matTooltip]="'Missing: ' + entry.key">error</mat-icon>
                   }
                 }
               }
-              <span class="text-xs text-500">{{ node.id.substring(0, 8) }}</span>
+              <span class="node-id">{{ node.id.substring(0, 8) }}</span>
             </div>
 
             <!-- Output Port -->
@@ -169,9 +189,9 @@
         <!-- Empty State -->
         @if (nodes().length === 0) {
           <div class="canvas-empty">
-            <i class="pi pi-inbox text-5xl text-300 mb-3"></i>
+            <mat-icon class="empty-icon">inbox</mat-icon>
             <h3>Drag operations here to build your pipeline</h3>
-            <p class="text-500">Start by adding a data source from the palette on the left</p>
+            <p>Start by adding a data source from the palette on the left</p>
           </div>
         }
       </div>
@@ -180,7 +200,7 @@
       @if (validationErrors().length > 0) {
         <div class="validation-panel">
           <div class="validation-header">
-            <i class="pi pi-exclamation-triangle text-orange-500"></i>
+            <mat-icon>warning</mat-icon>
             <span>Validation Issues ({{ validationErrors().length }})</span>
           </div>
           <ul class="validation-list">
@@ -194,201 +214,264 @@
   </div>
 
   <!-- Configuration Dialog -->
-  <p-dialog [(visible)]="configDialogVisible"
-            [header]="'Configure: ' + (selectedNode()?.operationName || '')"
-            [modal]="true"
-            [style]="{width: '600px', maxHeight: '80vh'}"
-            [contentStyle]="{'overflow-y': 'auto'}">
-    @if (selectedNode(); as node) {
-      @if (selectedOperation(); as op) {
-        <div class="config-dialog">
-          <!-- Operation Info -->
-          <div class="op-description mb-4">
-            <p-tag [value]="op.type" [severity]="getTypeColor(op.type)"></p-tag>
-            <p class="mt-2 text-600">{{ op.description }}</p>
+  @if (configDialogVisible()) {
+    <div class="dialog-overlay" (click)="configDialogVisible.set(false)">
+      <div class="dialog-container" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Configure: {{ selectedNode()?.operationName || '' }}</h2>
+          <button mat-icon-button (click)="configDialogVisible.set(false)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        @if (selectedNode(); as node) {
+          @if (selectedOperation(); as op) {
+            <div class="dialog-content">
+              <!-- Operation Info -->
+              <div class="op-description">
+                <span class="node-type-chip" [attr.data-type]="op.type.toLowerCase()">{{ op.type }}</span>
+                <p class="op-desc-text">{{ op.description }}</p>
+              </div>
+
+              <mat-divider></mat-divider>
+
+              <!-- Parameters -->
+              <h3>Parameters</h3>
+
+              @if ((op.parameters | keyvalue).length === 0) {
+                <p class="no-params">This operation has no configurable parameters.</p>
+              } @else {
+                <div class="params-form">
+                  @for (entry of op.parameters | keyvalue; track entry.key) {
+                    <div class="param-field">
+                      @switch (getParamType(entry.value.type)) {
+                        @case ('boolean') {
+                          <mat-checkbox
+                            [ngModel]="node.params[entry.key]"
+                            (ngModelChange)="updateNodeParam(entry.key, $event)">
+                            {{ entry.value.name }}
+                            @if (entry.value.required) {
+                              <span class="required">*</span>
+                            }
+                          </mat-checkbox>
+                          @if (entry.value.description) {
+                            <small class="param-help">{{ entry.value.description }}</small>
+                          }
+                        }
+                        @case ('number') {
+                          <mat-form-field class="full-width">
+                            <mat-label>
+                              {{ entry.value.name }}
+                              @if (entry.value.required) {
+                                <span class="required">*</span>
+                              }
+                            </mat-label>
+                            <input matInput type="number"
+                              [ngModel]="node.params[entry.key]"
+                              (ngModelChange)="updateNodeParam(entry.key, $event)"
+                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            @if (entry.value.description) {
+                              <mat-hint>{{ entry.value.description }}</mat-hint>
+                            }
+                          </mat-form-field>
+                        }
+                        @case ('char') {
+                          <mat-form-field class="full-width">
+                            <mat-label>
+                              {{ entry.value.name }}
+                              @if (entry.value.required) {
+                                <span class="required">*</span>
+                              }
+                            </mat-label>
+                            <input matInput
+                              [ngModel]="node.params[entry.key]"
+                              (ngModelChange)="updateNodeParam(entry.key, $event)"
+                              [maxlength]="1"
+                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            @if (entry.value.description) {
+                              <mat-hint>{{ entry.value.description }}</mat-hint>
+                            }
+                          </mat-form-field>
+                        }
+                        @case ('map') {
+                          <mat-form-field class="full-width">
+                            <mat-label>
+                              {{ entry.value.name }}
+                              @if (entry.value.required) {
+                                <span class="required">*</span>
+                              }
+                            </mat-label>
+                            <textarea matInput
+                              [ngModel]="getMapValue(entry.key)"
+                              (ngModelChange)="updateMapParam(entry.key, $event)"
+                              [rows]="4"
+                              class="json-textarea"
+                              placeholder='{"key": "value"}'></textarea>
+                            @if (entry.value.description) {
+                              <mat-hint>{{ entry.value.description }}</mat-hint>
+                            }
+                          </mat-form-field>
+                          <small class="param-type">Enter valid JSON object</small>
+                        }
+                        @default {
+                          <mat-form-field class="full-width">
+                            <mat-label>
+                              {{ entry.value.name }}
+                              @if (entry.value.required) {
+                                <span class="required">*</span>
+                              }
+                            </mat-label>
+                            <input matInput
+                              [ngModel]="node.params[entry.key]"
+                              (ngModelChange)="updateNodeParam(entry.key, $event)"
+                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            @if (entry.value.description) {
+                              <mat-hint>{{ entry.value.description }}</mat-hint>
+                            }
+                          </mat-form-field>
+                        }
+                      }
+
+                      @if (entry.value.type && getParamType(entry.value.type) !== 'map') {
+                        <small class="param-type">Type: {{ entry.value.type }}</small>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="dialog-actions">
+              <button mat-button (click)="configDialogVisible.set(false)">Cancel</button>
+              <button mat-raised-button color="primary" (click)="saveNodeConfig()">
+                <mat-icon>check</mat-icon>
+                Apply
+              </button>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Run Dialog -->
+  @if (runDialogVisible()) {
+    <div class="dialog-overlay" (click)="runDialogVisible.set(false)">
+      <div class="dialog-container" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Run Pipeline</h2>
+          <button mat-icon-button (click)="runDialogVisible.set(false)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="dialog-content">
+          <p><strong>Pipeline:</strong> {{ name() }}</p>
+
+          @if (validationErrors().length > 0) {
+            <div class="warning-box">
+              <div class="warning-header">
+                <mat-icon>warning</mat-icon>
+                <strong>Warning: Pipeline has validation issues</strong>
+              </div>
+              <ul class="warning-list">
+                @for (err of validationErrors(); track err) {
+                  <li>{{ err }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <mat-divider></mat-divider>
+
+          <h3>Runtime Variables (optional)</h3>
+          <p class="hint-text">Override pipeline variables for this run</p>
+
+          <div class="variable-input">
+            <mat-form-field class="flex-1">
+              <mat-label>Variable Name</mat-label>
+              <input matInput [ngModel]="newVarKey()" (ngModelChange)="newVarKey.set($event)" placeholder="e.g. INPUT_FILE" />
+            </mat-form-field>
+            <mat-form-field class="flex-1">
+              <mat-label>Value</mat-label>
+              <input matInput [ngModel]="newVarValue()" (ngModelChange)="newVarValue.set($event)" placeholder="Value" />
+            </mat-form-field>
+            <button mat-icon-button color="primary" (click)="addRunVariable()" [disabled]="!newVarKey() || !newVarValue()">
+              <mat-icon>add</mat-icon>
+            </button>
           </div>
 
-          <p-divider></p-divider>
-
-          <!-- Parameters -->
-          <h4 class="mb-3">Parameters</h4>
-
-          @if ((op.parameters | keyvalue).length === 0) {
-            <p class="text-500">This operation has no configurable parameters.</p>
-          } @else {
-            <div class="params-form">
-              @for (entry of op.parameters | keyvalue; track entry.key) {
-                <div class="param-field">
-                  <label [for]="'param-' + entry.key" class="param-label">
-                    {{ entry.value.name }}
-                    @if (entry.value.required) {
-                      <span class="text-red-500">*</span>
-                    }
-                  </label>
-
-                  @if (entry.value.description) {
-                    <small class="param-help">{{ entry.value.description }}</small>
-                  }
-
-                  @switch (getParamType(entry.value.type)) {
-                    @case ('boolean') {
-                      <div class="flex align-items-center gap-2 mt-2">
-                        <p-checkbox
-                          [inputId]="'param-' + entry.key"
-                          [ngModel]="node.params[entry.key]"
-                          (ngModelChange)="updateNodeParam(entry.key, $event)"
-                          [binary]="true">
-                        </p-checkbox>
-                        <label [for]="'param-' + entry.key" class="text-sm">
-                          {{ node.params[entry.key] ? 'Yes' : 'No' }}
-                        </label>
-                      </div>
-                    }
-                    @case ('number') {
-                      <p-inputNumber
-                        [inputId]="'param-' + entry.key"
-                        [ngModel]="node.params[entry.key]"
-                        (ngModelChange)="updateNodeParam(entry.key, $event)"
-                        styleClass="w-full mt-2"
-                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''">
-                      </p-inputNumber>
-                    }
-                    @case ('char') {
-                      <input
-                        [id]="'param-' + entry.key"
-                        type="text"
-                        pInputText
-                        [ngModel]="node.params[entry.key]"
-                        (ngModelChange)="updateNodeParam(entry.key, $event)"
-                        [maxlength]="1"
-                        class="w-full mt-2"
-                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
-                    }
-                    @case ('map') {
-                      <textarea
-                        [id]="'param-' + entry.key"
-                        pInputTextarea
-                        [ngModel]="getMapValue(entry.key)"
-                        (ngModelChange)="updateMapParam(entry.key, $event)"
-                        [rows]="4"
-                        class="w-full mt-2 font-mono text-sm"
-                        placeholder='{"key": "value"}'>
-                      </textarea>
-                      <small class="text-500">Enter valid JSON object</small>
-                    }
-                    @default {
-                      <input
-                        [id]="'param-' + entry.key"
-                        type="text"
-                        pInputText
-                        [ngModel]="node.params[entry.key]"
-                        (ngModelChange)="updateNodeParam(entry.key, $event)"
-                        class="w-full mt-2"
-                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
-                    }
-                  }
-
-                  @if (entry.value.type) {
-                    <small class="param-type">Type: {{ entry.value.type }}</small>
-                  }
+          @if ((runVariables() | keyvalue).length > 0) {
+            <div class="variables-list">
+              @for (v of runVariables() | keyvalue; track v.key) {
+                <div class="variable-item">
+                  <span><strong>{{ v.key }}:</strong> {{ v.value }}</span>
+                  <button mat-icon-button (click)="removeRunVariable(v.key)">
+                    <mat-icon>close</mat-icon>
+                  </button>
                 </div>
               }
             </div>
           }
         </div>
-      }
-    }
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" (click)="configDialogVisible.set(false)"></p-button>
-      <p-button label="Apply" icon="pi pi-check" (click)="saveNodeConfig()"></p-button>
-    </ng-template>
-  </p-dialog>
 
-  <!-- Run Dialog -->
-  <p-dialog [(visible)]="runDialogVisible"
-            header="Run Pipeline"
-            [modal]="true"
-            [style]="{width: '500px'}">
-    <div class="run-dialog">
-      <p class="mb-3">
-        <strong>Pipeline:</strong> {{ name() }}
-      </p>
-
-      @if (validationErrors().length > 0) {
-        <div class="p-3 bg-orange-50 border-round mb-3">
-          <div class="flex align-items-center gap-2 text-orange-700 mb-2">
-            <i class="pi pi-exclamation-triangle"></i>
-            <strong>Warning: Pipeline has validation issues</strong>
-          </div>
-          <ul class="text-sm text-orange-600 pl-4 m-0">
-            @for (err of validationErrors(); track err) {
-              <li>{{ err }}</li>
-            }
-          </ul>
+        <div class="dialog-actions">
+          <button mat-button (click)="runDialogVisible.set(false)">Cancel</button>
+          <button mat-raised-button color="accent" (click)="run()">
+            <mat-icon>play_arrow</mat-icon>
+            Run Pipeline
+          </button>
         </div>
-      }
-
-      <p-divider></p-divider>
-
-      <h4 class="mb-3">Runtime Variables (optional)</h4>
-      <p class="text-sm text-500 mb-3">Override pipeline variables for this run</p>
-
-      <div class="p-fluid">
-        <div class="field">
-          <label for="run-var-key">Variable Name</label>
-          <div class="flex gap-2">
-            <input id="run-var-key" type="text" pInputText placeholder="e.g. INPUT_FILE" #varKey />
-            <input type="text" pInputText placeholder="Value" #varValue />
-            <p-button icon="pi pi-plus" (click)="addRunVariable(varKey, varValue)"></p-button>
-          </div>
-        </div>
-
-        @if ((runVariables() | keyvalue).length > 0) {
-          <div class="mt-3">
-            @for (v of runVariables() | keyvalue; track v.key) {
-              <div class="flex align-items-center justify-content-between p-2 surface-100 border-round mb-1">
-                <span><strong>{{ v.key }}:</strong> {{ v.value }}</span>
-                <i class="pi pi-times cursor-pointer text-500 hover:text-red-500" (click)="removeRunVariable(v.key)"></i>
-              </div>
-            }
-          </div>
-        }
       </div>
     </div>
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" (click)="runDialogVisible.set(false)"></p-button>
-      <p-button label="Run Pipeline" icon="pi pi-play" severity="success" (click)="run()"></p-button>
-    </ng-template>
-  </p-dialog>
+  }
 
   <!-- JSON Dialog -->
-  <p-dialog [(visible)]="jsonDialogVisible"
-            header="Pipeline JSON Definition"
-            [modal]="true"
-            [style]="{width: '700px'}">
-    <div class="json-dialog">
-      <p-tabs>
-        <p-tabpanel header="Export">
-          <div class="mt-3">
-            <p class="text-sm text-500 mb-2">Copy this JSON to save or share the pipeline definition</p>
-            <textarea pInputTextarea [rows]="15" class="w-full font-mono text-sm" [ngModel]="pipelineJson()" readonly></textarea>
-            <div class="flex justify-content-end mt-2">
-              <p-button label="Copy to Clipboard" icon="pi pi-copy" [text]="true"
-                (click)="copyPipelineJson()"></p-button>
-            </div>
-          </div>
-        </p-tabpanel>
-        <p-tabpanel header="Import">
-          <div class="mt-3">
-            <p class="text-sm text-500 mb-2">Paste a pipeline JSON definition to import</p>
-            <textarea pInputTextarea [rows]="15" class="w-full font-mono text-sm" #importJsonText placeholder='{"steps": [...]}'>
-            </textarea>
-            <div class="flex justify-content-end mt-2">
-              <p-button label="Import" icon="pi pi-download" (click)="importPipelineJson(importJsonText.value)"></p-button>
-            </div>
-          </div>
-        </p-tabpanel>
-      </p-tabs>
+  @if (jsonDialogVisible()) {
+    <div class="dialog-overlay" (click)="jsonDialogVisible.set(false)">
+      <div class="dialog-container large" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Pipeline JSON Definition</h2>
+          <button mat-icon-button (click)="jsonDialogVisible.set(false)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="dialog-content">
+          <mat-tab-group>
+            <mat-tab label="Export">
+              <div class="tab-content">
+                <p class="hint-text">Copy this JSON to save or share the pipeline definition</p>
+                <mat-form-field class="full-width">
+                  <mat-label>Pipeline JSON</mat-label>
+                  <textarea matInput [rows]="15" class="json-textarea" [ngModel]="pipelineJson()" readonly></textarea>
+                </mat-form-field>
+                <div class="tab-actions">
+                  <button mat-button (click)="copyPipelineJson()">
+                    <mat-icon>content_copy</mat-icon>
+                    Copy to Clipboard
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+            <mat-tab label="Import">
+              <div class="tab-content">
+                <p class="hint-text">Paste a pipeline JSON definition to import</p>
+                <mat-form-field class="full-width">
+                  <mat-label>Pipeline JSON</mat-label>
+                  <textarea matInput [rows]="15" class="json-textarea" #importJsonText placeholder='{"steps": [...]}'></textarea>
+                </mat-form-field>
+                <div class="tab-actions">
+                  <button mat-raised-button color="primary" (click)="importPipelineJson(importJsonText.value)">
+                    <mat-icon>download</mat-icon>
+                    Import
+                  </button>
+                </div>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
+        </div>
+      </div>
     </div>
-  </p-dialog>
+  }
 </div>

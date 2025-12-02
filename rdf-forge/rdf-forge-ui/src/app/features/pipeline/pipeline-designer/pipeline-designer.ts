@@ -16,6 +16,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PipelineService } from '../../../core/services';
 import {
   Pipeline,
@@ -35,6 +36,11 @@ interface OperationGroup {
   operations: Operation[];
 }
 
+interface RunVariable {
+  key: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-pipeline-designer',
   imports: [
@@ -52,7 +58,9 @@ interface OperationGroup {
     MatTabsModule,
     MatIconModule,
     MatFormFieldModule,
-    MatMenuModule
+    MatMenuModule,
+    MatProgressSpinnerModule,
+    KeyValuePipe
   ],
   templateUrl: './pipeline-designer.html',
   styleUrl: './pipeline-designer.scss',
@@ -81,11 +89,11 @@ export class PipelineDesigner implements OnInit {
   operationGroups = computed<OperationGroup[]>(() => {
     const ops = this.availableOperations();
     const groups: OperationGroup[] = [
-      { type: 'SOURCE', label: 'Data Sources', icon: 'pi pi-download', operations: [] },
-      { type: 'TRANSFORM', label: 'Transformations', icon: 'pi pi-sync', operations: [] },
-      { type: 'CUBE', label: 'Cube Operations', icon: 'pi pi-th-large', operations: [] },
-      { type: 'VALIDATION', label: 'Validation', icon: 'pi pi-check-circle', operations: [] },
-      { type: 'OUTPUT', label: 'Outputs', icon: 'pi pi-upload', operations: [] }
+      { type: 'SOURCE', label: 'Data Sources', icon: 'download', operations: [] },
+      { type: 'TRANSFORM', label: 'Transformations', icon: 'sync', operations: [] },
+      { type: 'CUBE', label: 'Cube Operations', icon: 'grid_view', operations: [] },
+      { type: 'VALIDATION', label: 'Validation', icon: 'check_circle', operations: [] },
+      { type: 'OUTPUT', label: 'Outputs', icon: 'upload', operations: [] }
     ];
     ops.forEach(op => {
       const group = groups.find(g => g.type === op.type);
@@ -117,6 +125,8 @@ export class PipelineDesigner implements OnInit {
 
   // Run variables
   runVariables = signal<Record<string, string>>({});
+  newVarKey = signal('');
+  newVarValue = signal('');
 
   // JSON view
   pipelineJson = computed(() => {
@@ -582,11 +592,13 @@ export class PipelineDesigner implements OnInit {
     });
   }
 
-  addRunVariable(keyEl: HTMLInputElement, valueEl: HTMLInputElement): void {
-    if (keyEl.value && valueEl.value) {
-      this.runVariables.update(v => ({ ...v, [keyEl.value]: valueEl.value }));
-      keyEl.value = '';
-      valueEl.value = '';
+  addRunVariable(): void {
+    const key = this.newVarKey();
+    const value = this.newVarValue();
+    if (key && value) {
+      this.runVariables.update(v => ({ ...v, [key]: value }));
+      this.newVarKey.set('');
+      this.newVarValue.set('');
     }
   }
 
