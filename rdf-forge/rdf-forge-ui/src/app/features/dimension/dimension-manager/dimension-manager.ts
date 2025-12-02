@@ -1,21 +1,23 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { TextareaModule } from 'primeng/textarea';
-import { TagModule } from 'primeng/tag';
-import { DialogModule } from 'primeng/dialog';
-import { SelectModule } from 'primeng/select';
-import { ToastModule } from 'primeng/toast';
-import { TooltipModule } from 'primeng/tooltip';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { FileUploadModule } from 'primeng/fileupload';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { DividerModule } from 'primeng/divider';
-import { TreeTableModule } from 'primeng/treetable';
-import { MessageService, ConfirmationService, TreeNode } from 'primeng/api';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatSortModule } from '@angular/material/sort';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { DimensionService } from '../../../core/services';
 import { Dimension, DimensionValue, DimensionType } from '../../../core/models';
 
@@ -32,28 +34,30 @@ interface ValueForm {
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    TextareaModule,
-    TagModule,
-    DialogModule,
-    SelectModule,
-    ToastModule,
-    TooltipModule,
-    ConfirmDialogModule,
-    FileUploadModule,
-    ProgressBarModule,
-    DividerModule,
-    TreeTableModule
+    MatTableModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatSnackBarModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatCardModule,
+    MatIconModule,
+    MatChipsModule,
+    MatProgressSpinnerModule,
+    MatProgressBarModule,
+    MatDividerModule,
+    MatPaginatorModule,
+    MatSortModule
   ],
-  providers: [MessageService, ConfirmationService],
+  providers: [ConfirmationService],
   templateUrl: './dimension-manager.html',
   styleUrl: './dimension-manager.scss',
 })
 export class DimensionManager implements OnInit {
   private readonly dimensionService = inject(DimensionService);
-  private readonly messageService = inject(MessageService);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly confirmationService = inject(ConfirmationService);
 
   loading = signal(true);
@@ -169,7 +173,7 @@ export class DimensionManager implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load dimensions' });
+        this.snackBar.open('Failed to load dimensions', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -190,18 +194,18 @@ export class DimensionManager implements OnInit {
   createDimension(): void {
     const dim = this.newDimension();
     if (!dim.name || !dim.uri) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Name and URI are required' });
+      this.snackBar.open('Name and URI are required', 'Close', { duration: 3000 });
       return;
     }
 
     this.dimensionService.create(dim as Dimension).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Dimension created successfully' });
+        this.snackBar.open('Dimension created successfully', 'Close', { duration: 3000 });
         this.createDialogVisible.set(false);
         this.loadDimensions();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create dimension' });
+        this.snackBar.open('Failed to create dimension', 'Close', { duration: 3000 });
       }
     });
   }
@@ -219,12 +223,12 @@ export class DimensionManager implements OnInit {
 
     this.dimensionService.update(dim.id, dim).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Dimension updated successfully' });
+        this.snackBar.open('Dimension updated successfully', 'Close', { duration: 3000 });
         this.editDialogVisible.set(false);
         this.loadDimensions();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update dimension' });
+        this.snackBar.open('Failed to update dimension', 'Close', { duration: 3000 });
       }
     });
   }
@@ -233,11 +237,13 @@ export class DimensionManager implements OnInit {
   confirmDelete(dim: Dimension, event: Event): void {
     event.stopPropagation();
     this.confirmationService.confirm({
+      title: 'Confirm Delete',
       message: `Are you sure you want to delete "${dim.name}"? This will also delete all ${dim.valueCount || 0} values.`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
         this.deleteDimension(dim);
       }
     });
@@ -247,11 +253,11 @@ export class DimensionManager implements OnInit {
     if (!dim.id) return;
     this.dimensionService.delete(dim.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Dimension deleted successfully' });
+        this.snackBar.open('Dimension deleted successfully', 'Close', { duration: 3000 });
         this.loadDimensions();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete dimension' });
+        this.snackBar.open('Failed to delete dimension', 'Close', { duration: 3000 });
       }
     });
   }
@@ -280,7 +286,7 @@ export class DimensionManager implements OnInit {
         this.valuesLoading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load values' });
+        this.snackBar.open('Failed to load values', 'Close', { duration: 3000 });
         this.valuesLoading.set(false);
       }
     });
@@ -305,7 +311,7 @@ export class DimensionManager implements OnInit {
 
     const value = this.newValue();
     if (!value.code || !value.label) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Code and Label are required' });
+      this.snackBar.open('Code and Label are required', 'Close', { duration: 3000 });
       return;
     }
 
@@ -320,13 +326,13 @@ export class DimensionManager implements OnInit {
 
     this.dimensionService.addValue(dim.id, newVal).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Added', detail: 'Value added successfully' });
+        this.snackBar.open('Value added successfully', 'Close', { duration: 3000 });
         this.addValueDialogVisible.set(false);
         this.loadValues(dim.id!);
-        this.loadDimensions(); // Update value counts
+        this.loadDimensions();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to add value' });
+        this.snackBar.open('Failed to add value', 'Close', { duration: 3000 });
       }
     });
   }
@@ -345,13 +351,13 @@ export class DimensionManager implements OnInit {
 
     this.dimensionService.updateValue(value.id, value).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Value updated successfully' });
+        this.snackBar.open('Value updated successfully', 'Close', { duration: 3000 });
         this.editValueDialogVisible.set(false);
         const dim = this.selectedDimension();
         if (dim?.id) this.loadValues(dim.id);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update value' });
+        this.snackBar.open('Failed to update value', 'Close', { duration: 3000 });
       }
     });
   }
@@ -360,11 +366,13 @@ export class DimensionManager implements OnInit {
   confirmDeleteValue(value: DimensionValue, event: Event): void {
     event.stopPropagation();
     this.confirmationService.confirm({
+      title: 'Confirm Delete',
       message: `Are you sure you want to delete "${value.label}"?`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
         this.deleteValue(value);
       }
     });
@@ -374,15 +382,15 @@ export class DimensionManager implements OnInit {
     if (!value.id) return;
     this.dimensionService.deleteValue(value.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Value deleted successfully' });
+        this.snackBar.open('Value deleted successfully', 'Close', { duration: 3000 });
         const dim = this.selectedDimension();
         if (dim?.id) {
           this.loadValues(dim.id);
-          this.loadDimensions(); // Update value counts
+          this.loadDimensions();
         }
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete value' });
+        this.snackBar.open('Failed to delete value', 'Close', { duration: 3000 });
       }
     });
   }
@@ -403,17 +411,13 @@ export class DimensionManager implements OnInit {
 
     this.dimensionService.importCsv(dim.id, file).subscribe({
       next: (result) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Imported',
-          detail: `Successfully imported ${result.imported} values`
-        });
+        this.snackBar.open(`Successfully imported ${result.imported} values`, 'Close', { duration: 3000 });
         this.importing.set(false);
         this.importDialogVisible.set(false);
         this.loadDimensions();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to import CSV' });
+        this.snackBar.open('Failed to import CSV', 'Close', { duration: 3000 });
         this.importing.set(false);
       }
     });
@@ -432,34 +436,34 @@ export class DimensionManager implements OnInit {
         a.download = `${dim.name.replace(/\s+/g, '_')}.ttl`;
         a.click();
         URL.revokeObjectURL(url);
-        this.messageService.add({ severity: 'success', summary: 'Exported', detail: 'Dimension exported as Turtle' });
+        this.snackBar.open('Dimension exported as Turtle', 'Close', { duration: 3000 });
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to export dimension' });
+        this.snackBar.open('Failed to export dimension', 'Close', { duration: 3000 });
       }
     });
   }
 
   // Helpers
-  getTypeSeverity(type: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+  getTypeColor(type: string): string {
     switch (type) {
-      case 'KEY': return 'info';
-      case 'TEMPORAL': return 'success';
+      case 'KEY': return 'primary';
+      case 'TEMPORAL': return 'accent';
       case 'GEO': return 'warn';
-      case 'MEASURE': return 'danger';
-      case 'CODED': return 'info';
-      default: return 'secondary';
+      case 'MEASURE': return 'warn';
+      case 'CODED': return 'primary';
+      default: return '';
     }
   }
 
   getTypeIcon(type: string): string {
     switch (type) {
-      case 'KEY': return 'pi pi-key';
-      case 'TEMPORAL': return 'pi pi-calendar';
-      case 'GEO': return 'pi pi-map-marker';
-      case 'MEASURE': return 'pi pi-chart-bar';
-      case 'CODED': return 'pi pi-list';
-      default: return 'pi pi-tag';
+      case 'KEY': return 'key';
+      case 'TEMPORAL': return 'event';
+      case 'GEO': return 'place';
+      case 'MEASURE': return 'bar_chart';
+      case 'CODED': return 'list';
+      default: return 'label';
     }
   }
 
@@ -474,7 +478,7 @@ export class DimensionManager implements OnInit {
 
   copyToClipboard(text: string, label: string): void {
     navigator.clipboard.writeText(text).then(() => {
-      this.messageService.add({ severity: 'info', summary: 'Copied', detail: `${label} copied to clipboard` });
+      this.snackBar.open(`${label} copied to clipboard`, 'Close', { duration: 2000 });
     });
   }
 
