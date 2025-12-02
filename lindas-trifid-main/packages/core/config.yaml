@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./lib/config/schema.json
+
+extends:
+  - file:./config2.json
+
+server:
+  listener:
+    port: 8080
+  logLevel: debug
+  logFormat: pretty
+
+globals:
+  value: config
+  config1: config1
+
+plugins:
+  staticFiles:
+    order: 100
+    module: file:./plugins/static.js
+    paths: "/sources"
+    config:
+      directory: cwd:.
+
+  zazuko-redirect:
+    module: file:./plugins/redirect.js
+    paths: "/zazuko"
+    config:
+      target: https://zazuko.com/
+
+  throw:
+    module: file:./plugins/throw.js
+    paths: "/oops"
+    config:
+      message: This is a custom error message!

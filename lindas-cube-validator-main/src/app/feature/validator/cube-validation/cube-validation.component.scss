@@ -1,0 +1,23 @@
+.content {
+    min-height: 100px;
+    margin-top: 40px;
+    overflow: hidden;
+}
+
+.validation-profile {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 20px;
+}
+
+.summary {
+    display: flex;
+    flex-direction: row;
+    margin-left: 20px;
+    align-items: center;
+    margin-right: 15px;
+}
+
+cube-profile-selector {
+    padding-top: 15px;
+}

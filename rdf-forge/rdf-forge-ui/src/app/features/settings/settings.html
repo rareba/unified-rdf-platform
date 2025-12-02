@@ -1,64 +1,60 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="settings">
   <!-- Header -->
   <div class="header">
     <div class="header-left">
-      <i class="pi pi-cog header-icon"></i>
+      <mat-icon class="header-icon">settings</mat-icon>
       <h1>Settings</h1>
     </div>
     <div class="header-actions">
-      <p-button
-        icon="pi pi-download"
-        label="Export"
-        [outlined]="true"
-        size="small"
-        (onClick)="openExportDialog()"
-        pTooltip="Export settings to file"
-      ></p-button>
-      <p-button
-        icon="pi pi-upload"
-        label="Import"
-        [outlined]="true"
-        size="small"
-        (onClick)="openImportDialog()"
-        pTooltip="Import settings from file"
-      ></p-button>
-      <p-button
-        icon="pi pi-save"
-        label="Save All"
-        (onClick)="saveSettings()"
-        [loading]="saving()"
-      ></p-button>
+      <button
+        mat-stroked-button
+        (click)="openExportDialog()"
+        matTooltip="Export settings to file"
+      >
+        <mat-icon>download</mat-icon>
+        Export
+      </button>
+      <button
+        mat-stroked-button
+        (click)="openImportDialog()"
+        matTooltip="Import settings from file"
+      >
+        <mat-icon>upload</mat-icon>
+        Import
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="saveSettings()"
+        [disabled]="saving()"
+      >
+        <mat-icon>save</mat-icon>
+        Save All
+      </button>
     </div>
   </div>
 
   <!-- Main Content -->
   <div class="settings-content">
-    <p-tabs [(value)]="activeTab">
-      <p-tablist>
-        <p-tab [value]="0"><i class="pi pi-palette mr-2"></i>Appearance</p-tab>
-        <p-tab [value]="1"><i class="pi pi-code mr-2"></i>RDF Configuration</p-tab>
-        <p-tab [value]="2"><i class="pi pi-play mr-2"></i>Pipeline Defaults</p-tab>
-        <p-tab [value]="3"><i class="pi pi-server mr-2"></i>System</p-tab>
-      </p-tablist>
-
-      <p-tabpanels>
-        <!-- Appearance Tab -->
-        <p-tabpanel [value]="0">
+    <mat-tab-group [(selectedIndex)]="activeTab">
+      <!-- Appearance Tab -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">palette</mat-icon>
+          Appearance
+        </ng-template>
           <div class="tab-content">
             <!-- User Profile Section -->
             @if (userProfile()) {
               <div class="settings-section">
                 <div class="section-header">
-                  <i class="pi pi-user"></i>
+                  <mat-icon>person</mat-icon>
                   <h3>User Profile</h3>
                 </div>
                 <div class="section-content">
                   <div class="profile-card">
                     <div class="profile-avatar">
-                      <i class="pi pi-user"></i>
+                      <mat-icon>person</mat-icon>
                     </div>
                     <div class="profile-info">
                       <div class="profile-name">{{ userProfile()?.firstName }} {{ userProfile()?.lastName }}</div>
@@ -66,7 +62,9 @@
                       <div class="profile-email">{{ userProfile()?.email }}</div>
                     </div>
                     <div class="profile-status">
-                      <p-tag [value]="getAuthStatus()" [severity]="isAuthenticated() ? 'success' : 'warn'"></p-tag>
+                      <span class="status-chip" [class.status-success]="isAuthenticated()" [class.status-warn]="!isAuthenticated()">
+                        {{ getAuthStatus() }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -76,149 +74,162 @@
             <!-- Theme & Display -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-palette"></i>
+                <mat-icon>palette</mat-icon>
                 <h3>Theme & Display</h3>
               </div>
               <div class="section-content">
                 <div class="settings-grid">
                   <div class="setting-item">
                     <label>Theme</label>
-                    <p-select
-                      [options]="themeOptions"
-                      [ngModel]="settings().theme"
-                      (ngModelChange)="updateSetting('theme', $event)"
-                      optionLabel="label"
-                      optionValue="value"
-                      styleClass="w-full"
-                    ></p-select>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <mat-select
+                        [ngModel]="settings().theme"
+                        (ngModelChange)="updateSetting('theme', $event)"
+                      >
+                        @for (option of themeOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                     <small>Choose your preferred color scheme</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Language</label>
-                    <p-select
-                      [options]="languageOptions"
-                      [ngModel]="settings().language"
-                      (ngModelChange)="updateSetting('language', $event)"
-                      optionLabel="label"
-                      optionValue="value"
-                      styleClass="w-full"
-                    ></p-select>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <mat-select
+                        [ngModel]="settings().language"
+                        (ngModelChange)="updateSetting('language', $event)"
+                      >
+                        @for (option of languageOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                     <small>Interface language (requires reload)</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Date Format</label>
-                    <p-select
-                      [options]="dateFormatOptions"
-                      [ngModel]="settings().dateFormat"
-                      (ngModelChange)="updateSetting('dateFormat', $event)"
-                      optionLabel="label"
-                      optionValue="value"
-                      styleClass="w-full"
-                    ></p-select>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <mat-select
+                        [ngModel]="settings().dateFormat"
+                        (ngModelChange)="updateSetting('dateFormat', $event)"
+                      >
+                        @for (option of dateFormatOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                     <small>How dates are displayed</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Page Size</label>
-                    <p-select
-                      [options]="pageSizeOptions"
-                      [ngModel]="settings().pageSize"
-                      (ngModelChange)="updateSetting('pageSize', $event)"
-                      optionLabel="label"
-                      optionValue="value"
-                      styleClass="w-full"
-                    ></p-select>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <mat-select
+                        [ngModel]="settings().pageSize"
+                        (ngModelChange)="updateSetting('pageSize', $event)"
+                      >
+                        @for (option of pageSizeOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                     <small>Default items per page in tables</small>
                   </div>
                 </div>
 
-                <p-divider></p-divider>
+                <mat-divider></mat-divider>
 
                 <div class="settings-row">
                   <div class="setting-toggle">
-                    <p-checkbox
+                    <mat-checkbox
                       [ngModel]="settings().autoRefresh"
                       (ngModelChange)="updateSetting('autoRefresh', $event)"
-                      [binary]="true"
-                      inputId="autoRefresh"
-                    ></p-checkbox>
-                    <label for="autoRefresh">
+                      id="autoRefresh"
+                    >
                       <span class="toggle-label">Auto-refresh data</span>
                       <span class="toggle-hint">Automatically refresh lists and statuses</span>
-                    </label>
+                    </mat-checkbox>
                   </div>
 
                   @if (settings().autoRefresh) {
                     <div class="setting-inline">
                       <label>Interval (seconds)</label>
-                      <p-inputNumber
-                        [ngModel]="settings().refreshInterval"
-                        (ngModelChange)="updateSetting('refreshInterval', $event)"
-                        [min]="5"
-                        [max]="300"
-                        [showButtons]="true"
-                        styleClass="w-8rem"
-                      ></p-inputNumber>
+                      <mat-form-field appearance="outline" class="w-8rem">
+                        <input
+                          matInput
+                          type="number"
+                          [ngModel]="settings().refreshInterval"
+                          (ngModelChange)="updateSetting('refreshInterval', $event)"
+                          min="5"
+                          max="300"
+                        />
+                      </mat-form-field>
                     </div>
                   }
                 </div>
               </div>
             </div>
           </div>
-        </p-tabpanel>
+      </mat-tab>
 
         <!-- RDF Configuration Tab -->
-        <p-tabpanel [value]="1">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">code</mat-icon>
+          RDF Configuration
+        </ng-template>
           <div class="tab-content">
             <!-- Namespace Settings -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-link"></i>
+                <mat-icon>link</mat-icon>
                 <h3>Namespace Configuration</h3>
               </div>
               <div class="section-content">
                 <div class="settings-grid">
                   <div class="setting-item full-width">
                     <label>Default Base URI</label>
-                    <input
-                      type="text"
-                      pInputText
-                      [ngModel]="settings().defaultBaseUri"
-                      (ngModelChange)="updateSetting('defaultBaseUri', $event)"
-                      class="w-full"
-                      placeholder="http://example.org/"
-                    />
+                    <mat-form-field appearance="outline" class="w-full">
+                      <input
+                        matInput
+                        type="text"
+                        [ngModel]="settings().defaultBaseUri"
+                        (ngModelChange)="updateSetting('defaultBaseUri', $event)"
+                        placeholder="http://example.org/"
+                      />
+                    </mat-form-field>
                     <small>Base URI for new resources (shapes, cubes, dimensions)</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Default RDF Format</label>
-                    <p-select
-                      [options]="formatOptions"
-                      [ngModel]="settings().defaultFormat"
-                      (ngModelChange)="updateSetting('defaultFormat', $event)"
-                      optionLabel="label"
-                      optionValue="value"
-                      styleClass="w-full"
-                    ></p-select>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <mat-select
+                        [ngModel]="settings().defaultFormat"
+                        (ngModelChange)="updateSetting('defaultFormat', $event)"
+                      >
+                        @for (option of formatOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
                     <small>Preferred serialization format for exports</small>
                   </div>
                 </div>
 
                 <div class="settings-row mt-3">
                   <div class="setting-toggle">
-                    <p-checkbox
+                    <mat-checkbox
                       [ngModel]="settings().showPrefixes"
                       (ngModelChange)="updateSetting('showPrefixes', $event)"
-                      [binary]="true"
-                      inputId="showPrefixes"
-                    ></p-checkbox>
-                    <label for="showPrefixes">
+                      id="showPrefixes"
+                    >
                       <span class="toggle-label">Show URI prefixes</span>
                       <span class="toggle-hint">Display shortened URIs using prefix mappings</span>
-                    </label>
+                    </mat-checkbox>
                   </div>
                 </div>
               </div>
@@ -227,143 +238,156 @@
             <!-- Prefix Mappings -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-tags"></i>
+                <mat-icon>label</mat-icon>
                 <h3>Prefix Mappings</h3>
-                <p-button
-                  icon="pi pi-plus"
-                  label="Add Prefix"
-                  [outlined]="true"
-                  size="small"
-                  (onClick)="openPrefixDialog()"
-                ></p-button>
+                <button
+                  mat-stroked-button
+                  (click)="openPrefixDialog()"
+                >
+                  <mat-icon>add</mat-icon>
+                  Add Prefix
+                </button>
               </div>
               <div class="section-content">
-                <p-table [value]="prefixes()" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="300px">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th style="width: 120px">Prefix</th>
-                      <th>URI</th>
-                      <th style="width: 80px">Type</th>
-                      <th style="width: 100px">Actions</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-prefix>
-                    <tr>
-                      <td>
+                <div class="table-container">
+                  <table mat-table [dataSource]="prefixes()" class="prefix-table">
+                    <ng-container matColumnDef="prefix">
+                      <th mat-header-cell *matHeaderCellDef style="width: 120px">Prefix</th>
+                      <td mat-cell *matCellDef="let prefix">
                         <code class="prefix-code">{{ prefix.prefix }}:</code>
                       </td>
-                      <td class="uri-cell">{{ prefix.uri }}</td>
-                      <td>
-                        <p-tag
-                          [value]="prefix.builtin ? 'Built-in' : 'Custom'"
-                          [severity]="prefix.builtin ? 'secondary' : 'info'"
-                          styleClass="text-xs"
-                        ></p-tag>
+                    </ng-container>
+
+                    <ng-container matColumnDef="uri">
+                      <th mat-header-cell *matHeaderCellDef>URI</th>
+                      <td mat-cell *matCellDef="let prefix" class="uri-cell">{{ prefix.uri }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="type">
+                      <th mat-header-cell *matHeaderCellDef style="width: 80px">Type</th>
+                      <td mat-cell *matCellDef="let prefix">
+                        <span class="type-chip" [class.type-builtin]="prefix.builtin" [class.type-custom]="!prefix.builtin">
+                          {{ prefix.builtin ? 'Built-in' : 'Custom' }}
+                        </span>
                       </td>
-                      <td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef style="width: 100px">Actions</th>
+                      <td mat-cell *matCellDef="let prefix">
                         <div class="action-buttons">
-                          <p-button
-                            icon="pi pi-copy"
-                            [rounded]="true"
-                            [text]="true"
-                            size="small"
-                            (onClick)="copyPrefix(prefix)"
-                            pTooltip="Copy SPARQL PREFIX"
-                          ></p-button>
+                          <button
+                            mat-icon-button
+                            (click)="copyPrefix(prefix)"
+                            matTooltip="Copy SPARQL PREFIX"
+                          >
+                            <mat-icon>content_copy</mat-icon>
+                          </button>
                           @if (!prefix.builtin) {
-                            <p-button
-                              icon="pi pi-trash"
-                              [rounded]="true"
-                              [text]="true"
-                              severity="danger"
-                              size="small"
-                              (onClick)="removePrefix(prefix)"
-                              pTooltip="Remove"
-                            ></p-button>
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="removePrefix(prefix)"
+                              matTooltip="Remove"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
                           }
                         </div>
                       </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="['prefix', 'uri', 'type', 'actions']"></tr>
+                    <tr mat-row *matRowDef="let row; columns: ['prefix', 'uri', 'type', 'actions']"></tr>
+
+                    <tr class="mat-row" *matNoDataRow>
+                      <td class="mat-cell text-center text-muted" colspan="4" style="padding: 2rem">
+                        No prefix mappings defined
+                      </td>
                     </tr>
-                  </ng-template>
-                  <ng-template pTemplate="emptymessage">
-                    <tr>
-                      <td colspan="4" class="text-center text-muted p-4">No prefix mappings defined</td>
-                    </tr>
-                  </ng-template>
-                </p-table>
+                  </table>
+                </div>
                 <div class="prefix-summary">
                   <span>{{ totalPrefixes() }} prefixes ({{ customPrefixes().length }} custom)</span>
                 </div>
               </div>
             </div>
           </div>
-        </p-tabpanel>
+      </mat-tab>
 
         <!-- Pipeline Defaults Tab -->
-        <p-tabpanel [value]="2">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">play_arrow</mat-icon>
+          Pipeline Defaults
+        </ng-template>
           <div class="tab-content">
             <!-- Pipeline Settings -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-play"></i>
+                <mat-icon>play_arrow</mat-icon>
                 <h3>Pipeline Execution</h3>
               </div>
               <div class="section-content">
                 <div class="settings-grid">
                   <div class="setting-item">
                     <label>Timeout (seconds)</label>
-                    <p-inputNumber
-                      [ngModel]="settings().pipelineTimeout"
-                      (ngModelChange)="updateSetting('pipelineTimeout', $event)"
-                      [min]="30"
-                      [max]="3600"
-                      [showButtons]="true"
-                      styleClass="w-full"
-                    ></p-inputNumber>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <input
+                        matInput
+                        type="number"
+                        [ngModel]="settings().pipelineTimeout"
+                        (ngModelChange)="updateSetting('pipelineTimeout', $event)"
+                        min="30"
+                        max="3600"
+                      />
+                    </mat-form-field>
                     <small>Maximum execution time for pipelines</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Max Parallel Jobs</label>
-                    <p-inputNumber
-                      [ngModel]="settings().maxParallelJobs"
-                      (ngModelChange)="updateSetting('maxParallelJobs', $event)"
-                      [min]="1"
-                      [max]="10"
-                      [showButtons]="true"
-                      styleClass="w-full"
-                    ></p-inputNumber>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <input
+                        matInput
+                        type="number"
+                        [ngModel]="settings().maxParallelJobs"
+                        (ngModelChange)="updateSetting('maxParallelJobs', $event)"
+                        min="1"
+                        max="10"
+                      />
+                    </mat-form-field>
                     <small>Maximum concurrent job executions</small>
                   </div>
                 </div>
 
-                <p-divider></p-divider>
+                <mat-divider></mat-divider>
 
                 <div class="settings-row">
                   <div class="setting-toggle">
-                    <p-checkbox
+                    <mat-checkbox
                       [ngModel]="settings().autoRetryFailed"
                       (ngModelChange)="updateSetting('autoRetryFailed', $event)"
-                      [binary]="true"
-                      inputId="autoRetry"
-                    ></p-checkbox>
-                    <label for="autoRetry">
+                      id="autoRetry"
+                    >
                       <span class="toggle-label">Auto-retry failed jobs</span>
                       <span class="toggle-hint">Automatically retry failed pipeline executions</span>
-                    </label>
+                    </mat-checkbox>
                   </div>
 
                   @if (settings().autoRetryFailed) {
                     <div class="setting-inline">
                       <label>Retry attempts</label>
-                      <p-inputNumber
-                        [ngModel]="settings().retryAttempts"
-                        (ngModelChange)="updateSetting('retryAttempts', $event)"
-                        [min]="1"
-                        [max]="5"
-                        [showButtons]="true"
-                        styleClass="w-8rem"
-                      ></p-inputNumber>
+                      <mat-form-field appearance="outline" class="w-8rem">
+                        <input
+                          matInput
+                          type="number"
+                          [ngModel]="settings().retryAttempts"
+                          (ngModelChange)="updateSetting('retryAttempts', $event)"
+                          min="1"
+                          max="5"
+                        />
+                      </mat-form-field>
                     </div>
                   }
                 </div>
@@ -373,35 +397,39 @@
             <!-- SPARQL Settings -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-database"></i>
+                <mat-icon>storage</mat-icon>
                 <h3>SPARQL Query Defaults</h3>
               </div>
               <div class="section-content">
                 <div class="settings-grid">
                   <div class="setting-item">
                     <label>Query Timeout (seconds)</label>
-                    <p-inputNumber
-                      [ngModel]="settings().sparqlTimeout"
-                      (ngModelChange)="updateSetting('sparqlTimeout', $event)"
-                      [min]="10"
-                      [max]="600"
-                      [showButtons]="true"
-                      styleClass="w-full"
-                    ></p-inputNumber>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <input
+                        matInput
+                        type="number"
+                        [ngModel]="settings().sparqlTimeout"
+                        (ngModelChange)="updateSetting('sparqlTimeout', $event)"
+                        min="10"
+                        max="600"
+                      />
+                    </mat-form-field>
                     <small>Maximum time for SPARQL queries</small>
                   </div>
 
                   <div class="setting-item">
                     <label>Result Limit</label>
-                    <p-inputNumber
-                      [ngModel]="settings().sparqlResultLimit"
-                      (ngModelChange)="updateSetting('sparqlResultLimit', $event)"
-                      [min]="100"
-                      [max]="10000"
-                      [step]="100"
-                      [showButtons]="true"
-                      styleClass="w-full"
-                    ></p-inputNumber>
+                    <mat-form-field appearance="outline" class="w-full">
+                      <input
+                        matInput
+                        type="number"
+                        [ngModel]="settings().sparqlResultLimit"
+                        (ngModelChange)="updateSetting('sparqlResultLimit', $event)"
+                        min="100"
+                        max="10000"
+                        step="100"
+                      />
+                    </mat-form-field>
                     <small>Default LIMIT for SELECT queries</small>
                   </div>
                 </div>
@@ -411,38 +439,47 @@
             <!-- Keyboard Shortcuts -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-key"></i>
+                <mat-icon>keyboard</mat-icon>
                 <h3>Keyboard Shortcuts</h3>
               </div>
               <div class="section-content">
-                <p-table [value]="shortcuts" styleClass="p-datatable-sm">
-                  <ng-template pTemplate="header">
-                    <tr>
-                      <th style="width: 150px">Action</th>
-                      <th style="width: 150px">Shortcut</th>
-                      <th>Description</th>
-                    </tr>
-                  </ng-template>
-                  <ng-template pTemplate="body" let-shortcut>
-                    <tr>
-                      <td class="font-semibold">{{ shortcut.action }}</td>
-                      <td><kbd class="shortcut-key">{{ shortcut.keys }}</kbd></td>
-                      <td class="text-muted">{{ shortcut.description }}</td>
-                    </tr>
-                  </ng-template>
-                </p-table>
+                <table mat-table [dataSource]="shortcuts" class="shortcuts-table">
+                  <ng-container matColumnDef="action">
+                    <th mat-header-cell *matHeaderCellDef style="width: 150px">Action</th>
+                    <td mat-cell *matCellDef="let shortcut" class="font-semibold">{{ shortcut.action }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="keys">
+                    <th mat-header-cell *matHeaderCellDef style="width: 150px">Shortcut</th>
+                    <td mat-cell *matCellDef="let shortcut">
+                      <kbd class="shortcut-key">{{ shortcut.keys }}</kbd>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="description">
+                    <th mat-header-cell *matHeaderCellDef>Description</th>
+                    <td mat-cell *matCellDef="let shortcut" class="text-muted">{{ shortcut.description }}</td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="['action', 'keys', 'description']"></tr>
+                  <tr mat-row *matRowDef="let row; columns: ['action', 'keys', 'description']"></tr>
+                </table>
               </div>
             </div>
           </div>
-        </p-tabpanel>
+      </mat-tab>
 
         <!-- System Tab -->
-        <p-tabpanel [value]="3">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">dns</mat-icon>
+          System
+        </ng-template>
           <div class="tab-content">
             <!-- Environment Info -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-info-circle"></i>
+                <mat-icon>info</mat-icon>
                 <h3>Environment Information</h3>
               </div>
               <div class="section-content">
@@ -450,7 +487,9 @@
                   <div class="info-item">
                     <span class="info-label">Environment</span>
                     <span class="info-value">
-                      <p-tag [value]="env.production ? 'Production' : 'Development'" [severity]="env.production ? 'success' : 'info'"></p-tag>
+                      <span class="env-chip" [class.env-production]="env.production" [class.env-development]="!env.production">
+                        {{ env.production ? 'Production' : 'Development' }}
+                      </span>
                     </span>
                   </div>
                   <div class="info-item">
@@ -473,7 +512,7 @@
                   </div>
                   <div class="info-item">
                     <span class="info-label">UI Library</span>
-                    <span class="info-value">PrimeNG 20</span>
+                    <span class="info-value">Angular Material</span>
                   </div>
                   <div class="info-item">
                     <span class="info-label">Local Storage Used</span>
@@ -486,21 +525,21 @@
             <!-- Service Health -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-server"></i>
+                <mat-icon>dns</mat-icon>
                 <h3>Service Health</h3>
-                <p-button
-                  icon="pi pi-refresh"
-                  label="Check Health"
-                  [outlined]="true"
-                  size="small"
-                  (onClick)="checkServicesHealth()"
-                  [loading]="checkingHealth()"
-                ></p-button>
+                <button
+                  mat-stroked-button
+                  (click)="checkServicesHealth()"
+                  [disabled]="checkingHealth()"
+                >
+                  <mat-icon>refresh</mat-icon>
+                  Check Health
+                </button>
               </div>
               <div class="section-content">
                 @if (services().length === 0 && !checkingHealth()) {
                   <div class="empty-hint">
-                    <i class="pi pi-info-circle"></i>
+                    <mat-icon>info</mat-icon>
                     <p>Click "Check Health" to verify service connectivity</p>
                   </div>
                 } @else {
@@ -508,7 +547,12 @@
                     @for (service of services(); track service.name) {
                       <div class="health-card">
                         <div class="health-status">
-                          <p-tag [value]="service.status" [severity]="getHealthSeverity(service.status)"></p-tag>
+                          <span class="health-chip"
+                            [class.health-up]="service.status === 'UP'"
+                            [class.health-down]="service.status === 'DOWN'"
+                            [class.health-unknown]="service.status === 'UNKNOWN'">
+                            {{ service.status }}
+                          </span>
                         </div>
                         <div class="health-info">
                           <span class="health-name">{{ service.name }}</span>
@@ -526,7 +570,7 @@
             <!-- Maintenance -->
             <div class="settings-section">
               <div class="section-header">
-                <i class="pi pi-wrench"></i>
+                <mat-icon>build</mat-icon>
                 <h3>Maintenance</h3>
               </div>
               <div class="section-content">
@@ -536,134 +580,156 @@
                       <span class="maintenance-title">Clear Cache</span>
                       <span class="maintenance-desc">Remove cached data while preserving settings</span>
                     </div>
-                    <p-button
-                      icon="pi pi-trash"
-                      label="Clear Cache"
-                      severity="secondary"
-                      [outlined]="true"
-                      (onClick)="confirmClearCache()"
-                    ></p-button>
+                    <button
+                      mat-stroked-button
+                      (click)="confirmClearCache()"
+                    >
+                      <mat-icon>delete</mat-icon>
+                      Clear Cache
+                    </button>
                   </div>
 
-                  <p-divider></p-divider>
+                  <mat-divider></mat-divider>
 
                   <div class="maintenance-item">
                     <div class="maintenance-info">
                       <span class="maintenance-title">Reset to Defaults</span>
                       <span class="maintenance-desc">Restore all settings to their original values</span>
                     </div>
-                    <p-button
-                      icon="pi pi-refresh"
-                      label="Reset Settings"
-                      severity="danger"
-                      [outlined]="true"
-                      (onClick)="confirmReset()"
-                    ></p-button>
+                    <button
+                      mat-stroked-button
+                      color="warn"
+                      (click)="confirmReset()"
+                    >
+                      <mat-icon>refresh</mat-icon>
+                      Reset Settings
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </p-tabpanel>
-      </p-tabpanels>
-    </p-tabs>
+      </mat-tab>
+    </mat-tab-group>
   </div>
 </div>
 
 <!-- Add Prefix Dialog -->
-<p-dialog
-  header="Add Prefix Mapping"
-  [(visible)]="prefixDialogVisible"
-  [modal]="true"
-  [style]="{ width: '450px' }"
->
-  <div class="dialog-content">
-    <div class="form-field">
-      <label for="prefix">Prefix <span class="required">*</span></label>
-      <input
-        id="prefix"
-        type="text"
-        pInputText
-        [ngModel]="newPrefix().prefix"
-        (ngModelChange)="updateNewPrefixPrefix($event)"
-        class="w-full"
-        placeholder="myns"
-      />
-      <small>Short name without colon (e.g., "ex", "myns")</small>
-    </div>
+@if (prefixDialogVisible()) {
+  <div class="dialog-overlay" (click)="prefixDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 450px">
+      <mat-card-header>
+        <mat-card-title>Add Prefix Mapping</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <div class="form-field">
+            <label for="prefix">Prefix <span class="required">*</span></label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                id="prefix"
+                type="text"
+                [ngModel]="newPrefix().prefix"
+                (ngModelChange)="updateNewPrefixPrefix($event)"
+                placeholder="myns"
+              />
+            </mat-form-field>
+            <small>Short name without colon (e.g., "ex", "myns")</small>
+          </div>
 
-    <div class="form-field">
-      <label for="prefixUri">URI <span class="required">*</span></label>
-      <input
-        id="prefixUri"
-        type="text"
-        pInputText
-        [ngModel]="newPrefix().uri"
-        (ngModelChange)="updateNewPrefixUri($event)"
-        class="w-full"
-        placeholder="http://example.org/ns#"
-      />
-      <small>Full namespace URI ending with # or /</small>
-    </div>
+          <div class="form-field">
+            <label for="prefixUri">URI <span class="required">*</span></label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                id="prefixUri"
+                type="text"
+                [ngModel]="newPrefix().uri"
+                (ngModelChange)="updateNewPrefixUri($event)"
+                placeholder="http://example.org/ns#"
+              />
+            </mat-form-field>
+            <small>Full namespace URI ending with # or /</small>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="prefixDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="addPrefix()">
+          <mat-icon>add</mat-icon>
+          Add Prefix
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button label="Cancel" [text]="true" (onClick)="prefixDialogVisible.set(false)"></p-button>
-    <p-button label="Add Prefix" icon="pi pi-plus" (onClick)="addPrefix()"></p-button>
-  </ng-template>
-</p-dialog>
+}
 
 <!-- Export Dialog -->
-<p-dialog
-  header="Export Settings"
-  [(visible)]="exportDialogVisible"
-  [modal]="true"
-  [style]="{ width: '600px' }"
->
-  <div class="dialog-content">
-    <p class="text-muted mb-3">Copy or download your settings configuration:</p>
-    <textarea
-      pInputTextarea
-      [ngModel]="exportData()"
-      [rows]="15"
-      class="w-full export-textarea"
-      readonly
-    ></textarea>
+@if (exportDialogVisible()) {
+  <div class="dialog-overlay" (click)="exportDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 600px">
+      <mat-card-header>
+        <mat-card-title>Export Settings</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <p class="text-muted mb-3">Copy or download your settings configuration:</p>
+          <mat-form-field appearance="outline" class="w-full">
+            <textarea
+              matInput
+              [ngModel]="exportData()"
+              rows="15"
+              class="export-textarea"
+              readonly
+            ></textarea>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="exportDialogVisible.set(false)">Close</button>
+        <button mat-stroked-button (click)="copyExport()">
+          <mat-icon>content_copy</mat-icon>
+          Copy
+        </button>
+        <button mat-raised-button color="primary" (click)="downloadExport()">
+          <mat-icon>download</mat-icon>
+          Download
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button label="Close" [text]="true" (onClick)="exportDialogVisible.set(false)"></p-button>
-    <p-button label="Copy" icon="pi pi-copy" [outlined]="true" (onClick)="copyExport()"></p-button>
-    <p-button label="Download" icon="pi pi-download" (onClick)="downloadExport()"></p-button>
-  </ng-template>
-</p-dialog>
+}
 
 <!-- Import Dialog -->
-<p-dialog
-  header="Import Settings"
-  [(visible)]="importDialogVisible"
-  [modal]="true"
-  [style]="{ width: '600px' }"
->
-  <div class="dialog-content">
-    <p class="text-muted mb-3">Paste your settings JSON configuration:</p>
-    <textarea
-      pInputTextarea
-      [ngModel]="importData()"
-      (ngModelChange)="importData.set($event)"
-      [rows]="15"
-      class="w-full import-textarea"
-      placeholder='{"settings": {...}, "prefixes": [...]}'
-    ></textarea>
+@if (importDialogVisible()) {
+  <div class="dialog-overlay" (click)="importDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 600px">
+      <mat-card-header>
+        <mat-card-title>Import Settings</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <p class="text-muted mb-3">Paste your settings JSON configuration:</p>
+          <mat-form-field appearance="outline" class="w-full">
+            <textarea
+              matInput
+              [ngModel]="importData()"
+              (ngModelChange)="importData.set($event)"
+              rows="15"
+              class="import-textarea"
+              placeholder='{"settings": {...}, "prefixes": [...]}'
+            ></textarea>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="importDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="importSettings()" [disabled]="!importData()">
+          <mat-icon>upload</mat-icon>
+          Import
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button label="Cancel" [text]="true" (onClick)="importDialogVisible.set(false)"></p-button>
-    <p-button
-      label="Import"
-      icon="pi pi-upload"
-      (onClick)="importSettings()"
-      [disabled]="!importData()"
-    ></p-button>
-  </ng-template>
-</p-dialog>
+}

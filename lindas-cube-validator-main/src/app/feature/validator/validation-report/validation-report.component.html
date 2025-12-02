@@ -1,0 +1,46 @@
+@if(!report().conforms) {
+
+<table class="ob-table ob-table-sm">
+        <caption>
+                Validation Report
+        </caption>
+        <thead>
+                <tr>
+                        <th>Message</th>
+                        <th>Focus Node</th>
+                        <th>Path</th>
+                        <th>Value</th>
+                        <th>Severity</th>
+                </tr>
+        </thead>
+        <tbody>
+                @for(result of report().results; track result) {
+
+                <tr>
+                        <td>
+
+                                @for(m of result.message; track m) {
+                                <div>Message: {{m.value}}</div>
+                                }
+                        </td>
+                        <td>
+                                <a target="_blank"
+                                        [href]="result.focusNode?.value ?? ''">&lt;{{result.focusNode?.value}}&gt;</a>
+                        </td>
+                        <td>
+                                {{result.path?.value}}
+                        </td>
+
+                        <td>
+                                {{result.value?.value ?? ''}}
+                        </td>
+                        <td>
+                                <cube-severity [severity]="result.severity?.value" />
+                        </td>
+                </tr>
+                }
+
+        </tbody>
+
+</table>
+}

@@ -1,0 +1,6 @@
+<div [@fadeInOut]>
+
+    <h1>{{'cube_selection.title' | translate}}</h1>
+    <p>{{'cube_selection.explanation' | translate}}</p>
+    <cube-validator-input (selected)="validateCube($event)" />
+</div>

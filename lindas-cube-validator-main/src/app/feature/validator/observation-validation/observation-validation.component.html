@@ -1,0 +1,30 @@
+<div class="content">
+
+    @if(!isLoading()) {
+    <div class="summary">
+
+        @if(conforms() ) {
+        <cube-conforms-indicator [conforms]="true" />
+        <div style="flex-grow: 1;">{{'cube_validation.observation_valid' | translate}}</div>
+
+
+        } @else {
+        <cube-conforms-indicator [conforms]="false" />
+        <div style="flex-grow: 1;">{{'cube_validation.observation_invalid' | translate}}</div>
+        }
+        <button mat-icon-button obButton="secondary" (click)="openDialog()" type="button"><mat-icon
+                svgIcon="info" /></button>
+
+    </div>
+    @if(!conforms() ) {
+    <cube-validation-report [report]="report()!" [@fadeInOut] />
+    <br>
+    <br>
+    <br>
+    <cube-playground-link [playgroundLink]="playgroundLink()" />
+
+    }
+    }
+    <ob-spinner channel="observation-validator" [@fadeInOut] />
+
+</div>

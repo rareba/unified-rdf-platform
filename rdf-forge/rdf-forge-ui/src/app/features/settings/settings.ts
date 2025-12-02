@@ -140,7 +140,7 @@ export class Settings implements OnInit {
   loading = signal(true);
   saving = signal(false);
   checkingHealth = signal(false);
-  activeTab = signal(0);
+  activeTab = 0;
 
   // Dialogs
   prefixDialogVisible = signal(false);

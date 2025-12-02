@@ -1,0 +1,265 @@
+# yaml-language-server: $schema=https://unpkg.com/lindas-trifid-core@latest/lib/config/schema.json
+
+template:
+  files:
+    main: file:template/main.hbs
+    header: file:template/header.hbs
+    footer: file:template/footer.hbs
+  partials:
+    infos: file:template/infos.hbs
+  title: LINDAS - Linked Data Service
+
+server:
+  logFormat: json
+  options:
+    logger: true
+
+globals:
+  datasetBaseUrl: env:DATASET_BASE_URL
+  endpoints:
+    default:
+      url: /query
+
+plugins:
+  health-old:
+    module: lindas-trifid-core/plugins/health.js
+    paths: /health
+
+  static-assets:
+    module: lindas-trifid-core/plugins/static.js
+    paths: /static-assets
+    config:
+      directory: file:static
+
+  redirect-security-well-known:
+    module: lindas-trifid-core/plugins/redirect.js
+    paths: /.well-known/security.txt
+    config:
+      target: https://www.ncsc.admin.ch/.well-known/security.txt
+
+  i18n:
+    module: lindas-trifid-plugin-i18n
+    config:
+      directory: file:locales
+      updateFiles: false
+      locales:
+        - en
+        - fr
+        - de
+        - it
+
+  welcome:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /
+    config:
+      path: views/welcome.hbs
+
+  ecosystem:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /ecosystem/
+    config:
+      path: views/ecosystem.hbs
+  data-usage:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /data-usage/
+    config:
+      path: views/data-usage.hbs
+  governance:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /governance/
+    config:
+      path: views/governance.hbs
+  know-how:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /know-how/
+    config:
+      path: views/know-how.hbs
+  community:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /community/
+    config:
+      path: views/community.hbs
+  visualize:
+    module: lindas-trifid-core/plugins/view.js
+    paths: /visualize/
+    config:
+      path: views/visualize.hbs
+
+  redirect-to-trailing-slash:
+    module: file:plugins/redirect/index.js
+    paths:
+      - /ecosystem
+      - /data-usage
+      - /governance
+      - /know-how
+      - /community
+      - /visualize
+
+  ckan:
+    module: lindas-trifid-plugin-ckan
+    paths:
+      - /ckan
+      - /ckan/
+
+  yasgui:
+    module: lindas-trifid-plugin-yasgui
+    config:
+      urlShortener: https://s.zazuko.com/api/v1/shorten
+      template: file:views/yasgui.hbs
+
+  graph-explorer:
+    module: lindas-trifid-plugin-graph-explorer
+    config:
+      dataLabelProperty: <http://schema.org/name> | rdfs:label
+      schemaLabelProperty: <http://schema.org/name> | rdfs:label
+      template: file:views/graph-explorer.hbs
+
+  spex:
+    module: lindas-trifid-plugin-spex
+
+  search:
+    module: file:plugins/search/index.js
+
+  csp-violations:
+    module: file:plugins/csp-violations/index.js
+
+  sparql-proxy:
+    module: lindas-trifid-plugin-sparql-proxy
+    paths: /x-query
+    config:
+      allowRewriteToggle: true
+      rewrite: false
+      rewriteQuery: true
+      rewriteResults: true
+
+      endpoints:
+        default:
+          url: env:SPARQL_ENDPOINT_URL
+          username: env:SPARQL_USERNAME
+          password: env:SPARQL_PASSWORD
+        prod:
+          url: https://lindas.admin.ch/query
+        int:
+          url: https://int.lindas.admin.ch/query
+        test:
+          url: https://test.lindas.admin.ch/query
+      endpointUrl: env:SPARQL_ENDPOINT_URL
+      username: env:SPARQL_USERNAME
+      password: env:SPARQL_PASSWORD
+
+      formats:
+        ttl: "text/turtle"
+        nt: "application/n-triples"
+        xml: "application/rdf+xml"
+        jsonld: "application/ld+json"
+        csv: "text/csv"
+      queryLogLevel: info
+
+  # SPARQL endpoint that returns specific xkey header
+  xquery:
+    module: file:plugins/xquery/index.js
+
+  menu:
+    module: file:plugins/menu/index.js
+    config:
+      namespace: header
+      entries:
+        - path: /datasets/
+          label: Data Catalog
+        - path: /sparql/
+          label: Query Data
+        - path: /ecosystem/
+          label: Ecosystem
+        - path: /data-usage/
+          label: Data Usage
+        - path: /governance/
+          label: Governance
+        - path: /know-how/
+          label: Know How
+        - path: /community/
+          label: Community
+
+  content:
+    module: lindas-trifid-markdown-content
+    config:
+      defaults:
+        autoLink: true # create links from headings
+        idPrefix: "content-" # prefix for generated ids for headings
+        classes: # custom CSS classes for generated HTML elements
+          h1: h1
+          h2: h2
+          h3: h3
+          h4: h4
+          h5: h5
+          table: table
+        template: file:views/content.hbs
+
+      entries:
+        lindas:
+          directory: file:content/template-parts
+          # entries used in templates using `{{{ session.markdown-content-plugin.lindas.XXXXXXXX }}}`
+
+        lindas-root:
+          directory: file:content/root-pages
+          mountPath: /
+
+        lindas-ecosystem:
+          directory: file:content/ecosystem
+          mountPath: /ecosystem/
+
+        lindas-data-usage:
+          directory: file:content/data-usage
+          mountPath: /data-usage/
+
+        lindas-governance:
+          directory: file:content/governance
+          mountPath: /governance/
+
+        lindas-know-how:
+          directory: file:content/know-how
+          mountPath: /know-how/
+
+        lindas-community:
+          directory: file:content/community
+          mountPath: /community/
+
+        # lindas-visualize:
+        #   directory: file:content/visualize
+        #   mountPath: /visualize/
+
+  entity-renderer:
+    module: lindas-trifid-entity-renderer
+    config:
+      path: views/entity.hbs
+      labelLoader:
+        chunkSize: 30
+        concurrency: 2
+        timeout: 4000
+      followRedirects: true
+      enableSchemaUrlRedirect: true
+      allowEndpointSwitch: true
+
+      rewrite: true
+
+      # Custom queries to get information about a resource or container
+      resourceExistsQuery: "ASK { GRAPH ?g { <{{iri}}> ?p ?o }}"
+      resourceGraphQuery: "#pragma describe.strategy cbd\nDESCRIBE <{{iri}}>"
+      containerExistsQuery: "ASK { GRAPH ?g { <{{iri}}> ?p ?o }}"
+      containerGraphQuery: "#pragma describe.strategy cbd\nDESCRIBE <{{iri}}>"
+
+      datasetBaseUrl:
+        - https://ld.admin.ch/
+        - https://schema.ld.admin.ch/
+        - https://culture.ld.admin.ch/
+        - https://energy.ld.admin.ch/
+        - https://education.ld.admin.ch/
+        - https://agriculture.ld.admin.ch/
+        - https://environment.ld.admin.ch/
+        - https://finance.ld.admin.ch/
+        - https://register.ld.admin.ch/
+        - https://politics.ld.admin.ch/
+        - https://health.ld.admin.ch/
+        - https://communication.ld.admin.ch/
+        - https://transport.ld.admin.ch/
+        - https://population.ld.admin.ch/
+        - https://ld.zh.ch/

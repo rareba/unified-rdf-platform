@@ -1,0 +1,38 @@
+[
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "# Issue 3\n\nhttps://gitlab.ldbar.ch/zazuko/cube-validator/-/issues/3#note_16024\n\n# Problem\nThere is a cube without cube:observationConstraint and without cube:observationSet.\n\nThis cube is currently like this...\n<https://energy.ld.admin.ch/elcom/electricityprice-swiss>\n",
+    "metadata": {}
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Issue 3.1\n\nThe cube is not displayed correctly and the Profiles are not displayed except for 'DEFAULT'. The default is attached statically and it doesn't relay on the cube data. \n\nThe query to fetch the cube has to take into account that cube:observationConstraint and cube:observationSet can be missing.",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "#pragma describe.strategy cbd\nPREFIX cube: <https://cube.link/>\n\nDESCRIBE ?s ?cube WHERE {\n    BIND(<https://energy.ld.admin.ch/elcom/electricityprice-swiss> AS ?cube)\n    ?cube cube:observationConstraint ?s .\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "Fixed query",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "#pragma describe.strategy cbd\nPREFIX cube: <https://cube.link/>\n\nDESCRIBE ?s ?cube WHERE {\n    BIND(<https://energy.ld.admin.ch/elcom/electricityprice-swiss> AS ?cube)\n    OPTIONAL { ?cube cube:observationConstraint ?s .}\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Issue 3.2\n\nThe Observation validation throws an error because the cube:observationConstraint is missing.",
+    "metadata": {}
+  }
+]

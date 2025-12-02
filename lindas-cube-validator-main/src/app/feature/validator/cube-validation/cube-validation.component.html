@@ -1,0 +1,28 @@
+<div class="content">
+
+    <div class="validation-profile">
+        <div class="summary">
+
+            @if(report()?.report?.conforms) {
+            <cube-conforms-indicator [conforms]="true" />
+            <div>{{'cube_validation.valid'|translate}}</div>
+
+            } @else if (!report()?.report?.conforms) {
+
+            <cube-conforms-indicator [conforms]="false" />
+
+            <div>{{'cube_validation.invalid'|translate}}</div>
+            }
+        </div>
+
+
+    </div>
+
+
+
+    @if(report()?.report !== undefined) {
+    <cube-constraints-validation-report [report]="report()?.report!" [@fadeInOut] />
+    <cube-playground-link [playgroundLink]="playgroundLink()" />
+    }
+    <ob-spinner channel="load-validation-report" [@fadeInOut] />
+</div>

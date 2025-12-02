@@ -1,25 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init:*)",
-      "Bash(git config:*)",
-      "Bash(git clone:*)",
-      "Bash(dir /B:*)",
-      "Bash(xargs ls:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "mcp__MCP_DOCKER__create_repository",
-      "Bash(gh repo create:*)",
-      "Bash(gh repo view:*)",
-      "Bash(gh repo:*)",
-      "Bash(git push:*)",
-      "Bash(git log:*)",
-      "Bash(dir:*)",
-      "Bash(npm run build:*)",
-      "Bash(docker-compose:*)",
-      "Bash(curl:*)",
-      "Bash(docker exec:*)",
-      "Bash(winpty docker exec -it rdf-forge-ui sh -c \"ls -la //usr//share//nginx//html//\")"
+      "Bash(git -c user.name=\"Giulio V\" -c user.email=\"vannini.gv@gmail.com\" commit -m \"Migrate dimension-manager component from PrimeNG to Angular Material\n\nReplace all PrimeNG components with Angular Material equivalents:\n- TableModule -> MatTableModule with MatSort and MatPaginator\n- ButtonModule -> MatButtonModule with mat-raised-button and mat-icon-button\n- InputTextModule -> MatInputModule with MatFormFieldModule\n- DialogModule -> custom dialog implementation with backdrop and container\n- TooltipModule -> MatTooltipModule\n- ToastModule/MessageService -> MatSnackBar\n- TagModule -> MatChipsModule\n- SelectModule -> MatSelectModule\n- ConfirmDialogModule -> custom ConfirmDialogComponent with MatDialog\n- ProgressBarModule -> MatProgressBarModule\n- DividerModule -> MatDividerModule\n\nReplace all PrimeIcons with Material Icons:\n- pi pi-* -> mat-icon with Material icon names\n\nAdd new files:\n- confirmation.service.ts: Service for confirmation dialogs using MatDialog\n- confirm-dialog.component.ts: Reusable confirmation dialog component\n\nUpdate styling to use Material Design principles with custom dialog styling.\")",
+      "Bash(git -c user.name=\"Giulio V\" -c user.email=\"vannini.gv@gmail.com\" commit -m \"Migrate job-monitor component from PrimeNG to Angular Material\n\nReplace PrimeNG components with Angular Material equivalents:\n- ButtonModule -> MatButtonModule\n- CardModule -> MatCardModule  \n- TagModule -> MatChipsModule with custom CSS classes\n- ProgressBarModule -> MatProgressBarModule\n- TableModule -> MatTableModule\n- ToastModule/MessageService -> MatSnackBar\n- Remove TooltipModule (not currently used)\n\nReplace PrimeNG icons (pi pi-*) with Material icons (mat-icon):\n- pi-arrow-left -> arrow_back\n- pi-stop -> stop\n- pi-refresh -> refresh\n\nUpdate styling to use Material Design color system and remove PrimeNG CSS variables.\")",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

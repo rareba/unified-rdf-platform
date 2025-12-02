@@ -1,0 +1,11 @@
+@if(conforms()) {
+<div class="valid result">
+    <mat-icon class="ob-icon" [svgIcon]="'checkmark'" />
+</div>
+
+} @else {
+
+<div class="invalid result">
+    <mat-icon class="ob-icon" [svgIcon]="'cancel'" />
+</div>
+}

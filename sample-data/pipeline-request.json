@@ -1,0 +1,5 @@
+{
+  "name": "Test Pipeline",
+  "definition": "{\"steps\":[{\"id\":\"load\",\"operation\":\"load-csv\",\"parameters\":{\"file\":\"/tmp/test.csv\",\"delimiter\":\",\",\"hasHeader\":true}},{\"id\":\"map\",\"operation\":\"map-to-rdf\",\"inputs\":[\"load\"],\"parameters\":{\"baseUri\":\"http://example.org/\",\"subjectColumn\":\"id\",\"typeUri\":\"http://example.org/Person\",\"propertyMappings\":{\"name\":\"http://example.org/name\",\"score\":\"http://example.org/score\"},\"datatypeMappings\":{\"score\":\"http://www.w3.org/2001/XMLSchema#integer\"}}},{\"id\":\"store\",\"operation\":\"graph-store-put\",\"inputs\":[\"map\"],\"parameters\":{\"endpoint\":\"http://rdf-forge-graphdb:7200/repositories/rdfforge/statements\"}}]}",
+  "definitionFormat": "YAML"
+}

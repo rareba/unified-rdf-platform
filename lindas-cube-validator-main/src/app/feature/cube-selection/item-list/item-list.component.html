@@ -1,0 +1,29 @@
+<div [@fadeInOut]>
+    <mat-form-field>
+        <mat-label>{{'cube_selection.filter' | translate}}</mat-label>
+        <input type="text" matInput [formControl]="searchFormControl" />
+
+        <mat-icon class=" ob-icon" svgIcon="search" matPrefix></mat-icon>
+
+    </mat-form-field>
+
+    <div>
+
+        <div class="summary">
+            Cubes {{filteredItems().length}}
+        </div>
+        <div class="list-container">
+            <ob-spinner channel="cube_list" [@fadeInOut] />
+
+            @for(i of filteredItems(); track i.iri) {
+
+            <cube-list-item [@fadeInOut] [cube]="i" (selected)="selectItem($event)" />
+
+            }
+        </div>
+    </div>
+
+
+
+
+</div>

@@ -1,0 +1,21 @@
+.invalid {
+    border-color: red;
+    color: red
+}
+
+.valid {
+    border-color: green;
+    color: green;
+}
+
+
+.result {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid;
+    margin-right: 16px;
+}

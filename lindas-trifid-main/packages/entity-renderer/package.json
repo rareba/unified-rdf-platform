@@ -1,0 +1,59 @@
+{
+  "name": "lindas-trifid-entity-renderer",
+  "version": "2.0.1",
+  "type": "module",
+  "description": "Renders a RDF entity in Trifid",
+  "main": "index.js",
+  "scripts": {
+    "example-instance": "node ./examples/run-instance.js",
+    "test": "c8 --all --reporter lcovonly --reporter text node --test **/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SwissFederalArchives/lindas-trifid.git",
+    "directory": "packages/entity-renderer"
+  },
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/zazuko/trifid/issues"
+  },
+  "homepage": "https://github.com/SwissFederalArchives/lindas-trifid",
+  "author": {
+    "name": "Swiss Federal Archives / Lindas",
+    "url": "https://www.bar.admin.ch/"
+  },
+  "keywords": [
+    "trifid",
+    "trifid-plugin",
+    "entity-renderer"
+  ],
+  "dependencies": {
+    "@lit-labs/ssr": "^3.3.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@rdfjs/formats-common": "^3.1.0",
+    "@rdfjs/to-ntriples": "^3.0.1",
+    "@zazuko/env": "^3.0.1",
+    "@zazuko/prefixes": "^2.4.0",
+    "@zazuko/rdf-entity-webcomponent": "^0.7.7",
+    "lit": "^3.3.1",
+    "mimeparse": "^0.1.4",
+    "p-queue": "^9.0.0",
+    "lindas-trifid-core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@rdfjs/types": "^2.0.1",
+    "c8": "^10.1.3",
+    "lindas-trifid-handler-fetch": "^4.0.0",
+    "lindas-trifid-plugin-yasgui": "^4.0.0"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "renderer",
+    "views"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

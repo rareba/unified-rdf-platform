@@ -1,0 +1,11 @@
+<mat-card (click)="selectItem(cube().iri)">
+    <mat-card-header>
+        <mat-card-title>{{ cube().name }}</mat-card-title>
+        <mat-card-subtitle>{{ cube().iri }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+        <p>{{ cube().description }}</p>
+        <p> {{ cube().datePublished }}
+        </p>
+    </mat-card-content>
+</mat-card>

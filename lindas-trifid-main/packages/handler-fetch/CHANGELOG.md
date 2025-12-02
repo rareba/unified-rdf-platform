@@ -1,0 +1,101 @@
+# trifid-handler-fetch
+
+## 4.0.0
+
+### Major Changes
+
+- 732a9b5: Rename packages to LINDAS namespace and remove Zazuko branding
+
+  Remove all references to Zazuko and rebrand all packages under the LINDAS/Swiss Federal Archives namespace. This allows the fork to be published to npm independently and clearly indicates these are the LINDAS customizations of Trifid, not the original Zazuko packages.
+
+  Package name changes:
+
+  - trifid → lindas-trifid
+  - trifid-core → lindas-trifid-core
+  - trifid-handler-fetch → lindas-trifid-handler-fetch
+  - trifid-plugin-_ → lindas-trifid-plugin-_
+  - @zazuko/trifid-_ → lindas-trifid-_
+
+  Author updated to: Swiss Federal Archives / Lindas
+
+## 3.5.1
+
+### Patch Changes
+
+- c41beea: Lower the OpenTelemetry cardinality
+
+## 3.5.0
+
+### Minor Changes
+
+- c1b8591: Export `sparql_queries_total` OpenTelemetry metric
+
+## 3.4.0
+
+### Minor Changes
+
+- 7d2ac00: Forward the SPARQL queries in the OpenTelemetry traces
+
+## 3.3.4
+
+### Patch Changes
+
+- f0e3b13: Fix and improve types references
+
+## 3.3.3
+
+### Patch Changes
+
+- 080f5d8: Harmonize author and keywords fields
+- a97a6a0: Use Apache 2.0 license
+
+## 3.3.2
+
+### Patch Changes
+
+- 7d6a17a: Upgrade Oxigraph to 0.4.0-rc.1.
+
+## 3.3.1
+
+### Patch Changes
+
+- 1cafa55: Return `reply` in the `routeHandler`, in order to be compatible with the support for compression.
+
+## 3.3.0
+
+### Minor Changes
+
+- cb5e6b9: It is now possible to configure the log level of the queries by using the `queryLogLevel` configuration option.
+
+## 3.2.0
+
+### Minor Changes
+
+- 6a4dcfc: Returns `Server-Timing` as response header containing the duration of the request to perform.
+
+## 3.1.0
+
+### Minor Changes
+
+- cba7676: Upgrade `oxigraph` to 0.4.0-alpha.7
+
+## 3.0.0
+
+### Major Changes
+
+- 4b515f8: Use 'plugins' instead of 'middlewares'
+- 0eaf2b7: Completely change the way it is working.
+
+  Instead of being an handler that is made to be called only when dereferencing, it is now a Trifid plugin that is exposing a new endpoint `/query` (for example) that can be used to perform SPARQL queries against the dataset.
+
+  This means that it is now possible to perform SPARQL queries against a dataset that is loaded from a URL, which was not possible before.
+  This also means that it is possible to use all other Trifid plugins that were only working with a SPARQL endpoint and not with a dataset coming from a simple file.
+
+  Please take a look on how to use it in the documentation here: https://github.com/zazuko/trifid/tree/main/packages/handler-fetch#readme
+
+- 293d7e6: The plugin is now using the new Trifid factory, which is a breaking change.
+
+### Patch Changes
+
+- 69d6ad0: Improve included TypeScript types.
+- e65e519: Support `unionDefaultGraph` configuration

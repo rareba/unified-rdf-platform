@@ -1,0 +1,33 @@
+{
+  "name": "lindas-trifid-root",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Root package to handle all Trifid packages",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "lint": "eslint . --quiet --ignore-path .gitignore",
+    "test": "true",
+    "release": "changeset publish",
+    "prepare": "husky",
+    "build": "npx wsrun --report -msc prepack",
+    "clean": "npx wsrun --report -msc clean"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix --quiet"
+    ]
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@tpluscode/eslint-config": "^0.6.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.3",
+    "type-detect": "^4.1.0",
+    "typescript": "^5.9.3",
+    "wsrun": "^5.2.4"
+  }
+}

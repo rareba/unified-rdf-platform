@@ -1,11 +1,12 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { CardModule } from 'primeng/card';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
-import { ButtonModule } from 'primeng/button';
-import { SkeletonModule } from 'primeng/skeleton';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTableModule } from '@angular/material/table';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatChipsModule } from '@angular/material/chips';
 import { forkJoin, catchError, of } from 'rxjs';
 import { PipelineService, JobService, DataService, ShaclService } from '../../core/services';
 import { Job } from '../../core/models';
@@ -19,7 +20,15 @@ interface DashboardStats {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, CardModule, TableModule, TagModule, ButtonModule, SkeletonModule],
+  imports: [
+    CommonModule,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatProgressSpinnerModule,
+    MatChipsModule
+  ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -33,6 +42,8 @@ export class Dashboard implements OnInit {
   loading = signal(true);
   stats = signal<DashboardStats>({ pipelines: 0, completedJobs: 0, shapes: 0, dataSources: 0 });
   recentJobs = signal<Job[]>([]);
+
+  displayedColumns = ['pipelineName', 'status', 'startedAt', 'duration'];
 
   ngOnInit(): void {
     this.loadDashboardData();
@@ -58,15 +69,15 @@ export class Dashboard implements OnInit {
     });
   }
 
-  getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
-    const map: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary'> = {
-      completed: 'success',
-      running: 'info',
-      failed: 'danger',
-      pending: 'warn',
-      cancelled: 'secondary'
+  getStatusColor(status: string): string {
+    const map: Record<string, string> = {
+      completed: 'primary',
+      running: 'accent',
+      failed: 'warn',
+      pending: '',
+      cancelled: ''
     };
-    return map[status] || 'info';
+    return map[status] || '';
   }
 
   formatDate(date: Date | undefined): string {

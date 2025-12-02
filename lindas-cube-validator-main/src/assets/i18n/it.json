@@ -1,0 +1,22 @@
+{
+    "navigation": {
+        "back": "Indietro"
+    },
+    "cube_selection": {
+        "title": "Seleziona un data cube",
+        "explanation": "Per validare il tuo data cube, inserisci il tuo punto di accesso SPARQL e scegli un cubo da validare.",
+        "filter": "filtrare i cubi"
+    },
+    "cube_validation": {
+        "invalid": "Il cubo non è conforme al profilo selezionato",
+        "valid": "Il cubo è conforme al profilo selezionato",
+        "title_observation_validation_process": "Processo di validazione delle osservazioni",
+        "describe_observation_validation_process": "Vengono validate 10 osservazioni, poi altre 10 osservazioni vengono caricate e validate. Questo processo viene ripetuto fino a 10 volte. Una volta che sono stati trovati più di 20 errori, il processo viene interrotto.",
+        "observation_valid": "Conforma ai vincoli della forma del cube",
+        "observation_invalid": "Non conforma ai vincoli della forma del cube",
+        "url_error": "Si prega di fornire un URL HTTP valido"
+    },
+    "footer": {
+        "title": "Ufficio federale dell'ambiente UFAM"
+    }
+}

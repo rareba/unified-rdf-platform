@@ -1,6 +1,16 @@
-:host ::ng-deep .stat-card {
-  border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.dashboard {
+  padding: 1.5rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  border-radius: 8px;
 }
 
 .stat-content {
@@ -16,10 +26,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
 
-.stat-icon i {
-  font-size: 1.5rem;
+  mat-icon {
+    font-size: 1.5rem;
+    width: 24px;
+    height: 24px;
+  }
+
+  &.blue {
+    background: rgba(59, 130, 246, 0.1);
+    mat-icon { color: #3b82f6; }
+  }
+
+  &.green {
+    background: rgba(34, 197, 94, 0.1);
+    mat-icon { color: #22c55e; }
+  }
+
+  &.purple {
+    background: rgba(168, 85, 247, 0.1);
+    mat-icon { color: #a855f7; }
+  }
+
+  &.orange {
+    background: rgba(249, 115, 22, 0.1);
+    mat-icon { color: #f97316; }
+  }
 }
 
 .stat-info {
@@ -38,14 +70,88 @@
   font-size: 0.875rem;
 }
 
+.content-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jobs-card, .actions-card {
+  border-radius: 8px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: #64748b;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.jobs-table {
+  width: 100%;
+}
+
+.status-chip {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+
+  &.status-completed {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+  }
+
+  &.status-running {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+
+  &.status-failed {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  &.status-pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  &.status-cancelled {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+  }
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;
-}
+  gap: 0.75rem;
 
-.card-header {
-  font-size: 1.125rem;
-  font-weight: 600;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
+  button {
+    justify-content: flex-start;
+
+    mat-icon {
+      margin-right: 0.5rem;
+    }
+  }
 }

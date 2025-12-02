@@ -1,0 +1,239 @@
+# @zazuko/trifid-plugin-sparql-proxy
+
+## 3.0.5
+
+### Patch Changes
+
+- d19d268: Fix critical ReDoS vulnerability in ReplaceStream
+
+  - Escape regex special characters in ReplaceStream to prevent catastrophic backtracking attacks
+  - Prevents CPU exhaustion and service unavailability from malicious regex patterns
+
+## 3.0.3
+
+### Patch Changes
+
+- 1e78d95: Fix SPARQL proxy returning corrupted data when rewrite is enabled. The endpoint now properly handles responses by disabling compression when rewrite functionality is active, preventing ReplaceStream from corrupting binary compressed data.
+
+## 3.0.2
+
+### Patch Changes
+
+- 6a5ae64: Retry npm publish after rate limit reset
+
+## 3.0.1
+
+### Patch Changes
+
+- a7a4c67: Republish packages that failed due to npm rate limiting
+
+## 3.0.0
+
+### Major Changes
+
+- 732a9b5: Rename packages to LINDAS namespace and remove Zazuko branding
+
+  Remove all references to Zazuko and rebrand all packages under the LINDAS/Swiss Federal Archives namespace. This allows the fork to be published to npm independently and clearly indicates these are the LINDAS customizations of Trifid, not the original Zazuko packages.
+
+  Package name changes:
+
+  - trifid → lindas-trifid
+  - trifid-core → lindas-trifid-core
+  - trifid-handler-fetch → lindas-trifid-handler-fetch
+  - trifid-plugin-_ → lindas-trifid-plugin-_
+  - @zazuko/trifid-_ → lindas-trifid-_
+
+  Author updated to: Swiss Federal Archives / Lindas
+
+### Patch Changes
+
+- Updated dependencies [732a9b5]
+  - lindas-trifid-core@6.0.0
+
+## 2.9.1
+
+### Patch Changes
+
+- c41beea: Lower the OpenTelemetry cardinality
+
+## 2.9.0
+
+### Minor Changes
+
+- c1b8591: Export `sparql_queries_total` OpenTelemetry metric
+
+### Patch Changes
+
+- Updated dependencies [c1b8591]
+- Updated dependencies [e124f78]
+  - trifid-core@5.3.0
+
+## 2.8.0
+
+### Minor Changes
+
+- 7d2ac00: Forward the SPARQL queries in the OpenTelemetry traces
+
+## 2.7.0
+
+### Minor Changes
+
+- a421a32: Add support for `headers` option, to allow sending custom headers to the endpoint
+
+### Patch Changes
+
+- Updated dependencies [98fee3a]
+  - trifid-core@5.1.2
+
+## 2.6.2
+
+### Patch Changes
+
+- 23bd23e: A simple tweak so that we can have the sparql-proxy running on top of a QLever endpoint
+
+## 2.6.1
+
+### Patch Changes
+
+- 7e61d2a: Check if a URL is valid, during the replacement of the default endpoint
+
+## 2.6.0
+
+### Minor Changes
+
+- d3bc56f: Add support for multiple endpoints
+
+## 2.5.2
+
+### Patch Changes
+
+- 3b59e77: Export types
+- f0e3b13: Fix and improve types references
+
+## 2.5.1
+
+### Patch Changes
+
+- 724f2ed: Fix `requestPort` value, to handle `null` cases and simplify the logic
+
+## 2.5.0
+
+### Minor Changes
+
+- 007e201: Upgrade Fastify to v5.
+
+### Patch Changes
+
+- 080f5d8: Harmonize author and keywords fields
+- a97a6a0: Use Apache 2.0 license
+- Updated dependencies [080f5d8]
+- Updated dependencies [a97a6a0]
+- Updated dependencies [007e201]
+  - trifid-core@5.1.0
+
+## 2.4.4
+
+### Patch Changes
+
+- c5ef560: Fixes Service Description to only respond to requests without **any** query strings, as it is required by the [spec](https://www.w3.org/TR/2013/REC-sparql11-service-description-20130321/#accessing).
+
+## 2.4.3
+
+### Patch Changes
+
+- 79a91eb: Fix issues in case of DestroyableTransform
+
+## 2.4.2
+
+### Patch Changes
+
+- a257043: Enable stream support back
+
+## 2.4.1
+
+### Patch Changes
+
+- b986500: Include missing `lib` directory
+
+## 2.4.0
+
+### Minor Changes
+
+- 7729ed7: Serve a [SPARQL 1.1 Service Description](https://www.w3.org/TR/sparql11-service-description/), proxied from the original server (fixes #461)
+
+### Patch Changes
+
+- 1cafa55: Return `reply` in the `routeHandler`, in order to be compatible with the support for compression.
+- Updated dependencies [1cafa55]
+- Updated dependencies [1cafa55]
+  - trifid-core@5.0.0
+
+## 2.3.0
+
+### Minor Changes
+
+- 7ab85d4: It is now possible to configure the log level of the queries by using the `queryLogLevel` configuration option.
+
+## 2.2.0
+
+### Minor Changes
+
+- f0452b1: Returns `Server-Timing` as response header containing the duration of the request to the configured endpoint.
+
+### Patch Changes
+
+- Updated dependencies [b03bdb5]
+- Updated dependencies [eff233a]
+  - trifid-core@4.0.7
+
+## 2.1.0
+
+### Minor Changes
+
+- b499b50: Add a `formats` configuration field, to manually configure the list of allowed formats that can be provided as query parameter. The SPARQL endpoint will need to support the specified formats.
+
+### Patch Changes
+
+- Updated dependencies [009d545]
+  - trifid-core@4.0.5
+
+## 2.0.1
+
+### Patch Changes
+
+- 2553ece: Fix an issue with the rewrite query parameter, where it was assuming that undefined value was equal to 'true'
+- Updated dependencies [e8faa76]
+  - trifid-core@4.0.0
+
+## 2.0.0
+
+### Major Changes
+
+- b38cbc5: The plugin is now using the new Trifid factory, which is a breaking change.
+- 4b515f8: Use 'plugins' instead of 'middlewares'
+- b38cbc5: The plugin was completely restructured to remove extra complexity.
+
+### Patch Changes
+
+- 538a959: Upgrade proxy-agent to 6.4.0
+- Updated dependencies [a454dbb]
+- Updated dependencies [3ab5eb3]
+- Updated dependencies [69d6ad0]
+- Updated dependencies [849fa3d]
+- Updated dependencies [4b515f8]
+- Updated dependencies [849fa3d]
+- Updated dependencies [d9963cd]
+- Updated dependencies [1dd9ae7]
+  - trifid-core@3.0.0
+
+## 1.2.0
+
+### Minor Changes
+
+- 5d9df9f: Add support for `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment variables with the new configuration property `enableProxy` set to `true` (close #174)
+
+## 1.1.1
+
+### Patch Changes
+
+- 141786b: Upgrade dependencies

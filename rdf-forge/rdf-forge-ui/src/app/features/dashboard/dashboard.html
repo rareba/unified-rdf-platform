@@ -1,126 +1,148 @@
 <div class="dashboard">
-  <div class="grid">
-    <div class="col-12 md:col-6 lg:col-3">
-      <p-card styleClass="stat-card">
+  <div class="stats-grid">
+    <mat-card class="stat-card">
+      <mat-card-content>
         <div class="stat-content">
-          <div class="stat-icon bg-blue-100">
-            <i class="pi pi-sitemap text-blue-500"></i>
+          <div class="stat-icon blue">
+            <mat-icon>account_tree</mat-icon>
           </div>
           <div class="stat-info">
             @if (loading()) {
-              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
-              <p-skeleton width="4rem" height="1rem"></p-skeleton>
+              <mat-spinner diameter="24"></mat-spinner>
             } @else {
               <span class="stat-value">{{ stats().pipelines }}</span>
               <span class="stat-label">Pipelines</span>
             }
           </div>
         </div>
-      </p-card>
-    </div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="col-12 md:col-6 lg:col-3">
-      <p-card styleClass="stat-card">
+    <mat-card class="stat-card">
+      <mat-card-content>
         <div class="stat-content">
-          <div class="stat-icon bg-green-100">
-            <i class="pi pi-check-circle text-green-500"></i>
+          <div class="stat-icon green">
+            <mat-icon>check_circle</mat-icon>
           </div>
           <div class="stat-info">
             @if (loading()) {
-              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
-              <p-skeleton width="6rem" height="1rem"></p-skeleton>
+              <mat-spinner diameter="24"></mat-spinner>
             } @else {
               <span class="stat-value">{{ stats().completedJobs }}</span>
               <span class="stat-label">Completed Jobs</span>
             }
           </div>
         </div>
-      </p-card>
-    </div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="col-12 md:col-6 lg:col-3">
-      <p-card styleClass="stat-card">
+    <mat-card class="stat-card">
+      <mat-card-content>
         <div class="stat-content">
-          <div class="stat-icon bg-purple-100">
-            <i class="pi pi-check-square text-purple-500"></i>
+          <div class="stat-icon purple">
+            <mat-icon>check_box</mat-icon>
           </div>
           <div class="stat-info">
             @if (loading()) {
-              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
-              <p-skeleton width="5rem" height="1rem"></p-skeleton>
+              <mat-spinner diameter="24"></mat-spinner>
             } @else {
               <span class="stat-value">{{ stats().shapes }}</span>
               <span class="stat-label">SHACL Shapes</span>
             }
           </div>
         </div>
-      </p-card>
-    </div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="col-12 md:col-6 lg:col-3">
-      <p-card styleClass="stat-card">
+    <mat-card class="stat-card">
+      <mat-card-content>
         <div class="stat-content">
-          <div class="stat-icon bg-orange-100">
-            <i class="pi pi-database text-orange-500"></i>
+          <div class="stat-icon orange">
+            <mat-icon>storage</mat-icon>
           </div>
           <div class="stat-info">
             @if (loading()) {
-              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
-              <p-skeleton width="5rem" height="1rem"></p-skeleton>
+              <mat-spinner diameter="24"></mat-spinner>
             } @else {
               <span class="stat-value">{{ stats().dataSources }}</span>
               <span class="stat-label">Data Sources</span>
             }
           </div>
         </div>
-      </p-card>
-    </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 
-  <div class="grid mt-4">
-    <div class="col-12 lg:col-8">
-      <p-card>
-        <ng-template pTemplate="header">
-          <div class="card-header">Recent Jobs</div>
-        </ng-template>
-        <p-table [value]="recentJobs()" [rows]="5" responsiveLayout="scroll" [loading]="loading()">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Pipeline</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Duration</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-job>
-            <tr>
-              <td>{{ job.pipelineName }}</td>
-              <td><p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)"></p-tag></td>
-              <td>{{ formatDate(job.startedAt) }}</td>
-              <td>{{ formatDuration(job.duration) }}</td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td colspan="4" class="text-center text-muted">No jobs yet</td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </p-card>
-    </div>
+  <div class="content-grid">
+    <mat-card class="jobs-card">
+      <mat-card-header>
+        <mat-card-title>Recent Jobs</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (loading()) {
+          <div class="loading-container">
+            <mat-spinner diameter="40"></mat-spinner>
+          </div>
+        } @else if (recentJobs().length === 0) {
+          <div class="empty-state">
+            <mat-icon>work_off</mat-icon>
+            <p>No jobs yet</p>
+          </div>
+        } @else {
+          <table mat-table [dataSource]="recentJobs()" class="jobs-table">
+            <ng-container matColumnDef="pipelineName">
+              <th mat-header-cell *matHeaderCellDef>Pipeline</th>
+              <td mat-cell *matCellDef="let job">{{ job.pipelineName }}</td>
+            </ng-container>
 
-    <div class="col-12 lg:col-4">
-      <p-card>
-        <ng-template pTemplate="header">
-          <div class="card-header">Quick Actions</div>
-        </ng-template>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let job">
+                <span class="status-chip" [class]="'status-' + job.status">{{ job.status }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="startedAt">
+              <th mat-header-cell *matHeaderCellDef>Started</th>
+              <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt) }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="duration">
+              <th mat-header-cell *matHeaderCellDef>Duration</th>
+              <td mat-cell *matCellDef="let job">{{ formatDuration(job.duration) }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="actions-card">
+      <mat-card-header>
+        <mat-card-title>Quick Actions</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
         <div class="quick-actions">
-          <p-button label="New Pipeline" icon="pi pi-plus" styleClass="w-full mb-2" (click)="navigateTo('/pipelines/new')"></p-button>
-          <p-button label="Create Shape" icon="pi pi-plus" styleClass="w-full mb-2" severity="secondary" (click)="navigateTo('/shacl/new')"></p-button>
-          <p-button label="Upload Data" icon="pi pi-upload" styleClass="w-full mb-2" severity="info" (click)="navigateTo('/data')"></p-button>
-          <p-button label="Create Cube" icon="pi pi-box" styleClass="w-full" severity="help" (click)="navigateTo('/cube')"></p-button>
+          <button mat-raised-button color="primary" (click)="navigateTo('/pipelines/new')">
+            <mat-icon>add</mat-icon>
+            New Pipeline
+          </button>
+          <button mat-stroked-button (click)="navigateTo('/shacl/new')">
+            <mat-icon>add</mat-icon>
+            Create Shape
+          </button>
+          <button mat-stroked-button color="accent" (click)="navigateTo('/data')">
+            <mat-icon>upload</mat-icon>
+            Upload Data
+          </button>
+          <button mat-stroked-button (click)="navigateTo('/cubes')">
+            <mat-icon>view_in_ar</mat-icon>
+            Create Cube
+          </button>
         </div>
-      </p-card>
-    </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 </div>

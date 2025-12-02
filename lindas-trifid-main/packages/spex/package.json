@@ -1,0 +1,46 @@
+{
+  "name": "lindas-trifid-plugin-spex",
+  "description": "Trifid SPEX plugin",
+  "type": "module",
+  "main": "index.js",
+  "version": "4.0.0",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/SwissFederalArchives/lindas-trifid",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SwissFederalArchives/lindas-trifid.git",
+    "directory": "packages/spex"
+  },
+  "bugs": {
+    "url": "https://github.com/zazuko/trifid/issues"
+  },
+  "scripts": {
+    "test": "c8 --all --reporter=lcovonly --reporter=text node --test **/*.test.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "@zazuko/spex": "^0.2.2",
+    "import-meta-resolve": "^4.2.0"
+  },
+  "author": {
+    "name": "Swiss Federal Archives / Lindas",
+    "url": "https://www.bar.admin.ch/"
+  },
+  "keywords": [
+    "trifid",
+    "trifid-plugin",
+    "spex"
+  ],
+  "files": [
+    "index.js",
+    "views/"
+  ],
+  "devDependencies": {
+    "c8": "^10.1.3",
+    "lindas-trifid-core": "^6.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

@@ -1,0 +1,19 @@
+<div class="cube">
+
+    @if(cube()) {
+    <div class="content" [@fadeInOut]>
+        <div class="label">
+            {{cubeName()}}
+        </div>
+        <div class="lang">
+            &lt;{{cube()!.iri}}&gt;
+        </div>
+        <div class="profile">
+            <cube-profile-selector (profileSelected)="emitProfileSelected($event)" [selectedProfile]="selectedProfile()"
+                [profiles]="cube()!.getAvailableValidationProfiles()" />
+
+        </div>
+    </div>
+
+    }
+</div>

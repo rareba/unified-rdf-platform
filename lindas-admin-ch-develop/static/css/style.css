@@ -1,0 +1,57 @@
+#yasgui {
+  margin-top: 48px;
+}
+
+#yasgui input:not([type='checkbox']),
+#yasgui select {
+  min-height: unset;
+  padding: unset;
+  width: inherit;
+}
+
+#yasgui .autocompleteWrapper {
+  max-width: none;
+}
+
+#yasgui .controlbar {
+  max-height: none;
+}
+
+#yasgui .CodeMirror.cm-s-default.CodeMirror-wrap.overflow {
+  height: fit-content;
+}
+
+#yasgui .tableControls .switch .label {
+  margin: 4px;
+}
+
+#yasgui .autocompleteWrapper input.autocomplete,
+#yasgui .tableControls input.tableFilter,
+#yasgui .tableControls select.tableSizer {
+  padding: 4px;
+}
+
+#yasgui .yasqe_sharePopup .inputWrapper input {
+  padding: 4px;
+  width: 100%;
+}
+
+.headers-autolink {
+  color: rgb(31 41 55);
+  text-decoration: none;
+}
+
+.item-16-9-ratio {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+
+/* Used in views, for <section> used as submenu */
+.remove-space-after-submenu-section {
+  margin-bottom: -80px;
+}
+
+/* override CSS style */
+main a {
+  word-break: break-word;
+}

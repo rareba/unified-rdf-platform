@@ -1,0 +1,32 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix schema: <http://schema.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix cube: <https://cube.link/> .
+
+_:report a sh:ValidationReport ;
+	sh:result [
+		rdf:type sh:ValidationResult ;
+		sh:resultSeverity sh:Warning ;
+		sh:sourceConstraintComponent sh:OrConstraintComponent ;
+		sh:sourceShape [
+			sh:path sh:property ;
+			sh:or (
+				[
+					sh:path <http://qudt.org/schema/qudt/unit> ;
+					sh:equals <http://qudt.org/schema/qudt/hasUnit> ;
+				]
+				[
+					sh:path <http://qudt.org/schema/qudt/unit> ;
+					sh:maxCount 0 ;
+				]
+			) ;
+			sh:message "The use of qudt:unit is deprecated, please use qudt:hasUnit instead" ;
+			sh:severity sh:Warning ;
+		] ;
+		sh:focusNode <https://example.org/shape> ;
+		sh:resultPath sh:property ;
+		sh:value _:b3 ;
+		sh:resultMessage "The use of qudt:unit is deprecated, please use qudt:hasUnit instead" ;
+	] ;
+	sh:conforms false .

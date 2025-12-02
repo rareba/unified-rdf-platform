@@ -2,21 +2,20 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardModule } from 'primeng/card';
-import { InputTextModule } from 'primeng/inputtext';
-import { TextareaModule } from 'primeng/textarea';
-import { SelectModule } from 'primeng/select';
-import { ButtonModule } from 'primeng/button';
-import { TabsModule } from 'primeng/tabs';
-import { TableModule } from 'primeng/table';
-import { TagModule } from 'primeng/tag';
-import { ToastModule } from 'primeng/toast';
-import { CheckboxModule } from 'primeng/checkbox';
-import { ToggleButtonModule } from 'primeng/togglebutton';
-import { PanelModule } from 'primeng/panel';
-import { DividerModule } from 'primeng/divider';
-import { TooltipModule } from 'primeng/tooltip';
-import { MessageService } from 'primeng/api';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatDividerModule } from '@angular/material/divider';
 import { ShaclService } from '../../../core/services';
 import { ShapeCreateRequest, ContentFormat, ValidationResult } from '../../../core/models';
 
@@ -60,7 +59,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'person',
     name: 'Person',
     description: 'Validate personal information like name, email, and birthdate',
-    icon: 'pi pi-user',
+    icon: 'person',
     category: 'Common',
     targetClass: 'http://schema.org/Person',
     properties: [
@@ -73,7 +72,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'organization',
     name: 'Organization',
     description: 'Validate organization data with name, website, and contact info',
-    icon: 'pi pi-building',
+    icon: 'business',
     category: 'Common',
     targetClass: 'http://schema.org/Organization',
     properties: [
@@ -86,7 +85,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'datacube-observation',
     name: 'Data Cube Observation',
     description: 'Validate RDF Data Cube observations with dimensions and measures',
-    icon: 'pi pi-chart-bar',
+    icon: 'bar_chart',
     category: 'Data Cube',
     targetClass: 'http://purl.org/linked-data/cube#Observation',
     properties: [
@@ -98,7 +97,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'skos-concept',
     name: 'SKOS Concept',
     description: 'Validate SKOS vocabulary concepts with labels and relationships',
-    icon: 'pi pi-tags',
+    icon: 'label',
     category: 'Vocabulary',
     targetClass: 'http://www.w3.org/2004/02/skos/core#Concept',
     properties: [
@@ -112,7 +111,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'dublin-core',
     name: 'Dublin Core Metadata',
     description: 'Validate resources with Dublin Core metadata elements',
-    icon: 'pi pi-book',
+    icon: 'book',
     category: 'Metadata',
     targetClass: 'http://purl.org/dc/terms/BibliographicResource',
     properties: [
@@ -126,7 +125,7 @@ const SHAPE_TEMPLATES: ShapeTemplate[] = [
     id: 'empty',
     name: 'Empty Shape',
     description: 'Start from scratch with a blank shape',
-    icon: 'pi pi-file',
+    icon: 'insert_drive_file',
     category: 'Basic',
     targetClass: '',
     properties: []
@@ -138,28 +137,28 @@ const CONSTRAINT_PRESETS: ConstraintPreset[] = [
     id: 'required',
     label: 'Required Field',
     description: 'This field must have at least one value',
-    icon: 'pi pi-exclamation-circle',
+    icon: 'error_outline',
     apply: (prop) => { prop.minCount = 1; }
   },
   {
     id: 'single-value',
     label: 'Single Value Only',
     description: 'This field can have at most one value',
-    icon: 'pi pi-check',
+    icon: 'check',
     apply: (prop) => { prop.maxCount = 1; }
   },
   {
     id: 'required-single',
     label: 'Required Single Value',
     description: 'Exactly one value is required',
-    icon: 'pi pi-check-circle',
+    icon: 'check_circle',
     apply: (prop) => { prop.minCount = 1; prop.maxCount = 1; }
   },
   {
     id: 'optional-multiple',
     label: 'Optional, Multiple Allowed',
     description: 'Zero or more values allowed',
-    icon: 'pi pi-list',
+    icon: 'list',
     apply: (prop) => { prop.minCount = 0; prop.maxCount = null; }
   }
 ];
@@ -169,22 +168,20 @@ const CONSTRAINT_PRESETS: ConstraintPreset[] = [
   imports: [
     CommonModule,
     FormsModule,
-    CardModule,
-    InputTextModule,
-    TextareaModule,
-    SelectModule,
-    ButtonModule,
-    TabsModule,
-    TableModule,
-    TagModule,
-    ToastModule,
-    CheckboxModule,
-    ToggleButtonModule,
-    PanelModule,
-    DividerModule,
-    TooltipModule
+    MatButtonModule,
+    MatCardModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatCheckboxModule,
+    MatExpansionModule,
+    MatTooltipModule,
+    MatTabsModule,
+    MatIconModule,
+    MatChipsModule,
+    MatButtonToggleModule,
+    MatDividerModule
   ],
-  providers: [MessageService],
   templateUrl: './shape-editor.html',
   styleUrl: './shape-editor.scss',
 })
@@ -192,7 +189,7 @@ export class ShapeEditor implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly shaclService = inject(ShaclService);
-  private readonly messageService = inject(MessageService);
+  private readonly snackBar = inject(MatSnackBar);
 
   loading = signal(false);
   saving = signal(false);
@@ -299,10 +296,8 @@ export class ShapeEditor implements OnInit {
 
     this.showTemplateSelector.set(false);
     this.wizardStep.set(2);
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Template Applied',
-      detail: `Started with ${template.name} template`
+    this.snackBar.open(`Started with ${template.name} template`, 'Close', {
+      duration: 3000
     });
   }
 
@@ -318,10 +313,8 @@ export class ShapeEditor implements OnInit {
 
     preset.apply(prop);
     this.properties.update(props => [...props]); // Trigger update
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Constraint Applied',
-      detail: preset.label
+    this.snackBar.open(`Constraint Applied: ${preset.label}`, 'Close', {
+      duration: 3000
     });
   }
 
@@ -395,7 +388,7 @@ export class ShapeEditor implements OnInit {
         this.targetClass.set(shape.targetClass || '');
         this.content.set(shape.content);
         this.contentFormat.set(shape.contentFormat);
-        // Note: Parsing raw SHACL back to visual properties is complex. 
+        // Note: Parsing raw SHACL back to visual properties is complex.
         // For now, we keep visual mode empty if loaded, or switch to code mode.
         if (shape.content) {
             this.visualMode.set(false);
@@ -403,7 +396,7 @@ export class ShapeEditor implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load shape' });
+        this.snackBar.open('Failed to load shape', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -435,7 +428,7 @@ export class ShapeEditor implements OnInit {
   }
   
   getIconForKind(kind: string): string {
-    return kind === 'LITERAL' ? 'pi pi-pencil' : 'pi pi-link';
+    return kind === 'LITERAL' ? 'edit' : 'link';
   }
 
   generateShacl(): void {
@@ -506,14 +499,14 @@ export class ShapeEditor implements OnInit {
 
     request.subscribe({
       next: (shape) => {
-        this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Shape saved successfully' });
+        this.snackBar.open('Shape saved successfully', 'Close', { duration: 3000 });
         this.saving.set(false);
         if (this.isNew()) {
           this.router.navigate(['/shacl', shape.id], { replaceUrl: true });
         }
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to save shape' });
+        this.snackBar.open('Failed to save shape', 'Close', { duration: 3000 });
         this.saving.set(false);
       }
     });
@@ -526,20 +519,20 @@ export class ShapeEditor implements OnInit {
     this.shaclService.validateSyntax(this.content(), this.contentFormat()).subscribe({
       next: (result) => {
         if (result.valid) {
-          this.messageService.add({ severity: 'success', summary: 'Valid', detail: 'Syntax is valid' });
+          this.snackBar.open('Syntax is valid', 'Close', { duration: 3000 });
         } else {
-          this.messageService.add({ severity: 'error', summary: 'Invalid', detail: result.errors.join(', ') });
+          this.snackBar.open(`Invalid syntax: ${result.errors.join(', ')}`, 'Close', { duration: 5000 });
         }
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Validation failed' });
+        this.snackBar.open('Validation failed', 'Close', { duration: 3000 });
       }
     });
   }
 
   runValidation(): void {
     if (this.isNew()) {
-      this.messageService.add({ severity: 'warn', summary: 'Save Required', detail: 'Please save the shape before testing validation.' });
+      this.snackBar.open('Please save the shape before testing validation', 'Close', { duration: 3000 });
       return;
     }
 
@@ -551,13 +544,13 @@ export class ShapeEditor implements OnInit {
         this.validationResult.set(result);
         this.validating.set(false);
         if (result.conforms) {
-          this.messageService.add({ severity: 'success', summary: 'Conforms', detail: 'Data conforms to shape' });
+          this.snackBar.open('Data conforms to shape', 'Close', { duration: 3000 });
         } else {
-          this.messageService.add({ severity: 'warn', summary: 'Violation', detail: 'Data validation failed' });
+          this.snackBar.open('Data validation failed', 'Close', { duration: 3000 });
         }
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Validation run failed' });
+        this.snackBar.open('Validation run failed', 'Close', { duration: 3000 });
         this.validating.set(false);
       }
     });

@@ -1,0 +1,64 @@
+@base <https://cube.link/>.
+
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+
+
+# Core Schema
+
+<>
+  rdfs:label "Cube Schema".
+
+<Constraint> a rdfs:Class;
+  rdfs:label "Constraint";
+  rdfs:comment "Specifies constraints that need to be met on the Cube. Used for metadata and validation.".
+
+<Cube> a rdfs:Class;
+  rdfs:label "Cube";
+  rdfs:comment "Represents the entry point for a collection of observations, conforming to some common dimensional structure.".
+
+<Observation> a rdfs:Class;
+  rdfs:label "Observation";
+  rdfs:comment "A single observation in the cube, may have one or more associated dimensions.".
+
+<ObservationSet> a rdfs:Class;
+  rdfs:label "Observation Set";
+  rdfs:comment "A set of observations.".
+
+<observation> a rdf:Property;
+  rdfs:range <Observation>;
+  rdfs:domain <ObservationSet>;
+  rdfs:label "observation";
+  rdfs:comment "Connects a set of observations with a single observation.".
+
+<observationConstraint> a rdf:Property;
+  rdfs:range <Constraint>;
+  rdfs:domain <Cube>;
+  rdfs:label "observation constraint";
+  rdfs:comment "Connects a cube with a constraint for metadata and validation.".
+
+<observationSet> a rdf:Property;
+  rdfs:range <ObservationSet>;
+  rdfs:domain <Cube>;
+  rdfs:label "observation set";
+  rdfs:comment "Connects a cube with a set of observations.".
+
+<observedBy> a rdf:Property;
+  rdfs:domain <Observation>;
+  rdfs:range rdfs:Resource;
+  rdfs:label "observed by";
+  rdfs:comment "Connects an observation with the agent that created the observation. The agent can be a person, organisation, device or software. A description of the method to gather the data could be attached to the agent.".
+
+<Undefined> a rdfs:Datatype;
+  rdfs:label "Undefined observation.";
+  rdfs:comment "An observation which is not defined.".
+
+<KeyDimension> a rdfs:Class;
+  rdfs:label "Key Dimension";
+  rdfs:comment "The KeyDimension tags one or multiple dimensions which are together uniquely identifying an observation. You can think of them as the Key in a relational database.";
+  .
+
+<MeasureDimension> a rdfs:Class;
+  rdfs:label "Measure Dimension";
+  rdfs:comment "The MeasureDimension tags at least one dimension, but potentially multiple, which is the actual measurement, or statistical count attached to an observation.".
+

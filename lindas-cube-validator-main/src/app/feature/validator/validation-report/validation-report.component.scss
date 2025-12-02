@@ -1,0 +1,29 @@
+.success {
+    color: green;
+    background-color: lightgreen;
+    border-radius: 10px;
+    border: 3px solid green;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.failed {
+    color: red;
+    background-color: lightcoral;
+    border-radius: 10px;
+    border: 3px solid red;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+td,
+th {
+    font-size: 14px !important;
+}
+
+th {
+    height: 56px !important;
+}

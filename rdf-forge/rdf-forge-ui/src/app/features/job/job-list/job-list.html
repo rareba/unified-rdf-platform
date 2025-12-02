@@ -1,40 +1,49 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="job-list">
   <div class="header">
     <div class="header-left">
       <h1>Jobs</h1>
-      <p-tag [value]="filteredJobs().length + ' jobs'" severity="secondary"></p-tag>
+      <span class="job-count">{{ filteredJobs().length }} jobs</span>
     </div>
     <div class="actions">
-      <span class="p-input-icon-left">
-        <i class="pi pi-search"></i>
-        <input type="text" pInputText placeholder="Search jobs..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </span>
-      <p-select [options]="statusOptions" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" optionLabel="label" optionValue="value" placeholder="Status" [style]="{minWidth: '150px'}"></p-select>
-      <p-button icon="pi pi-refresh" [outlined]="true" (click)="loadJobs()" [loading]="loading()" pTooltip="Refresh"></p-button>
-      <p-button label="Run Pipeline" icon="pi pi-play" (click)="openNewJobDialog()"></p-button>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput placeholder="Search jobs..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="status-filter">
+        <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" placeholder="Status">
+          @for (option of statusOptions; track option.value) {
+            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-icon-button (click)="loadJobs()" matTooltip="Refresh">
+        <mat-icon [class.spinning]="loading()">refresh</mat-icon>
+      </button>
+      <button mat-raised-button color="primary" (click)="openNewJobDialog()">
+        <mat-icon>play_arrow</mat-icon>
+        Run Pipeline
+      </button>
     </div>
   </div>
 
-  <!-- Backend Unavailable Warning -->
   @if (!backendAvailable()) {
     <div class="backend-unavailable">
-      <i class="pi pi-exclamation-triangle"></i>
+      <mat-icon>warning</mat-icon>
       <span>Backend service is unavailable. Please check that the API server is running.</span>
-      <p-button label="Retry" icon="pi pi-refresh" [outlined]="true" (click)="loadJobs()"></p-button>
+      <button mat-stroked-button (click)="loadJobs()">
+        <mat-icon>refresh</mat-icon>
+        Retry
+      </button>
     </div>
   }
 
-  <!-- Stats Cards -->
   <div class="stats-row" [class.stats-disabled]="!backendAvailable()">
     <div class="stat-card running">
       <div class="stat-icon">
         @if (runningCount() > 0) {
-          <i class="pi pi-spin pi-spinner"></i>
+          <mat-icon class="spinning">sync</mat-icon>
         } @else {
-          <i class="pi pi-play"></i>
+          <mat-icon>play_arrow</mat-icon>
         }
       </div>
       <div class="stat-info">
@@ -44,7 +53,7 @@
     </div>
     <div class="stat-card pending">
       <div class="stat-icon">
-        <i class="pi pi-clock"></i>
+        <mat-icon>schedule</mat-icon>
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ pendingCount() }}</span>
@@ -53,7 +62,7 @@
     </div>
     <div class="stat-card success">
       <div class="stat-icon">
-        <i class="pi pi-check-circle"></i>
+        <mat-icon>check_circle</mat-icon>
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ completedToday() }}</span>
@@ -62,7 +71,7 @@
     </div>
     <div class="stat-card danger">
       <div class="stat-icon">
-        <i class="pi pi-times-circle"></i>
+        <mat-icon>cancel</mat-icon>
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ failedToday() }}</span>
@@ -71,7 +80,7 @@
     </div>
     <div class="stat-card">
       <div class="stat-icon">
-        <i class="pi pi-stopwatch"></i>
+        <mat-icon>timer</mat-icon>
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ avgDuration() }}</span>
@@ -80,7 +89,7 @@
     </div>
     <div class="stat-card">
       <div class="stat-icon">
-        <i class="pi pi-database"></i>
+        <mat-icon>storage</mat-icon>
       </div>
       <div class="stat-info">
         <span class="stat-value">{{ formatNumber(totalRowsProcessed()) }}</span>
@@ -89,314 +98,339 @@
     </div>
   </div>
 
-  <!-- Jobs Table -->
-  <p-table
-    [value]="filteredJobs()"
-    [loading]="loading()"
-    [paginator]="true"
-    [rows]="15"
-    [rowsPerPageOptions]="[15, 30, 50]"
-    dataKey="id"
-    responsiveLayout="scroll"
-    styleClass="p-datatable-sm p-datatable-striped"
-    [globalFilterFields]="['id', 'pipelineName']">
+  <mat-card class="table-card">
+    <div class="table-caption">
+      <span>Pipeline execution jobs with real-time status updates</span>
+      <span class="auto-refresh-indicator">
+        <mat-icon>sync</mat-icon> Auto-refresh every 5s
+      </span>
+    </div>
 
-    <ng-template pTemplate="caption">
-      <div class="table-caption">
-        <span>Pipeline execution jobs with real-time status updates</span>
-        <span class="auto-refresh-indicator">
-          <i class="pi pi-sync"></i> Auto-refresh every 5s
-        </span>
+    @if (loading() && !initialLoadComplete()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
       </div>
-    </ng-template>
-
-    <ng-template pTemplate="emptymessage">
-      <tr>
-        <td colspan="8">
-          <div class="empty-state">
-            <i class="pi pi-clock"></i>
-            <h3>No jobs found</h3>
-            <p>Run a pipeline to create your first job</p>
-            <p-button label="Run Pipeline" icon="pi pi-play" (click)="openNewJobDialog()"></p-button>
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="header">
-      <tr>
-        <th style="width: 150px">Job ID</th>
-        <th style="min-width: 200px" pSortableColumn="pipelineName">Pipeline <p-sortIcon field="pipelineName"></p-sortIcon></th>
-        <th style="width: 120px" pSortableColumn="status">Status <p-sortIcon field="status"></p-sortIcon></th>
-        <th style="width: 140px">Progress</th>
-        <th style="width: 160px">Metrics</th>
-        <th style="width: 140px" pSortableColumn="startedAt">Started <p-sortIcon field="startedAt"></p-sortIcon></th>
-        <th style="width: 100px">Duration</th>
-        <th style="width: 150px">Actions</th>
-      </tr>
-    </ng-template>
-
-    <ng-template pTemplate="body" let-job>
-      <tr class="job-row" (click)="openJob(job)">
-        <td>
-          <div class="job-id-cell">
-            <code class="job-id">{{ job.id.substring(0, 8) }}</code>
-            <button class="copy-btn" (click)="copyJobId(job, $event)" pTooltip="Copy ID">
-              <i class="pi pi-copy"></i>
-            </button>
-          </div>
-        </td>
-        <td>
-          <div class="pipeline-info">
-            <span class="pipeline-name">{{ job.pipelineName }}</span>
-            <div class="pipeline-meta">
-              <span class="pipeline-version">v{{ job.pipelineVersion }}</span>
-              <p-tag [value]="job.triggeredBy" [severity]="getTriggerSeverity(job.triggeredBy)" [icon]="getTriggerIcon(job.triggeredBy)" styleClass="trigger-tag"></p-tag>
-            </div>
-          </div>
-        </td>
-        <td>
-          <p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)" [icon]="getStatusIcon(job.status)"></p-tag>
-        </td>
-        <td>
-          @if (job.status === 'running') {
-            <div class="progress-cell">
-              <p-progressBar [value]="job.progress" [showValue]="false" [style]="{ height: '6px' }"></p-progressBar>
-              <span class="progress-text">{{ job.progress }}%</span>
-            </div>
-          } @else if (job.status === 'completed') {
-            <span class="text-success"><i class="pi pi-check"></i> Complete</span>
-          } @else if (job.status === 'failed') {
-            <span class="text-danger"><i class="pi pi-times"></i> Failed</span>
-          } @else {
-            <span class="text-muted">-</span>
-          }
-        </td>
-        <td>
-          @if (job.metrics) {
-            <div class="metrics-cell">
-              <span class="metric"><i class="pi pi-database"></i> {{ formatNumber(job.metrics.rowsProcessed) }}</span>
-              <span class="metric"><i class="pi pi-share-alt"></i> {{ formatNumber(job.metrics.quadsGenerated) }}</span>
-            </div>
-          } @else {
-            <span class="text-muted">-</span>
-          }
-        </td>
-        <td>{{ formatDate(job.startedAt) }}</td>
-        <td>
-          @if (job.duration) {
-            <span class="duration">{{ formatDuration(job.duration) }}</span>
-          } @else if (job.status === 'running') {
-            <span class="running-timer"><i class="pi pi-stopwatch"></i> {{ getRunningTime(job.startedAt) }}</span>
-          } @else {
-            <span class="text-muted">-</span>
-          }
-        </td>
-        <td>
-          <div class="row-actions">
-            <p-button icon="pi pi-info-circle" severity="secondary" [text]="true" [rounded]="true" (click)="viewDetails(job, $event)" pTooltip="Details"></p-button>
-            <p-button icon="pi pi-file" severity="secondary" [text]="true" [rounded]="true" (click)="viewLogs(job, $event)" pTooltip="Logs"></p-button>
-            @if (job.status === 'running') {
-              <p-button icon="pi pi-stop" severity="danger" [text]="true" [rounded]="true" (click)="cancelJob(job, $event)" pTooltip="Cancel"></p-button>
-            }
-            @if (job.status === 'failed') {
-              <p-button icon="pi pi-refresh" severity="warn" [text]="true" [rounded]="true" (click)="retryJob(job, $event)" pTooltip="Retry"></p-button>
-            }
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-
-  <!-- Job Details Dialog -->
-  <p-dialog [(visible)]="detailsDialogVisible" [header]="'Job Details: ' + (selectedJob()?.id?.substring(0, 8) || '')" [modal]="true" [style]="{ width: '700px' }">
-    @if (selectedJob(); as job) {
-      <div class="details-content">
-        <div class="details-grid">
-          <div class="detail-item">
-            <label>Job ID</label>
-            <code>{{ job.id }}</code>
-          </div>
-          <div class="detail-item">
-            <label>Pipeline</label>
-            <span>{{ job.pipelineName }} <span class="version-badge">v{{ job.pipelineVersion }}</span></span>
-          </div>
-          <div class="detail-item">
-            <label>Status</label>
-            <p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)"></p-tag>
-          </div>
-          <div class="detail-item">
-            <label>Triggered By</label>
-            <p-tag [value]="job.triggeredBy" [severity]="getTriggerSeverity(job.triggeredBy)"></p-tag>
-          </div>
-          <div class="detail-item">
-            <label>Created</label>
-            <span>{{ formatFullDate(job.createdAt) }}</span>
-          </div>
-          <div class="detail-item">
-            <label>Started</label>
-            <span>{{ formatFullDate(job.startedAt) }}</span>
-          </div>
-          <div class="detail-item">
-            <label>Completed</label>
-            <span>{{ formatFullDate(job.completedAt) }}</span>
-          </div>
-          <div class="detail-item">
-            <label>Duration</label>
-            <span>{{ formatDuration(job.duration) }}</span>
-          </div>
-        </div>
-
-        @if (job.metrics) {
-          <div class="metrics-section">
-            <h4>Metrics</h4>
-            <div class="metrics-grid">
-              <div class="metric-item">
-                <span class="metric-value">{{ job.metrics.rowsProcessed | number }}</span>
-                <span class="metric-label">Rows Processed</span>
-              </div>
-              <div class="metric-item">
-                <span class="metric-value">{{ job.metrics.quadsGenerated | number }}</span>
-                <span class="metric-label">Quads Generated</span>
-              </div>
-            </div>
-          </div>
-        }
-
-        @if (job.steps && job.steps.length > 0) {
-          <div class="steps-section">
-            <h4>Pipeline Steps</h4>
-            <div class="steps-timeline">
-              @for (step of job.steps; track step.id) {
-                <div class="step-item" [class]="'step-' + step.status">
-                  <div class="step-indicator">
-                    <i [class]="getStepIcon(step.status)" [style.color]="getStepColor(step.status)"></i>
-                  </div>
-                  <div class="step-content">
-                    <span class="step-name">{{ step.name }}</span>
-                    <div class="step-meta">
-                      <span class="step-status">{{ step.status }}</span>
-                      @if (step.duration) {
-                        <span class="step-duration">{{ formatDuration(step.duration) }}</span>
-                      }
-                      @if (step.metrics?.rowsProcessed) {
-                        <span class="step-rows">{{ step.metrics?.rowsProcessed | number }} rows</span>
-                      }
-                    </div>
-                    @if (step.error) {
-                      <div class="step-error">{{ step.error }}</div>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        @if (job.errorMessage) {
-          <div class="error-section">
-            <h4><i class="pi pi-exclamation-triangle"></i> Error</h4>
-            <div class="error-message">{{ job.errorMessage }}</div>
-            @if (job.errorDetails?.stackTrace) {
-              <details class="stack-trace">
-                <summary>Stack Trace</summary>
-                <pre>{{ job.errorDetails?.stackTrace }}</pre>
-              </details>
-            }
-          </div>
-        }
-
-        @if (job.variables && hasVariables(job.variables)) {
-          <div class="variables-section">
-            <h4>Variables</h4>
-            <div class="variables-list">
-              @for (key of getVariableKeys(job.variables); track key) {
-                <div class="variable-item">
-                  <span class="var-key">{{ key }}</span>
-                  <span class="var-value">{{ job.variables[key] }}</span>
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    }
-    <ng-template pTemplate="footer">
-      <p-button label="View Logs" icon="pi pi-file" [outlined]="true" (click)="viewLogs(selectedJob()!, $event); detailsDialogVisible.set(false)"></p-button>
-      <p-button label="Close" [text]="true" (click)="detailsDialogVisible.set(false)"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- Logs Dialog -->
-  <p-dialog [(visible)]="logsDialogVisible" [header]="'Logs: ' + (selectedJob()?.pipelineName || '')" [modal]="true" [style]="{ width: '900px' }" [contentStyle]="{'max-height': '70vh', 'overflow': 'auto'}">
-    @if (logsLoading()) {
-      <div class="logs-loading">
-        <i class="pi pi-spin pi-spinner text-3xl"></i>
-        <p>Loading logs...</p>
+    } @else if (filteredJobs().length === 0) {
+      <div class="empty-state">
+        <mat-icon>schedule</mat-icon>
+        <h3>No jobs found</h3>
+        <p>Run a pipeline to create your first job</p>
+        <button mat-raised-button color="primary" (click)="openNewJobDialog()">
+          <mat-icon>play_arrow</mat-icon>
+          Run Pipeline
+        </button>
       </div>
     } @else {
-      <div class="logs-container">
-        <div class="logs-header">
-          <span class="logs-count">{{ jobLogs().length }} log entries</span>
-          <p-button icon="pi pi-refresh" [text]="true" [rounded]="true" (click)="loadLogs(selectedJob()!.id)" pTooltip="Refresh logs"></p-button>
-        </div>
-        <div class="logs-content">
-          @if (jobLogs().length === 0) {
-            <div class="no-logs">
-              <i class="pi pi-inbox"></i>
-              <p>No logs available for this job</p>
+      <table mat-table [dataSource]="pagedJobs()" class="jobs-table">
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef>Job ID</th>
+          <td mat-cell *matCellDef="let job">
+            <div class="job-id-cell">
+              <code class="job-id">{{ job.id.substring(0, 8) }}</code>
+              <button mat-icon-button class="copy-btn" (click)="copyJobId(job, $event)" matTooltip="Copy ID">
+                <mat-icon>content_copy</mat-icon>
+              </button>
             </div>
-          } @else {
-            @for (log of jobLogs(); track log.id) {
-              <div class="log-entry" [class]="'log-' + log.level">
-                <span class="log-time">{{ formatFullDate(log.timestamp) }}</span>
-                <p-tag [value]="log.level" [severity]="getLogSeverity(log.level)" styleClass="log-level-tag"></p-tag>
-                @if (log.step) {
-                  <span class="log-step">[{{ log.step }}]</span>
-                }
-                <span class="log-message">{{ log.message }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="pipeline">
+          <th mat-header-cell *matHeaderCellDef>Pipeline</th>
+          <td mat-cell *matCellDef="let job">
+            <div class="pipeline-info">
+              <span class="pipeline-name">{{ job.pipelineName }}</span>
+              <div class="pipeline-meta">
+                <span class="pipeline-version">v{{ job.pipelineVersion }}</span>
+                <span class="trigger-chip" [class]="'trigger-' + job.triggeredBy">{{ job.triggeredBy }}</span>
+              </div>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let job">
+            <span class="status-chip" [class]="getStatusClass(job.status)">{{ job.status }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="progress">
+          <th mat-header-cell *matHeaderCellDef>Progress</th>
+          <td mat-cell *matCellDef="let job">
+            @if (job.status === 'running') {
+              <div class="progress-cell">
+                <mat-progress-bar mode="determinate" [value]="job.progress"></mat-progress-bar>
+                <span class="progress-text">{{ job.progress }}%</span>
+              </div>
+            } @else if (job.status === 'completed') {
+              <span class="text-success"><mat-icon>check</mat-icon> Complete</span>
+            } @else if (job.status === 'failed') {
+              <span class="text-danger"><mat-icon>close</mat-icon> Failed</span>
+            } @else {
+              <span class="text-muted">-</span>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="metrics">
+          <th mat-header-cell *matHeaderCellDef>Metrics</th>
+          <td mat-cell *matCellDef="let job">
+            @if (job.metrics) {
+              <div class="metrics-cell">
+                <span class="metric"><mat-icon>storage</mat-icon> {{ formatNumber(job.metrics.rowsProcessed) }}</span>
+                <span class="metric"><mat-icon>share</mat-icon> {{ formatNumber(job.metrics.quadsGenerated) }}</span>
+              </div>
+            } @else {
+              <span class="text-muted">-</span>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="startedAt">
+          <th mat-header-cell *matHeaderCellDef>Started</th>
+          <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="duration">
+          <th mat-header-cell *matHeaderCellDef>Duration</th>
+          <td mat-cell *matCellDef="let job">
+            @if (job.duration) {
+              <span class="duration">{{ formatDuration(job.duration) }}</span>
+            } @else if (job.status === 'running') {
+              <span class="running-timer"><mat-icon>timer</mat-icon> {{ getRunningTime(job.startedAt) }}</span>
+            } @else {
+              <span class="text-muted">-</span>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let job">
+            <div class="row-actions">
+              <button mat-icon-button (click)="viewDetails(job, $event)" matTooltip="Details">
+                <mat-icon>info</mat-icon>
+              </button>
+              <button mat-icon-button (click)="viewLogs(job, $event)" matTooltip="Logs">
+                <mat-icon>description</mat-icon>
+              </button>
+              @if (job.status === 'running') {
+                <button mat-icon-button color="warn" (click)="cancelJob(job, $event)" matTooltip="Cancel">
+                  <mat-icon>stop</mat-icon>
+                </button>
+              }
+              @if (job.status === 'failed') {
+                <button mat-icon-button color="accent" (click)="retryJob(job, $event)" matTooltip="Retry">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              }
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="job-row" (click)="openJob(row)"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="filteredJobs().length"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[15, 30, 50]"
+        (page)="onPageChange($event)"
+        showFirstLastButtons>
+      </mat-paginator>
+    }
+  </mat-card>
+
+  @if (detailsDialogVisible()) {
+    <div class="dialog-overlay" (click)="closeDetailsDialog()">
+      <div class="dialog-content details-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Job Details: {{ selectedJob()?.id?.substring(0, 8) }}</h2>
+          <button mat-icon-button (click)="closeDetailsDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        @if (selectedJob(); as job) {
+          <div class="dialog-body">
+            <div class="details-grid">
+              <div class="detail-item">
+                <label>Job ID</label>
+                <code>{{ job.id }}</code>
+              </div>
+              <div class="detail-item">
+                <label>Pipeline</label>
+                <span>{{ job.pipelineName }} <span class="version-badge">v{{ job.pipelineVersion }}</span></span>
+              </div>
+              <div class="detail-item">
+                <label>Status</label>
+                <span class="status-chip" [class]="getStatusClass(job.status)">{{ job.status }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Triggered By</label>
+                <span class="trigger-chip" [class]="'trigger-' + job.triggeredBy">{{ job.triggeredBy }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Created</label>
+                <span>{{ formatFullDate(job.createdAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Started</label>
+                <span>{{ formatFullDate(job.startedAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Completed</label>
+                <span>{{ formatFullDate(job.completedAt) }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Duration</label>
+                <span>{{ formatDuration(job.duration) }}</span>
+              </div>
+            </div>
+
+            @if (job.metrics) {
+              <div class="metrics-section">
+                <h4>Metrics</h4>
+                <div class="metrics-grid">
+                  <div class="metric-item">
+                    <span class="metric-value">{{ job.metrics.rowsProcessed | number }}</span>
+                    <span class="metric-label">Rows Processed</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-value">{{ job.metrics.quadsGenerated | number }}</span>
+                    <span class="metric-label">Quads Generated</span>
+                  </div>
+                </div>
               </div>
             }
-          }
+
+            @if (job.errorMessage) {
+              <div class="error-section">
+                <h4><mat-icon>warning</mat-icon> Error</h4>
+                <div class="error-message">{{ job.errorMessage }}</div>
+              </div>
+            }
+
+            @if (job.variables && hasVariables(job.variables)) {
+              <div class="variables-section">
+                <h4>Variables</h4>
+                <div class="variables-list">
+                  @for (key of getVariableKeys(job.variables); track key) {
+                    <div class="variable-item">
+                      <span class="var-key">{{ key }}</span>
+                      <span class="var-value">{{ job.variables[key] }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+        <div class="dialog-footer">
+          <button mat-stroked-button (click)="viewLogs(selectedJob()!, $event); closeDetailsDialog()">
+            <mat-icon>description</mat-icon>
+            View Logs
+          </button>
+          <button mat-button (click)="closeDetailsDialog()">Close</button>
         </div>
       </div>
-    }
-    <ng-template pTemplate="footer">
-      <p-button label="Close" [text]="true" (click)="logsDialogVisible.set(false)"></p-button>
-    </ng-template>
-  </p-dialog>
-
-  <!-- New Job Dialog -->
-  <p-dialog [(visible)]="newJobDialogVisible" header="Run Pipeline" [modal]="true" [style]="{ width: '500px' }">
-    <div class="new-job-form">
-      <div class="form-field">
-        <label>Select Pipeline</label>
-        <p-select
-          [options]="pipelines()"
-          [ngModel]="selectedPipelineId()"
-          (ngModelChange)="selectedPipelineId.set($event)"
-          optionLabel="name"
-          optionValue="id"
-          placeholder="Choose a pipeline to run"
-          [filter]="true"
-          filterPlaceholder="Search pipelines..."
-          [style]="{ width: '100%' }">
-          <ng-template let-pipeline pTemplate="item">
-            <div class="pipeline-option">
-              <span class="pipeline-option-name">{{ pipeline.name }}</span>
-              <span class="pipeline-option-version">v{{ pipeline.version }}</span>
-            </div>
-          </ng-template>
-        </p-select>
-      </div>
-      <p class="form-hint">
-        <i class="pi pi-info-circle"></i>
-        The pipeline will run with default variables. You can configure variables in the pipeline designer.
-      </p>
     </div>
-    <ng-template pTemplate="footer">
-      <p-button label="Cancel" [text]="true" (click)="newJobDialogVisible.set(false)"></p-button>
-      <p-button label="Run Pipeline" icon="pi pi-play" (click)="createJob()" [loading]="creatingJob()" [disabled]="!selectedPipelineId()"></p-button>
-    </ng-template>
-  </p-dialog>
+  }
+
+  @if (logsDialogVisible()) {
+    <div class="dialog-overlay" (click)="closeLogsDialog()">
+      <div class="dialog-content logs-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Logs: {{ selectedJob()?.pipelineName }}</h2>
+          <button mat-icon-button (click)="closeLogsDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="dialog-body">
+          @if (logsLoading()) {
+            <div class="logs-loading">
+              <mat-spinner diameter="40"></mat-spinner>
+              <p>Loading logs...</p>
+            </div>
+          } @else {
+            <div class="logs-container">
+              <div class="logs-header">
+                <span class="logs-count">{{ jobLogs().length }} log entries</span>
+                <button mat-icon-button (click)="loadLogs(selectedJob()!.id)" matTooltip="Refresh logs">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+              <div class="logs-content">
+                @if (jobLogs().length === 0) {
+                  <div class="no-logs">
+                    <mat-icon>inbox</mat-icon>
+                    <p>No logs available for this job</p>
+                  </div>
+                } @else {
+                  @for (log of jobLogs(); track log.id) {
+                    <div class="log-entry" [class]="getLogClass(log.level)">
+                      <span class="log-time">{{ formatFullDate(log.timestamp) }}</span>
+                      <span class="log-level" [class]="'level-' + log.level">{{ log.level }}</span>
+                      @if (log.step) {
+                        <span class="log-step">[{{ log.step }}]</span>
+                      }
+                      <span class="log-message">{{ log.message }}</span>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <div class="dialog-footer">
+          <button mat-button (click)="closeLogsDialog()">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (newJobDialogVisible()) {
+    <div class="dialog-overlay" (click)="closeNewJobDialog()">
+      <div class="dialog-content new-job-dialog" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <h2>Run Pipeline</h2>
+          <button mat-icon-button (click)="closeNewJobDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <div class="new-job-form">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Select Pipeline</mat-label>
+              <mat-select [ngModel]="selectedPipelineId()" (ngModelChange)="selectedPipelineId.set($event)" placeholder="Choose a pipeline to run">
+                @for (pipeline of pipelines(); track pipeline.id) {
+                  <mat-option [value]="pipeline.id">
+                    <div class="pipeline-option">
+                      <span class="pipeline-option-name">{{ pipeline.name }}</span>
+                      <span class="pipeline-option-version">v{{ pipeline.version }}</span>
+                    </div>
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <p class="form-hint">
+              <mat-icon>info</mat-icon>
+              The pipeline will run with default variables. You can configure variables in the pipeline designer.
+            </p>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button mat-button (click)="closeNewJobDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="createJob()" [disabled]="!selectedPipelineId() || creatingJob()">
+            @if (creatingJob()) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              <mat-icon>play_arrow</mat-icon>
+              Run Pipeline
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>

@@ -1,0 +1,51 @@
+{
+  "name": "lindas-trifid-plugin-graph-explorer",
+  "description": "Trifid Graph Explorer plugin",
+  "type": "module",
+  "main": "index.js",
+  "types": "dist/index.d.ts",
+  "version": "3.0.0",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/SwissFederalArchives/lindas-trifid",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SwissFederalArchives/lindas-trifid.git",
+    "directory": "packages/graph-explorer"
+  },
+  "bugs": {
+    "url": "https://github.com/zazuko/trifid/issues"
+  },
+  "scripts": {
+    "coverage": "codecov",
+    "test": "c8 --all --reporter=lcovonly --reporter=text node --test **/*.test.js",
+    "clean": "rimraf dist/",
+    "prebuild": "npm run clean",
+    "build": "tsc",
+    "prepack": "npm run build"
+  },
+  "author": {
+    "name": "Swiss Federal Archives / Lindas",
+    "url": "https://www.bar.admin.ch/"
+  },
+  "keywords": [
+    "trifid",
+    "trifid-plugin",
+    "graph-explorer"
+  ],
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "graph-explorer": "^1.2.0",
+    "import-meta-resolve": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "c8": "^10.1.3",
+    "rimraf": "^6.0.1",
+    "lindas-trifid-core": "^6.0.0",
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

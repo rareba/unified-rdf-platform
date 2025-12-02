@@ -1,0 +1,60 @@
+# server:
+#   logLevel: debug
+
+globals:
+  datasetBaseUrl: env:DATASET_BASE_URL
+  endpoints:
+    default:
+      url: /query
+
+plugins:
+  static-assets:
+    module: trifid-core/plugins/static.js
+    order: 0
+    paths: /static-assets
+    config:
+      directory: file:static
+
+  welcome:
+    module: trifid-core/plugins/view.js
+    paths: /
+    methods: GET
+    config:
+      path: file:welcome.hbs
+
+  yasgui:
+    module: trifid-plugin-yasgui
+    paths:
+      - /sparql
+      - /sparql/
+
+  graph-explorer:
+    module: trifid-plugin-graph-explorer
+    paths:
+      - /graph-explorer
+      - /graph-explorer/
+
+  spex:
+    module: trifid-plugin-spex
+    paths:
+      - /spex
+      - /spex/
+
+  entity-renderer:
+    module: "@zazuko/trifid-entity-renderer"
+    config:
+      followRedirects: true
+      labelLoader:
+        chunkSize: 30
+        concurrency: 2
+        timeout: 4000
+
+  fetch-handler:
+    module: trifid-handler-fetch
+    paths: /query
+    config:
+      url: env:FETCH_HANDLER_FILE
+      contentType: env:FETCH_HANDLER_FILE_TYPE
+      baseIRI: http://localhost:8080
+      graphName: http://example.com/graph
+      unionDefaultGraph: true

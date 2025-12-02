@@ -1,0 +1,69 @@
+server:
+  logLevel: debug
+
+globals:
+  datasetBaseUrl: env:DATASET_BASE_URL
+  endpoints:
+    default:
+      url: /query
+
+plugins:
+  static-assets:
+    module: trifid-core/plugins/static.js
+    order: 0
+    paths: /static-assets
+    config:
+      directory: file:static
+
+  welcome:
+    module: trifid-core/plugins/view.js
+    paths: /
+    methods: GET
+    config:
+      path: file:welcome.hbs
+
+  entity-renderer:
+    module: "@zazuko/trifid-entity-renderer"
+    config:
+      followRedirects: true
+      labelLoader:
+        chunkSize: 30
+        concurrency: 2
+        timeout: 4000
+
+  yasgui:
+    module: trifid-plugin-yasgui
+    paths:
+      - /sparql
+      - /sparql/
+
+  graph-explorer:
+    module: trifid-plugin-graph-explorer
+    paths:
+      - /graph-explorer
+      - /graph-explorer/
+
+  spex:
+    module: trifid-plugin-spex
+    paths:
+      - /spex
+      - /spex/
+
+  sparql-proxy:
+    module: "@zazuko/trifid-plugin-sparql-proxy"
+    paths: /query
+    config:
+      allowRewriteToggle: true
+      rewrite: false
+      rewriteQuery: true
+      rewriteResults: true
+      endpointUrl: env:SPARQL_ENDPOINT_URL
+      username: env:SPARQL_ENDPOINT_USERNAME
+      password: env:SPARQL_ENDPOINT_PASSWORD
+      formats:
+        ttl: "text/turtle"
+        jsonld: "application/ld+json"
+        xml: "application/rdf+xml"
+        nt: "application/n-triples"
+        trig: "application/trig"
+        csv: "text/csv"

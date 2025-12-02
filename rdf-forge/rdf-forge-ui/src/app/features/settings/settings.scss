@@ -347,8 +347,10 @@
   padding: 2rem;
   color: var(--text-color-secondary);
 
-  i {
-    font-size: 1.5rem;
+  mat-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
     color: var(--surface-400);
   }
 
@@ -404,29 +406,158 @@
   font-family: 'Consolas', 'Monaco', monospace;
 }
 
-// PrimeNG Overrides
+// Chip Styles
+.status-chip,
+.type-chip,
+.env-chip,
+.health-chip {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.status-chip {
+  &.status-success {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &.status-warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+}
+
+.type-chip {
+  &.type-builtin {
+    background: #e5e7eb;
+    color: #374151;
+  }
+
+  &.type-custom {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+}
+
+.env-chip {
+  &.env-production {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &.env-development {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+}
+
+.health-chip {
+  &.health-up {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  &.health-down {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  &.health-unknown {
+    background: #fef3c7;
+    color: #92400e;
+  }
+}
+
+// Dialog Styles
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-card {
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 11px 15px -7px rgba(0, 0, 0, 0.2),
+              0 24px 38px 3px rgba(0, 0, 0, 0.14),
+              0 9px 46px 8px rgba(0, 0, 0, 0.12);
+}
+
+// Table Styles
+.table-container {
+  overflow-x: auto;
+  max-height: 400px;
+}
+
+.prefix-table,
+.shortcuts-table {
+  width: 100%;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+// Utility Classes
+.w-full {
+  width: 100%;
+}
+
+.w-8rem {
+  width: 8rem;
+}
+
+.mt-3 {
+  margin-top: 1rem;
+}
+
+.mb-3 {
+  margin-bottom: 1rem;
+}
+
+// Material Overrides
 :host ::ng-deep {
-  .p-tabs {
+  .mat-mdc-tab-group {
     height: 100%;
     display: flex;
     flex-direction: column;
   }
 
-  .p-tabpanels {
+  .mat-mdc-tab-body-wrapper {
     flex: 1;
     overflow: auto;
   }
 
-  .p-tabpanel {
-    padding: 0;
+  .mat-mdc-tab-body-content {
+    overflow: visible;
   }
 
-  .p-datatable-sm .p-datatable-tbody > tr > td {
-    padding: 0.5rem 0.75rem;
+  .mat-mdc-table {
+    width: 100%;
   }
 
-  .p-divider {
+  .mat-mdc-form-field {
+    width: 100%;
+  }
+
+  .mat-divider {
     margin: 1rem 0;
+  }
+
+  .tab-icon {
+    margin-right: 0.5rem;
   }
 }
 

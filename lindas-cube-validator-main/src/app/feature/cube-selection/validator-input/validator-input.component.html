@@ -1,0 +1,19 @@
+<mat-form-field>
+    <mat-label>SPARQL Endpoint</mat-label>
+    <input type="text" matInput [formControl]="endpointFormControl" (blur)="loadCubes()" />
+
+    @if(isEndpointOnline()) {
+    <mat-icon class="green ob-icon" svgIcon="checkmark-circle" matPrefix></mat-icon>
+    } @else {
+    <mat-icon class="red ob-icon" svgIcon="frown" matPrefix> </mat-icon>
+    }
+
+</mat-form-field>
+
+@if(isEndpointOnline()) {
+
+<cube-item-list [isLoading]="isLoading()" [items]="cubes()" (selected)="emitSelected($event)" />
+
+
+
+}

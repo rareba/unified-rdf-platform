@@ -1,0 +1,32 @@
+<button mat-button obButton="tertiary" type="button" routerLink="/">
+    <mat-icon svgIcon="arrow-left" /> {{'navigation.back' | translate}}
+</button>
+<div>
+
+    <cube-cube-description [cube]="cubeDefinition()" (profileSelected)="updateValidationProfile($event)"
+        [selectedProfile]="currentProfile()" [@fadeInOut] />
+    <ob-spinner [channel]="'cube'" />
+</div>
+
+<mat-tab-group dynamicHeight [selectedIndex]="currentTabIndex()" (selectedIndexChange)="changeTab($event)"
+    preserveContent>
+    <mat-tab label="Cube">
+        @if(!isCubeValidationRunning() && cubeValidationReport()) {
+        <cube-validation [report]="cubeValidationReport()!" />
+        <cube-validation-barnard59-cli-command [cubeIri]="cubeIri()" [endpoint]="endpoint()"
+            [validationProfileUrl]="currentProfile()?.value!" />
+        } @else if (errorSignal() && !isCubeValidationRunning()) {
+        <span>{{errorSignal()}}</span>
+
+        } @else {
+        <h1>Running</h1>
+        }
+
+
+    </mat-tab>
+    <mat-tab label="Observation">
+
+        <cube-observation-validation [endpoint]="endpoint()" [cubeIri]="cubeIri()" />
+        <cube-observation-validation-barnard59-cli-command [cubeIri]="cubeIri()" [endpoint]="endpoint()" />
+    </mat-tab>
+</mat-tab-group>

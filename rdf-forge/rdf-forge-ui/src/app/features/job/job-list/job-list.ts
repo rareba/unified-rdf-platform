@@ -2,20 +2,20 @@ import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { SelectModule } from 'primeng/select';
-import { TagModule } from 'primeng/tag';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { TooltipModule } from 'primeng/tooltip';
-import { ToastModule } from 'primeng/toast';
-import { DialogModule } from 'primeng/dialog';
-import { CardModule } from 'primeng/card';
-import { TabsModule } from 'primeng/tabs';
-import { TimelineModule } from 'primeng/timeline';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCardModule } from '@angular/material/card';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { JobService, PipelineService } from '../../../core/services';
 import { Job, JobLog, Pipeline } from '../../../core/models';
 
@@ -24,21 +24,21 @@ import { Job, JobLog, Pipeline } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    SelectModule,
-    TagModule,
-    ProgressBarModule,
-    TooltipModule,
-    ToastModule,
-    DialogModule,
-    CardModule,
-    TabsModule,
-    TimelineModule,
-    ConfirmDialogModule
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatCardModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatDialogModule,
+    MatSnackBarModule
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './job-list.html',
   styleUrl: './job-list.scss',
 })
@@ -46,8 +46,7 @@ export class JobList implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly jobService = inject(JobService);
   private readonly pipelineService = inject(PipelineService);
-  private readonly messageService = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
   private refreshInterval: ReturnType<typeof setInterval> | undefined;
 
   loading = signal(false);
@@ -67,6 +66,11 @@ export class JobList implements OnInit, OnDestroy {
   logsLoading = signal(false);
   selectedPipelineId = signal<string | null>(null);
   creatingJob = signal(false);
+
+  // Table
+  displayedColumns = ['id', 'pipeline', 'status', 'progress', 'metrics', 'startedAt', 'duration', 'actions'];
+  pageSize = 15;
+  pageIndex = 0;
 
   statusOptions = [
     { label: 'All Status', value: null },
@@ -91,6 +95,12 @@ export class JobList implements OnInit, OnDestroy {
       result = result.filter(j => j.status === status);
     }
     return result;
+  });
+
+  pagedJobs = computed(() => {
+    const filtered = this.filteredJobs();
+    const start = this.pageIndex * this.pageSize;
+    return filtered.slice(start, start + this.pageSize);
   });
 
   // Stats computed properties
@@ -138,7 +148,6 @@ export class JobList implements OnInit, OnDestroy {
         this.loading.set(false);
         this.backendAvailable.set(false);
         this.initialLoadComplete.set(true);
-        // Clear jobs on error to avoid showing stale data
         this.jobs.set([]);
       }
     });
@@ -149,6 +158,11 @@ export class JobList implements OnInit, OnDestroy {
       next: (data) => this.pipelines.set(data),
       error: (err) => console.error('Failed to load pipelines:', err)
     });
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
   }
 
   openJob(job: Job): void {
@@ -184,35 +198,29 @@ export class JobList implements OnInit, OnDestroy {
 
   cancelJob(job: Job, event: Event): void {
     event.stopPropagation();
-    this.confirmationService.confirm({
-      message: `Are you sure you want to cancel job ${job.id.substring(0, 8)}?`,
-      header: 'Confirm Cancel',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.jobService.cancel(job.id).subscribe({
-          next: () => {
-            this.messageService.add({ severity: 'success', summary: 'Cancelled', detail: 'Job cancelled successfully' });
-            this.loadJobs();
-          },
-          error: () => {
-            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to cancel job' });
-          }
-        });
-      }
-    });
+    if (confirm(`Are you sure you want to cancel job ${job.id.substring(0, 8)}?`)) {
+      this.jobService.cancel(job.id).subscribe({
+        next: () => {
+          this.snackBar.open('Job cancelled successfully', 'Close', { duration: 3000 });
+          this.loadJobs();
+        },
+        error: () => {
+          this.snackBar.open('Failed to cancel job', 'Close', { duration: 3000 });
+        }
+      });
+    }
   }
 
   retryJob(job: Job, event: Event): void {
     event.stopPropagation();
     this.jobService.retry(job.id).subscribe({
       next: (newJob) => {
-        this.messageService.add({ severity: 'success', summary: 'Retrying', detail: 'Job retry started' });
+        this.snackBar.open('Job retry started', 'Close', { duration: 3000 });
         this.loadJobs();
         this.router.navigate(['/jobs', newJob.id]);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to retry job' });
+        this.snackBar.open('Failed to retry job', 'Close', { duration: 3000 });
       }
     });
   }
@@ -222,17 +230,21 @@ export class JobList implements OnInit, OnDestroy {
     this.newJobDialogVisible.set(true);
   }
 
+  closeNewJobDialog(): void {
+    this.newJobDialogVisible.set(false);
+  }
+
   createJob(): void {
     const pipelineId = this.selectedPipelineId();
     if (!pipelineId) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Please select a pipeline' });
+      this.snackBar.open('Please select a pipeline', 'Close', { duration: 3000 });
       return;
     }
 
     this.creatingJob.set(true);
     this.jobService.create(pipelineId, {}).subscribe({
       next: (job) => {
-        this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Job created and queued' });
+        this.snackBar.open('Job created and queued', 'Close', { duration: 3000 });
         this.creatingJob.set(false);
         this.newJobDialogVisible.set(false);
         this.loadJobs();
@@ -240,78 +252,22 @@ export class JobList implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Failed to create job:', err);
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create job' });
+        this.snackBar.open('Failed to create job', 'Close', { duration: 3000 });
         this.creatingJob.set(false);
       }
     });
   }
 
-  getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
-    switch (status) {
-      case 'running': return 'info';
-      case 'completed': return 'success';
-      case 'failed': return 'danger';
-      case 'cancelled': return 'warn';
-      default: return 'secondary';
-    }
+  closeDetailsDialog(): void {
+    this.detailsDialogVisible.set(false);
   }
 
-  getStatusIcon(status: string): string {
-    switch (status) {
-      case 'running': return 'pi pi-spin pi-spinner';
-      case 'completed': return 'pi pi-check';
-      case 'failed': return 'pi pi-times';
-      case 'cancelled': return 'pi pi-ban';
-      default: return 'pi pi-clock';
-    }
+  closeLogsDialog(): void {
+    this.logsDialogVisible.set(false);
   }
 
-  getTriggerIcon(trigger: string): string {
-    switch (trigger) {
-      case 'manual': return 'pi pi-user';
-      case 'schedule': return 'pi pi-calendar';
-      case 'api': return 'pi pi-code';
-      default: return 'pi pi-question';
-    }
-  }
-
-  getTriggerSeverity(trigger: string): 'info' | 'success' | 'warn' | 'secondary' {
-    switch (trigger) {
-      case 'manual': return 'info';
-      case 'schedule': return 'success';
-      case 'api': return 'warn';
-      default: return 'secondary';
-    }
-  }
-
-  getLogSeverity(level: string): 'info' | 'success' | 'warn' | 'danger' | 'secondary' {
-    switch (level) {
-      case 'debug': return 'secondary';
-      case 'info': return 'info';
-      case 'warn': return 'warn';
-      case 'error': return 'danger';
-      default: return 'info';
-    }
-  }
-
-  getStepIcon(status: string): string {
-    switch (status) {
-      case 'running': return 'pi pi-spin pi-spinner';
-      case 'completed': return 'pi pi-check-circle';
-      case 'failed': return 'pi pi-times-circle';
-      case 'skipped': return 'pi pi-forward';
-      default: return 'pi pi-circle';
-    }
-  }
-
-  getStepColor(status: string): string {
-    switch (status) {
-      case 'running': return '#3b82f6';
-      case 'completed': return '#22c55e';
-      case 'failed': return '#ef4444';
-      case 'skipped': return '#94a3b8';
-      default: return '#cbd5e1';
-    }
+  getStatusClass(status: string): string {
+    return 'status-' + status;
   }
 
   formatDate(date: Date | undefined): string {
@@ -360,16 +316,19 @@ export class JobList implements OnInit, OnDestroy {
   copyJobId(job: Job, event: Event): void {
     event.stopPropagation();
     navigator.clipboard.writeText(job.id).then(() => {
-      this.messageService.add({ severity: 'info', summary: 'Copied', detail: 'Job ID copied to clipboard' });
+      this.snackBar.open('Job ID copied to clipboard', 'Close', { duration: 2000 });
     });
   }
 
-  // Template helpers for Object operations
   hasVariables(variables: Record<string, unknown> | undefined): boolean {
     return variables ? Object.keys(variables).length > 0 : false;
   }
 
   getVariableKeys(variables: Record<string, unknown>): string[] {
     return Object.keys(variables);
+  }
+
+  getLogClass(level: string): string {
+    return 'log-' + level;
   }
 }

@@ -1,0 +1,35 @@
+<div class="with-button">
+    @if(showList()){
+    <button (click)="toggleShowList()" mat-icon-button obButton="tertiary" type="button">
+        <mat-icon svgIcon="list" />
+    </button>
+    <mat-form-field>
+        <mat-label>Validation Profile</mat-label>
+        <mat-select [value]="selectedProfile()?.value" (selectionChange)="selectionChanged($event)">
+            @for(profile of profiles(); track profile) {
+            <mat-option [value]="profile.value">
+                {{profile.label}}
+            </mat-option>
+            }
+        </mat-select>
+    </mat-form-field>
+
+    } @else {
+    <button (click)="toggleShowList()" mat-icon-button obButton="tertiary" type="button">
+        <mat-icon svgIcon="file-code" />
+    </button>
+    <form [formGroup]="manualForm">
+        <mat-form-field name="url" floatLabel="always">
+            <mat-label>Manual Validation Profile URL</mat-label>
+            <input (blur)="manualProfileUrlChange()" formControlName="manualProfileUrl" type="text" matInput
+                placeholder="Profile URL" />
+
+            @if (!manualForm.valid) {
+            <mat-error>{{'cube_validation.url_error' | translate}}</mat-error>
+            }
+        </mat-form-field>
+    </form>
+
+
+    }
+</div>

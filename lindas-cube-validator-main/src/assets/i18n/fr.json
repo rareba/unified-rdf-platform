@@ -1,0 +1,22 @@
+{
+    "navigation": {
+        "back": "Retour"
+    },
+    "cube_selection": {
+        "title": "Sélection du cube",
+        "explanation": "Pour valider vos data cube, saisissez votre point de terminaison SPARQL et choisissez un cube à valider.",
+        "filter": "Filtrer les cubes"
+    },
+    "cube_validation": {
+        "invalid": "Le cube ne correspond pas au profil sélectionné",
+        "valid": "Le cube correspond au profil sélectionné",
+        "title_observation_validation_process": "Processus de validation des observations",
+        "describe_observation_validation_process": "10 observations sont validées, puis 10 autres observations sont chargées et validées. Ce processus est répété jusqu'à 10 fois. Une fois que plus de 20 erreurs ont été trouvées, le processus est arrêté.",
+        "observation_valid": "Conforme aux contraintes de forme de cube",
+        "observation_invalid": "Ne conforme pas aux contraintes de forme de cube",
+        "url_error": "Veuillez fournir une URL HTTP valide"
+    },
+    "footer": {
+        "title": "Office fédéral de l'environnement OFEV"
+    }
+}

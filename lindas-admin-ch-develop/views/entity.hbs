@@ -1,0 +1,49 @@
+<div class="container container--grid gap--responsive">
+  <div class="hero__content">
+    <p class="meta-info">
+      <span class="meta-info__item"><a href="{{entityUrl}}">{{entityUrl}}</a></span>
+    </p>
+    <h1 class="hero__title">
+      {{entityLabel}}
+    </h1>
+
+    <div class="trifid-content container--grid gap--responsive">
+      <div class="container__full">
+        <style type="text/css">
+          @import url("/static-assets/css/entity.css");
+        </style>
+
+        <div class="entity-body">
+          {{{dataset}}}
+        </div>
+      </div>
+    </div>
+
+    {{#if metadata.namedGraphs}}
+        <table>
+          <caption>Number of results per named graph</caption>
+          <thead>
+            <tr>
+              <th>Graph name</th>
+              <th>Number of results</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each metadata.namedGraphs}}
+              <tr>
+                {{#if this.namedGraph}}
+                  <td><a href="{{this.namedGraph}}">{{this.namedGraphLabel}}</a></td>
+                {{/if}}
+                {{#unless this.namedGraph}}
+                  <td>{{this.namedGraphLabel}}</td>
+                {{/unless}}
+                <td>{{this.quadsCount}}</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+    {{/if}}
+
+  </div>
+</div>
+

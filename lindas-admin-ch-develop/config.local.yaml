@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://unpkg.com/lindas-trifid-core@latest/lib/config/schema.json
+
+extends:
+  - config.yaml
+
+server:
+  logLevel: debug
+  logFormat: pretty

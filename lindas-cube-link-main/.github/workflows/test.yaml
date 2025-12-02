@@ -1,0 +1,90 @@
+name: Test validation
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  check-constraint:
+    runs-on: ${{ matrix.env.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - os: ubuntu-latest
+            node: 20
+          - os: windows-latest
+            node: 20.12.1 # Pinned, because of https://github.com/approvals/Approvals.NodeJS/issues/176
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.env.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        shell: sh
+        run: ./test/check-observations.sh
+
+      - name: Show test results
+        if: ${{ always() }}
+        shell: sh
+        run: for file in test/observations/*.log ; do echo === $file === ; cat $file ; done
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: test-observations
+          path: test
+
+  check-cube:
+    runs-on: ${{ matrix.env.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - os: ubuntu-latest
+            node: 20
+          - os: windows-latest
+            node: 20.12.1 # Pinned, because of https://github.com/approvals/Approvals.NodeJS/issues/176
+        profile:
+          - basic-cube-constraint
+          - standalone-constraint-constraint
+          - profile-visualize
+          - profile-opendataswiss
+          - profile-opendataswiss-lindas
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.env.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        shell: sh
+        run: ./test/check-metadata.sh ${{ matrix.profile }}
+
+      - name: Show test results
+        if: ${{ always() }}
+        shell: sh
+        run: for file in test/${{ matrix.profile }}/*.log ; do echo === $file === ; cat $file ; done
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: test-${{ matrix.profile }}
+          path: test

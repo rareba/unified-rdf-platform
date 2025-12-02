@@ -1,0 +1,68 @@
+<div class="trifid-header-title-small">
+  <div class="trifid-content">
+    <div class="container">
+      <h1>Query Data</h1>
+      <p>Write some SPARQL requests to query the SPARQL endpoint</p>
+    </div>
+  </div>
+</div>
+
+<div class="trifid-content">
+  <style type="text/css">
+    @import url("/yasgui-dist/yasgui.min.css");
+  </style>
+
+  <div id="yasgui"></div>
+  <p>
+    <a href="https://triply.cc/docs/yasgui-api" target="_blank" rel="noreferrer noopener">About YASGUI</a>
+    -
+    <a href="https://github.com/zazuko/trifid/tree/main/packages/yasgui" target="_blank" rel="noreferrer noopener">Trifid plugin</a>
+  </p>
+
+  <script src="/yasgui-dist/yasgui.min.js"></script>
+  <script nonce="{{ nonce }}">
+    const YasguiMapPluginDefaultOptions = {
+      mapKind: '{{ mapKind }}'
+    };
+  </script>
+  <script src="/yasgui-plugins/map.js"></script>
+
+  <script nonce="{{ nonce }}">
+    const config = {
+      "api": {}
+    }
+  </script>
+
+  {{#if urlShortener }}
+  <script nonce="{{ nonce }}">
+    config.yasqe = {
+      createShortLink: (yasqe, longString) => {
+        return fetch('{{ urlShortener }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: longString })
+        }).then((resp) => {
+          return resp.text()
+        });
+      }
+    }
+  </script>
+  {{/if}}
+
+  <script nonce="{{ nonce }}">
+    const defaultQuery = {{{ defaultQuery }}}
+    const catalogueEndpoints = [...new Set(JSON.parse('{{{ catalogueEndpoints }}}'))]
+    Yasgui.defaults.requestConfig.endpoint = '{{ endpointUrl }}'
+    Yasgui.defaults.endpointCatalogueOptions.getData = () => {
+      return catalogueEndpoints.map((endpoint) => {
+        return { endpoint }
+      })
+    }
+    if (defaultQuery) {
+      Yasgui.Yasqe.defaults.value = defaultQuery
+    }
+    const yasgui = new Yasgui(document.getElementById('yasgui'), config)
+  </script>
+</div>

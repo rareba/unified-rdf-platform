@@ -1,0 +1,52 @@
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+tags:
+  keycloak: true
+  postgres: true
+  minio: true
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: rdf-forge.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+image:
+  repository: rdfforge
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+services:
+  gateway:
+    replicas: 1
+    port: 8080
+  pipeline:
+    replicas: 1
+    port: 8001
+  shacl:
+    replicas: 1
+    port: 8002
+  job:
+    replicas: 1
+    port: 8003
+  data:
+    replicas: 1
+    port: 8004
+  dimension:
+    replicas: 1
+    port: 8005
+  triplestore:
+    replicas: 1
+    port: 8006
+  ui:
+    replicas: 1
+    port: 80
+
+env:
+  springProfiles: "prod"

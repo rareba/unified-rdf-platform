@@ -1,37 +1,40 @@
-<p-toast></p-toast>
-
 <div class="shape-editor">
   <!-- Template Selector (shown for new shapes) -->
   @if (isNew() && showTemplateSelector()) {
     <div class="template-selector">
       <div class="template-header">
-        <i class="pi pi-lightbulb text-4xl text-primary mb-3"></i>
+        <mat-icon class="lightbulb-icon">lightbulb</mat-icon>
         <h1>Choose a Starting Template</h1>
-        <p class="text-500">Select a template to get started quickly, or start from scratch</p>
+        <p class="subtitle">Select a template to get started quickly, or start from scratch</p>
       </div>
 
       <div class="template-grid">
         @for (group of templatesByCategory; track group.category) {
           <div class="template-category">
-            <h3 class="text-500 text-sm font-bold mb-2">{{ group.category }}</h3>
+            <h3 class="category-title">{{ group.category }}</h3>
             <div class="template-cards">
               @for (template of group.templates; track template.id) {
-                <div class="template-card"
+                <mat-card class="template-card"
                      [class.selected]="selectedTemplate()?.id === template.id"
                      (click)="selectTemplate(template)">
-                  <i [class]="template.icon" class="text-2xl mb-2"></i>
-                  <div class="template-name">{{ template.name }}</div>
-                  <div class="template-desc text-500 text-sm">{{ template.description }}</div>
-                </div>
+                  <mat-card-content>
+                    <mat-icon class="template-icon">{{ template.icon }}</mat-icon>
+                    <div class="template-name">{{ template.name }}</div>
+                    <div class="template-desc">{{ template.description }}</div>
+                  </mat-card-content>
+                </mat-card>
               }
             </div>
           </div>
         }
       </div>
 
-      <div class="template-actions mt-4">
-        <p-button label="Skip, start blank" [text]="true" (onClick)="skipTemplate()"></p-button>
-        <p-button label="Use This Template" icon="pi pi-check" [disabled]="!selectedTemplate()" (onClick)="applyTemplate()"></p-button>
+      <div class="template-actions">
+        <button mat-button (click)="skipTemplate()">Skip, start blank</button>
+        <button mat-raised-button color="primary" [disabled]="!selectedTemplate()" (click)="applyTemplate()">
+          <mat-icon>check</mat-icon>
+          Use This Template
+        </button>
       </div>
     </div>
   } @else {
@@ -39,202 +42,242 @@
   <div class="header">
     <h1>{{ isNew() ? 'Create Shape' : 'Edit Shape' }}</h1>
     <div class="actions">
-      <p-toggleButton
-        [(ngModel)]="visualMode"
-        onLabel="Visual Mode"
-        offLabel="Code Mode"
-        onIcon="pi pi-eye"
-        offIcon="pi pi-code"
-        styleClass="mr-2">
-      </p-toggleButton>
-      <p-button label="Cancel" [text]="true" (onClick)="cancel()"></p-button>
-      <p-button label="Save" icon="pi pi-save" (onClick)="save()" [loading]="saving()"></p-button>
+      <mat-button-toggle-group [(ngModel)]="visualMode" class="mode-toggle">
+        <mat-button-toggle [value]="true">
+          <mat-icon>visibility</mat-icon>
+          Visual Mode
+        </mat-button-toggle>
+        <mat-button-toggle [value]="false">
+          <mat-icon>code</mat-icon>
+          Code Mode
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+      <button mat-button (click)="cancel()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="save()" [disabled]="saving()">
+        <mat-icon>save</mat-icon>
+        Save
+      </button>
     </div>
   </div>
 
-  <div class="grid mt-4">
+  <div class="grid-container">
     <!-- Metadata -->
-    <div class="col-12">
-      <p-card>
-        <div class="formgrid grid p-fluid">
-          <div class="field col-12 md:col-6">
-            <label for="name" class="font-bold">Name</label>
-            <input id="name" type="text" pInputText [ngModel]="name()" (ngModelChange)="name.set($event)" />
+    <div class="metadata-section">
+      <mat-card>
+        <mat-card-content>
+          <div class="form-grid">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Name</mat-label>
+              <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Target Class</mat-label>
+              <input matInput [ngModel]="targetClass()" (ngModelChange)="targetClass.set($event)" placeholder="http://example.org/Person" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Shape URI (Optional)</mat-label>
+              <input matInput [ngModel]="uri()" (ngModelChange)="uri.set($event)" placeholder="http://example.org/shapes/PersonShape" />
+            </mat-form-field>
           </div>
-          <div class="field col-12 md:col-6">
-            <label for="targetClass" class="font-bold">Target Class</label>
-            <input id="targetClass" type="text" pInputText [ngModel]="targetClass()" (ngModelChange)="targetClass.set($event)" placeholder="http://example.org/Person" />
-          </div>
-          <div class="field col-12">
-            <label for="uri" class="font-bold">Shape URI (Optional)</label>
-            <input id="uri" type="text" pInputText [ngModel]="uri()" (ngModelChange)="uri.set($event)" placeholder="http://example.org/shapes/PersonShape" />
-          </div>
-        </div>
-      </p-card>
+        </mat-card-content>
+      </mat-card>
     </div>
 
     <!-- Visual Editor -->
     @if (visualMode()) {
-    <div class="col-12">
-      <div class="grid">
+    <div class="visual-editor-section">
+      <div class="editor-layout">
         <!-- Property List (Left) -->
-        <div class="col-12 md:col-4">
-          <p-panel header="Properties" styleClass="h-full">
-            <div class="flex flex-column gap-2">
-              <p-button label="Add Property" icon="pi pi-plus" styleClass="w-full mb-2" (onClick)="addProperty()"></p-button>
-              
-              <div class="property-list" style="max-height: 600px; overflow-y: auto;">
+        <div class="property-list-panel">
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>Properties</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <button mat-raised-button color="primary" class="add-property-btn" (click)="addProperty()">
+                <mat-icon>add</mat-icon>
+                Add Property
+              </button>
+
+              <div class="property-list">
                 @for (prop of properties(); track prop.id) {
-                  <div class="property-item p-3 border-1 border-round mb-2 cursor-pointer hover:surface-hover transition-colors transition-duration-200"
-                       [class.border-primary]="selectedProperty()?.id === prop.id"
-                       [class.surface-card]="selectedProperty()?.id !== prop.id"
-                       [class.surface-50]="selectedProperty()?.id === prop.id"
+                  <div class="property-item"
+                       [class.selected]="selectedProperty()?.id === prop.id"
                        (click)="selectProperty(prop)">
-                    <div class="flex align-items-center justify-content-between">
-                      <div class="flex align-items-center gap-2">
-                        <i class="pi" [ngClass]="getIconForKind(prop.kind)"></i>
+                    <div class="property-header">
+                      <div class="property-info">
+                        <mat-icon class="property-icon">{{ getIconForKind(prop.kind) }}</mat-icon>
                         <div>
-                          <div class="font-bold text-900">{{ prop.name || 'Unnamed Property' }}</div>
-                          <div class="text-sm text-500">{{ prop.path || 'No path' }}</div>
+                          <div class="property-name">{{ prop.name || 'Unnamed Property' }}</div>
+                          <div class="property-path">{{ prop.path || 'No path' }}</div>
                         </div>
                       </div>
-                      <div class="flex gap-1">
+                      <div class="property-actions">
                         @if (prop.minCount && prop.minCount > 0) {
-                          <p-tag value="Req" severity="danger" styleClass="text-xs"></p-tag>
+                          <mat-chip class="required-chip">Req</mat-chip>
                         }
-                        <i class="pi pi-trash text-500 hover:text-red-500 cursor-pointer p-2" (click)="removeProperty(prop); $event.stopPropagation()"></i>
+                        <button mat-icon-button (click)="removeProperty(prop); $event.stopPropagation()">
+                          <mat-icon color="warn">delete</mat-icon>
+                        </button>
                       </div>
                     </div>
                   </div>
                 }
                 @if (properties().length === 0) {
-                  <div class="text-center text-500 py-4">No properties defined. Click 'Add Property' to start.</div>
+                  <div class="empty-state">No properties defined. Click 'Add Property' to start.</div>
                 }
               </div>
-            </div>
-          </p-panel>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <!-- Property Details (Right) -->
-        <div class="col-12 md:col-8">
+        <div class="property-details-panel">
           @if (selectedProperty(); as prop) {
-            <p-panel [header]="prop.name || 'Property Details'" styleClass="h-full">
-              <p-tabs value="general">
-                <p-tablist>
-                  <p-tab value="general">General</p-tab>
-                  <p-tab value="constraints">Constraints</p-tab>
-                  <p-tab value="advanced">Advanced</p-tab>
-                </p-tablist>
-                <p-tabpanels>
-                  
+            <mat-card>
+              <mat-card-header>
+                <mat-card-title>{{ prop.name || 'Property Details' }}</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <mat-tab-group>
                   <!-- General Tab -->
-                  <p-tabpanel value="general">
-                    <div class="formgrid grid p-fluid">
-                      <div class="field col-12">
-                        <label class="font-bold">Property Name (Label)</label>
-                        <input pInputText type="text" [(ngModel)]="prop.name" placeholder="e.g., Email Address" />
+                  <mat-tab label="General">
+                    <div class="tab-content">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Property Name (Label)</mat-label>
+                        <input matInput [(ngModel)]="prop.name" placeholder="e.g., Email Address" />
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Path (URI)</mat-label>
+                        <input matInput [(ngModel)]="prop.path" placeholder="e.g., schema:email" />
+                        <mat-hint>The RDF predicate this property constrains.</mat-hint>
+                      </mat-form-field>
+
+                      <div class="two-column">
+                        <mat-form-field appearance="outline">
+                          <mat-label>Kind</mat-label>
+                          <mat-select [(ngModel)]="prop.kind">
+                            @for (option of kindOptions; track option.value) {
+                              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                          <mat-label>{{ prop.kind === 'LITERAL' ? 'Datatype' : 'Target Class' }}</mat-label>
+                          @if (prop.kind === 'LITERAL') {
+                            <mat-select [(ngModel)]="prop.datatype">
+                              @for (option of datatypeOptions; track option.value) {
+                                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                              }
+                            </mat-select>
+                          } @else {
+                            <input matInput [(ngModel)]="prop.datatype" placeholder="e.g., schema:Person" />
+                          }
+                        </mat-form-field>
                       </div>
-                      <div class="field col-12">
-                        <label class="font-bold">Path (URI)</label>
-                        <input pInputText type="text" [(ngModel)]="prop.path" placeholder="e.g., schema:email" />
-                        <small class="text-500">The RDF predicate this property constrains.</small>
-                      </div>
-                      <div class="field col-12 md:col-6">
-                        <label class="font-bold">Kind</label>
-                        <p-select [options]="kindOptions" [(ngModel)]="prop.kind" optionLabel="label" optionValue="value"></p-select>
-                      </div>
-                      <div class="field col-12 md:col-6">
-                        <label class="font-bold">{{ prop.kind === 'LITERAL' ? 'Datatype' : 'Target Class' }}</label>
-                        @if (prop.kind === 'LITERAL') {
-                          <p-select [options]="datatypeOptions" [(ngModel)]="prop.datatype" optionLabel="label" optionValue="value" [editable]="true"></p-select>
-                        } @else {
-                          <input pInputText type="text" [(ngModel)]="prop.datatype" placeholder="e.g., schema:Person" />
-                        }
-                      </div>
-                      <div class="field col-12">
-                        <label class="font-bold">Description</label>
-                        <textarea pInputTextarea [(ngModel)]="prop.description" rows="3"></textarea>
-                      </div>
+
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Description</mat-label>
+                        <textarea matInput [(ngModel)]="prop.description" rows="3"></textarea>
+                      </mat-form-field>
                     </div>
-                  </p-tabpanel>
+                  </mat-tab>
 
                   <!-- Constraints Tab -->
-                  <p-tabpanel value="constraints">
-                    <!-- Quick Presets for Non-Experts -->
-                    <div class="constraint-presets mb-4">
-                      <label class="font-bold block mb-2">Quick Presets</label>
-                      <div class="flex flex-wrap gap-2">
-                        @for (preset of constraintPresets; track preset.id) {
-                          <p-button
-                            [label]="preset.label"
-                            [icon]="preset.icon"
-                            [outlined]="true"
-                            size="small"
-                            [pTooltip]="preset.description"
-                            (onClick)="applyConstraintPreset(preset)">
-                          </p-button>
+                  <mat-tab label="Constraints">
+                    <div class="tab-content">
+                      <!-- Quick Presets for Non-Experts -->
+                      <div class="constraint-presets">
+                        <label class="preset-label">Quick Presets</label>
+                        <div class="preset-buttons">
+                          @for (preset of constraintPresets; track preset.id) {
+                            <button
+                              mat-stroked-button
+                              [matTooltip]="preset.description"
+                              (click)="applyConstraintPreset(preset)">
+                              <mat-icon>{{ preset.icon }}</mat-icon>
+                              {{ preset.label }}
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      <mat-divider></mat-divider>
+
+                      <div class="constraint-fields">
+                        <div class="constraint-section">
+                          <label class="section-label">Is this field required?</label>
+                          <mat-checkbox
+                            [checked]="prop.minCount !== null && prop.minCount > 0"
+                            (change)="$event.checked ? prop.minCount = 1 : prop.minCount = 0">
+                            Required (must have a value)
+                          </mat-checkbox>
+                          <div class="hint">Minimum occurrences: {{ prop.minCount ?? 0 }}</div>
+                        </div>
+
+                        <div class="constraint-section">
+                          <label class="section-label">How many values allowed?</label>
+                          <mat-checkbox
+                            [checked]="prop.maxCount === 1"
+                            (change)="prop.maxCount = $event.checked ? 1 : null">
+                            Single value only
+                          </mat-checkbox>
+                          <div class="hint">Maximum: {{ prop.maxCount ?? 'Unlimited' }}</div>
+                        </div>
+
+                        @if (prop.kind === 'LITERAL') {
+                          <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>Must match a pattern?</mat-label>
+                            <input matInput [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
+                            <mat-hint>Regular expression pattern the value must match</mat-hint>
+                          </mat-form-field>
+
+                          <div class="two-column">
+                            <mat-form-field appearance="outline">
+                              <mat-label>Minimum text length</mat-label>
+                              <input matInput type="number" [(ngModel)]="prop.minLength" min="0" placeholder="No minimum" />
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                              <mat-label>Maximum text length</mat-label>
+                              <input matInput type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="No maximum" />
+                            </mat-form-field>
+                          </div>
                         }
                       </div>
                     </div>
-
-                    <p-divider></p-divider>
-
-                    <div class="formgrid grid p-fluid">
-                      <div class="field col-12 md:col-6">
-                        <label class="font-bold">Is this field required?</label>
-                        <div class="flex align-items-center gap-3 mt-2">
-                          <p-checkbox [binary]="true" label="Required (must have a value)" [ngModel]="prop.minCount !== null && prop.minCount > 0" (ngModelChange)="$event ? prop.minCount = 1 : prop.minCount = 0"></p-checkbox>
-                        </div>
-                        <small class="text-500 mt-1 block">Minimum occurrences: {{ prop.minCount ?? 0 }}</small>
-                      </div>
-                      <div class="field col-12 md:col-6">
-                        <label class="font-bold">How many values allowed?</label>
-                        <div class="flex align-items-center gap-3 mt-2">
-                          <p-checkbox [binary]="true" label="Single value only" [ngModel]="prop.maxCount === 1" (ngModelChange)="prop.maxCount = $event ? 1 : null"></p-checkbox>
-                        </div>
-                        <small class="text-500 mt-1 block">Maximum: {{ prop.maxCount ?? 'Unlimited' }}</small>
-                      </div>
-
-                      @if (prop.kind === 'LITERAL') {
-                        <div class="field col-12">
-                          <label class="font-bold">Must match a pattern?</label>
-                          <input pInputText type="text" [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
-                          <small class="text-500">Regular expression pattern the value must match</small>
-                        </div>
-                        <div class="field col-12 md:col-6">
-                          <label class="font-bold">Minimum text length</label>
-                          <input pInputText type="number" [(ngModel)]="prop.minLength" min="0" placeholder="No minimum" />
-                        </div>
-                        <div class="field col-12 md:col-6">
-                          <label class="font-bold">Maximum text length</label>
-                          <input pInputText type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="No maximum" />
-                        </div>
-                      }
-                    </div>
-                  </p-tabpanel>
+                  </mat-tab>
 
                   <!-- Advanced Tab -->
-                  <p-tabpanel value="advanced">
-                    <div class="formgrid grid p-fluid">
-                      <div class="field col-12">
-                        <label class="font-bold">Custom Validation Message</label>
-                        <input pInputText type="text" [(ngModel)]="prop.message" placeholder="e.g., Value must be a valid email" />
-                      </div>
-                      <div class="field col-12">
-                        <label class="font-bold">Node Kind</label>
-                        <p-select [options]="nodeKindOptions" [(ngModel)]="prop.nodeKind" optionLabel="label" optionValue="value" [showClear]="true" placeholder="Default"></p-select>
-                      </div>
-                    </div>
-                  </p-tabpanel>
+                  <mat-tab label="Advanced">
+                    <div class="tab-content">
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Custom Validation Message</mat-label>
+                        <input matInput [(ngModel)]="prop.message" placeholder="e.g., Value must be a valid email" />
+                      </mat-form-field>
 
-                </p-tabpanels>
-              </p-tabs>
-            </p-panel>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Node Kind</mat-label>
+                        <mat-select [(ngModel)]="prop.nodeKind" placeholder="Default">
+                          @for (option of nodeKindOptions; track option.value) {
+                            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  </mat-tab>
+                </mat-tab-group>
+              </mat-card-content>
+            </mat-card>
           } @else {
-            <div class="h-full flex flex-column align-items-center justify-content-center surface-ground border-round p-6 text-center text-500">
-              <i class="pi pi-arrow-left text-4xl mb-3"></i>
-              <div class="text-xl font-bold">Select a property</div>
-              <div>Select a property from the list or create a new one to edit its details.</div>
+            <div class="empty-property-state">
+              <mat-icon class="empty-icon">arrow_back</mat-icon>
+              <div class="empty-title">Select a property</div>
+              <div class="empty-message">Select a property from the list or create a new one to edit its details.</div>
             </div>
           }
         </div>
@@ -244,65 +287,95 @@
 
     <!-- Code Editor -->
     @if (!visualMode()) {
-    <div class="col-12">
-      <p-card>
-        <div class="flex justify-content-between align-items-center mb-3">
-          <div class="font-bold text-xl">Shape Definition</div>
-          <div class="flex gap-2">
-            <p-select [options]="formatOptions" [ngModel]="contentFormat()" (ngModelChange)="contentFormat.set($event)" optionLabel="label" optionValue="value"></p-select>
-            <p-button label="Validate Syntax" icon="pi pi-check-circle" [outlined]="true" (onClick)="validateSyntax()"></p-button>
+    <div class="code-editor-section">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Shape Definition</mat-card-title>
+          <div class="header-actions">
+            <mat-form-field appearance="outline" class="format-select">
+              <mat-select [ngModel]="contentFormat()" (ngModelChange)="contentFormat.set($event)">
+                @for (option of formatOptions; track option.value) {
+                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button (click)="validateSyntax()">
+              <mat-icon>check_circle</mat-icon>
+              Validate Syntax
+            </button>
           </div>
-        </div>
-        <textarea pInputTextarea [ngModel]="content()" (ngModelChange)="content.set($event)" class="w-full font-mono" rows="20"></textarea>
-      </p-card>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full-width code-editor">
+            <textarea matInput [ngModel]="content()" (ngModelChange)="content.set($event)" rows="20"></textarea>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
     </div>
     }
 
     <!-- Test Lab -->
-    <div class="col-12">
-      <p-panel header="Test Lab" [toggleable]="true" [collapsed]="true">
-        <div class="grid">
-          <div class="col-12 md:col-6">
-            <div class="flex justify-content-between align-items-center mb-2">
-              <label class="font-bold">Test Data</label>
-              <p-select [options]="testFormatOptions" [ngModel]="testDataFormat()" (ngModelChange)="testDataFormat.set($event)" optionLabel="label" optionValue="value"></p-select>
+    <div class="test-lab-section">
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Test Lab</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div class="test-lab-content">
+          <div class="test-data-panel">
+            <div class="panel-header">
+              <label class="panel-label">Test Data</label>
+              <mat-form-field appearance="outline" class="format-select">
+                <mat-select [ngModel]="testDataFormat()" (ngModelChange)="testDataFormat.set($event)">
+                  @for (option of testFormatOptions; track option.value) {
+                    <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
             </div>
-            <textarea pInputTextarea [ngModel]="testData()" (ngModelChange)="testData.set($event)" class="w-full font-mono" rows="10" placeholder="Enter RDF data to validate against this shape..."></textarea>
-            <div class="mt-2 text-right">
-              <p-button label="Run Validation" icon="pi pi-play" (onClick)="runValidation()" [loading]="validating()"></p-button>
+            <mat-form-field appearance="outline" class="full-width">
+              <textarea matInput [ngModel]="testData()" (ngModelChange)="testData.set($event)" rows="10" placeholder="Enter RDF data to validate against this shape..."></textarea>
+            </mat-form-field>
+            <div class="test-actions">
+              <button mat-raised-button color="primary" (click)="runValidation()" [disabled]="validating()">
+                <mat-icon>play_arrow</mat-icon>
+                Run Validation
+              </button>
             </div>
           </div>
-          <div class="col-12 md:col-6">
-            <label class="font-bold block mb-2">Results</label>
+
+          <div class="test-results-panel">
+            <label class="panel-label">Results</label>
             @if (validationResult(); as result) {
-              <div class="p-3 border-round" [ngClass]="result.conforms ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
-                <div class="flex align-items-center gap-2 mb-3">
-                  <i class="pi" [ngClass]="result.conforms ? 'pi-check-circle' : 'pi-times-circle'" style="font-size: 1.5rem"></i>
-                  <span class="font-bold text-xl">{{ result.conforms ? 'Conforms' : 'Violation' }}</span>
+              <div class="result-container" [class.success]="result.conforms" [class.error]="!result.conforms">
+                <div class="result-header">
+                  <mat-icon class="result-icon">{{ result.conforms ? 'check_circle' : 'cancel' }}</mat-icon>
+                  <span class="result-status">{{ result.conforms ? 'Conforms' : 'Violation' }}</span>
                 </div>
                 @if (!result.conforms) {
-                  <div class="flex flex-column gap-2">
+                  <div class="violations-list">
                     @for (violation of result.violations; track violation) {
-                      <div class="surface-card p-2 border-round text-700 border-1 border-300 text-sm">
-                        <div class="font-bold">{{ violation.message }}</div>
-                        <div class="text-xs text-500 mt-1">
-                          Focus: {{ violation.focusNode }} 
-                          @if (violation.path) { | Path: {{ violation.path }} }
-                        </div>
-                      </div>
+                      <mat-card class="violation-card">
+                        <mat-card-content>
+                          <div class="violation-message">{{ violation.message }}</div>
+                          <div class="violation-details">
+                            Focus: {{ violation.focusNode }}
+                            @if (violation.path) { | Path: {{ violation.path }} }
+                          </div>
+                        </mat-card-content>
+                      </mat-card>
                     }
                   </div>
                 }
               </div>
             } @else {
-              <div class="h-full flex align-items-center justify-content-center text-500 border-1 border-dashed border-300 border-round" style="min-height: 200px">
+              <div class="empty-results">
                 Run validation to see results
               </div>
             }
           </div>
         </div>
-      </p-panel>
+      </mat-expansion-panel>
     </div>
   </div>
-  } <!-- end of else block for template selector -->
+  }
 </div>

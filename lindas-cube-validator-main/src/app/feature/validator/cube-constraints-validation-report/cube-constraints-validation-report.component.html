@@ -1,0 +1,142 @@
+@if(!report().conforms) {
+
+@if(cubeValidationResult().length === 0) {
+} @else {
+<h6>Cube validation report for &lt;{{cubeValidationResult()[0].focusNode?.iri}}&gt;</h6>
+
+<mat-accordion>
+    <mat-expansion-panel>
+        <mat-expansion-panel-header>
+            <mat-panel-title>
+                Cube Definition
+            </mat-panel-title>
+        </mat-expansion-panel-header>
+
+        <div>
+            <h4>Cube Configuration</h4>
+        </div>
+        <table>
+            @for(triple of cubeValidationResult()[0].focusNode!.toTable();; track triple) {
+
+            <tr class="triple-row">
+                <td>{{triple.predicate}}</td>
+                <td>{{triple.object}}</td>
+            </tr>
+            }
+        </table>
+    </mat-expansion-panel>
+</mat-accordion>
+
+
+<table mat-table [dataSource]="cubeValidationResult()" class="ob-table ob-table-sm">
+
+    <ng-container matColumnDef="Path">
+        <th mat-header-cell *matHeaderCellDef> Path </th>
+        <td mat-cell *matCellDef="let result"> {{result.path}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="Message">
+        <th mat-header-cell *matHeaderCellDef> Message </th>
+        <td mat-cell *matCellDef="let result"> {{result.resultMessage}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="Value">
+        <th mat-header-cell *matHeaderCellDef>Value </th>
+        <td mat-cell *matCellDef="let result"> {{result.literalValue ?? result.objectValue?.iri ?? 'none'}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="Severity">
+        <th mat-header-cell *matHeaderCellDef> Severity </th>
+        <td mat-cell *matCellDef="let result"> <cube-severity [severity]="result.severity" /> </td>
+    </ng-container>
+
+
+
+    <tr mat-header-row *matHeaderRowDef="cubeColumnsToDisplay"></tr>
+
+    <tr mat-row *matRowDef="let result; columns: cubeColumnsToDisplay;">
+    </tr>
+</table>
+
+
+}
+
+
+<br>
+<br>
+
+<h6>Dimension validation report</h6>
+<table mat-table [dataSource]="dimensionValidationResult()" multiTemplateDataRows class="ob-table ob-table-sm">
+
+
+    <ng-container matColumnDef="Message">
+        <th mat-header-cell *matHeaderCellDef> Message </th>
+        <td mat-cell *matCellDef="let result"> {{result.path === 'http://www.w3.org/ns/shacl#property' ||
+            result.path.length < 1 ? '' : '&lt;' + result.path + '&gt;' }} {{result.resultMessage}} </td>
+    </ng-container>
+    <ng-container matColumnDef="Dimension">
+        <th mat-header-cell *matHeaderCellDef> Dimension </th>
+        <td mat-cell *matCellDef="let result"> {{result.dimensionValue?.path ?? 'none'}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="Severity">
+        <th mat-header-cell *matHeaderCellDef> Severity </th>
+        <td mat-cell *matCellDef="let result"> <cube-severity [severity]="result.severity" /> </td>
+    </ng-container>
+
+    <ng-container matColumnDef="expand">
+        <th mat-header-cell *matHeaderCellDef aria-label="row actions">&nbsp;</th>
+        <td mat-cell *matCellDef="let report">
+            <button mat-icon-button obButton="tertiary" type="button"
+                (click)="(expandedElement = expandedElement === report ? null : report); $event.stopPropagation()">
+                @if (expandedElement === report) {
+                <mat-icon svgIcon="chevron-small-up" />
+                } @else {
+                <mat-icon svgIcon="chevron-small-down" /> }
+            </button>
+        </td>
+    </ng-container>
+
+    <!-- Expanded Content Column - The detail row is made up of this one column that spans across all columns -->
+    <ng-container matColumnDef="expandedDetail">
+        <td style="padding:0; border-bottom: none;" mat-cell *matCellDef="let result"
+            [attr.colspan]="dimensionColumnsToDisplayWithExpand.length">
+            <div [@detailExpand]="result == expandedElement ? 'expanded' : 'collapsed'">
+                @if(result.objectValue) {
+
+                <div>
+                    <h4>Dimension Configuration</h4>
+                </div>
+
+                <table>
+                    @for(triple of result.objectValue?.toTable();; track triple) {
+
+                    <tr class="triple-row">
+                        <td>{{triple.predicate}}</td>
+                        <td>{{triple.object}}</td>
+                    </tr>
+                    }
+                </table>
+
+                } @else {
+                <div>no value node</div>
+                }
+
+            </div>
+
+        </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="dimensionColumnsToDisplayWithExpand"></tr>
+
+    <tr style="border-bottom: none;" mat-row *matRowDef="let result; columns: dimensionColumnsToDisplayWithExpand;"
+        class="example-element-row" [class.example-expanded-row]="expandedElement === result"
+        (click)="expandedElement = expandedElement === result ? null : result">
+    </tr>
+    <tr mat-row *matRowDef="let row; columns: ['expandedDetail']" class="example-detail-row"></tr>
+</table>
+<br>
+<br>
+<br>
+<br>
+}

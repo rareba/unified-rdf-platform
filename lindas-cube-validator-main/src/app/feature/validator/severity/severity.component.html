@@ -1,0 +1,4 @@
+@if(severityInstance()) {
+
+<mat-chip [disableRipple]="true" [ngClass]="severityInstance()?.class">{{severityInstance()?.description}}</mat-chip>
+}

@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
-// PrimeNG v20 uses presets - theme styles are bundled
-@import 'primeicons/primeicons.css';
-@import 'primeflex/primeflex.css';
+// Angular Material theming
+@use '@angular/material' as mat;
 
 // Swiss Government Oblique Framework
 // Note: Oblique styles are imported via angular.json for proper SCSS preprocessing
