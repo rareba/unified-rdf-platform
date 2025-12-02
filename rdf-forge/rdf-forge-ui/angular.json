@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
-    "packageManager": "npm"
+    "packageManager": "npm",
+    "analytics": false
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -115,6 +116,12 @@
             },
             "development": {
               "buildTarget": "rdf-forge-ui:build:development"
+            },
+            "offline": {
+              "buildTarget": "rdf-forge-ui:build:offline"
+            },
+            "standalone": {
+              "buildTarget": "rdf-forge-ui:build:standalone"
             }
           },
           "defaultConfiguration": "development"

@@ -26,7 +26,4 @@ public interface PipelineRepository extends JpaRepository<PipelineEntity, UUID> 
     Page<PipelineEntity> searchByProjectId(@Param("projectId") UUID projectId, 
                                             @Param("search") String search, 
                                             Pageable pageable);
-    
-    @Query("SELECT p FROM PipelineEntity p WHERE :tag = ANY(p.tags)")
-    List<PipelineEntity> findByTag(@Param("tag") String tag);
 }

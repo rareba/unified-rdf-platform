@@ -1,1 +1,88 @@
-<p>pipeline-list works!</p>
+<p-toast></p-toast>
+
+<div class="pipeline-list">
+  <div class="header">
+    <h1>Pipelines</h1>
+    <div class="actions">
+      <span class="p-input-icon-left">
+        <i class="pi pi-search"></i>
+        <input type="text" pInputText placeholder="Search pipelines..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </span>
+      <p-select [options]="statusOptions" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" optionLabel="label" optionValue="value" placeholder="Filter by status"></p-select>
+      <p-button label="New Pipeline" icon="pi pi-plus" (click)="createPipeline()"></p-button>
+    </div>
+  </div>
+
+  <p-table
+    [value]="filteredPipelines()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    dataKey="id"
+    responsiveLayout="scroll"
+    styleClass="p-datatable-sm">
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <i class="pi pi-sitemap"></i>
+            <p>No pipelines found</p>
+            <p-button label="Create your first pipeline" icon="pi pi-plus" (click)="createPipeline()"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="name" style="min-width: 200px">Name <p-sortIcon field="name"></p-sortIcon></th>
+        <th pSortableColumn="status" style="width: 120px">Status <p-sortIcon field="status"></p-sortIcon></th>
+        <th pSortableColumn="stepsCount" style="width: 80px">Steps <p-sortIcon field="stepsCount"></p-sortIcon></th>
+        <th pSortableColumn="lastRun" style="width: 150px">Last Run <p-sortIcon field="lastRun"></p-sortIcon></th>
+        <th style="width: 200px">Tags</th>
+        <th style="width: 120px">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-pipeline>
+      <tr (click)="openPipeline(pipeline)" class="cursor-pointer">
+        <td>
+          <div class="pipeline-name">
+            <span class="name">{{ pipeline.name }}</span>
+            <span class="description">{{ pipeline.description }}</span>
+          </div>
+        </td>
+        <td><p-tag [value]="pipeline.status" [severity]="getStatusSeverity(pipeline.status)"></p-tag></td>
+        <td><span class="step-count">{{ pipeline.stepsCount }}</span></td>
+        <td>{{ formatDate(pipeline.lastRun) }}</td>
+        <td>
+          <div class="tags">
+            @for (tag of pipeline.tags; track tag) {
+              <p-tag [value]="tag" severity="info" styleClass="mr-1"></p-tag>
+            }
+          </div>
+        </td>
+        <td>
+          <div class="row-actions">
+            <p-button icon="pi pi-play" severity="success" [text]="true" [rounded]="true" (click)="runPipeline(pipeline, $event)" pTooltip="Run"></p-button>
+            <p-button icon="pi pi-copy" severity="secondary" [text]="true" [rounded]="true" (click)="duplicatePipeline(pipeline, $event)" pTooltip="Duplicate"></p-button>
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="confirmDelete(pipeline, $event)" pTooltip="Delete"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog [(visible)]="deleteDialogVisible" header="Confirm Delete" [modal]="true" [style]="{ width: '400px' }">
+    <div class="confirmation-content">
+      <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem; color: var(--yellow-500)"></i>
+      <span>Are you sure you want to delete <strong>{{ selectedPipeline()?.name }}</strong>?</span>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="deleteDialogVisible.set(false)"></p-button>
+      <p-button label="Delete" severity="danger" (click)="deletePipeline()" [loading]="deleting()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

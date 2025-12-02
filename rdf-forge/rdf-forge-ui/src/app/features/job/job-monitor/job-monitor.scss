@@ -1,0 +1,70 @@
+.job-monitor {
+  padding: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.pipeline-name {
+  color: var(--text-color-secondary);
+  margin: 0.25rem 0 0 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--surface-200);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row .label {
+  color: var(--text-color-secondary);
+}
+
+.info-row .value {
+  font-weight: 500;
+}
+
+.error-message {
+  color: var(--red-500);
+  font-family: monospace;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+
+.log-time {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+}
+
+.log-message {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.loading, .not-found {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-color-secondary);
+}
+
+.text-muted {
+  color: var(--text-color-secondary);
+}

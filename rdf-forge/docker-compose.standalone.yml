@@ -304,7 +304,7 @@ services:
   # Frontend
   # ---------------------------------------------------------------------------
 
-  # Angular UI
+  # Angular UI - standalone mode with auth disabled
   ui:
     build:
       context: ./rdf-forge-ui

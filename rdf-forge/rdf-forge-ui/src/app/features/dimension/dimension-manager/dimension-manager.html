@@ -1,1 +1,80 @@
-<p>dimension-manager works!</p>
+<p-toast></p-toast>
+
+<div class="dimension-manager">
+  <div class="header">
+    <h1>Dimensions</h1>
+    <div class="actions">
+      <span class="p-input-icon-left">
+        <i class="pi pi-search"></i>
+        <input type="text" pInputText placeholder="Search dimensions..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </span>
+      <p-button label="New Dimension" icon="pi pi-plus" (click)="createDialogVisible.set(true)"></p-button>
+    </div>
+  </div>
+
+  <p-table [value]="dimensions()" [loading]="loading()" [paginator]="true" [rows]="10" dataKey="id" responsiveLayout="scroll" styleClass="p-datatable-sm">
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <i class="pi pi-list"></i>
+            <p>No dimensions defined</p>
+            <p-button label="Create your first dimension" icon="pi pi-plus" (click)="createDialogVisible.set(true)"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="min-width: 200px">Name</th>
+        <th style="width: 120px">Type</th>
+        <th style="width: 100px">Values</th>
+        <th style="min-width: 200px">URI</th>
+        <th style="width: 100px">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-dim>
+      <tr>
+        <td>
+          <div class="dim-name">
+            <span class="name">{{ dim.name }}</span>
+            <span class="description">{{ dim.description }}</span>
+          </div>
+        </td>
+        <td><p-tag [value]="dim.type" [severity]="getTypeSeverity(dim.type)"></p-tag></td>
+        <td>{{ dim.valueCount || 0 }}</td>
+        <td class="uri-cell">{{ dim.uri }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="deleteDimension(dim, $event)"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog [(visible)]="createDialogVisible" header="New Dimension" [modal]="true" [style]="{ width: '500px' }">
+    <div class="field">
+      <label for="dimName">Name</label>
+      <input id="dimName" type="text" pInputText class="w-full" [(ngModel)]="newDimension().name" placeholder="Dimension name" />
+    </div>
+    <div class="field">
+      <label for="dimUri">URI</label>
+      <input id="dimUri" type="text" pInputText class="w-full" [(ngModel)]="newDimension().uri" placeholder="https://example.org/dimension/name" />
+    </div>
+    <div class="field">
+      <label for="dimType">Type</label>
+      <p-select id="dimType" [options]="typeOptions" [(ngModel)]="newDimension().type" optionLabel="label" optionValue="value" class="w-full"></p-select>
+    </div>
+    <div class="field">
+      <label for="dimDesc">Description</label>
+      <input id="dimDesc" type="text" pInputText class="w-full" [(ngModel)]="newDimension().description" placeholder="Optional description" />
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="createDialogVisible.set(false)"></p-button>
+      <p-button label="Create" icon="pi pi-check" (click)="createDimension()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

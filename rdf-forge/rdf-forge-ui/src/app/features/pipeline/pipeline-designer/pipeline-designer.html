@@ -1,1 +1,121 @@
-<p>pipeline-designer works!</p>
+<p-toast></p-toast>
+
+<div class="pipeline-designer">
+  <div class="header">
+    <h1>{{ isNew() ? 'New Pipeline' : 'Edit Pipeline' }}</h1>
+    <div class="actions">
+      <p-toggleButton 
+        [(ngModel)]="visualMode" 
+        onLabel="Visual Mode" 
+        offLabel="Code Mode" 
+        onIcon="pi pi-eye" 
+        offIcon="pi pi-code"
+        styleClass="mr-2">
+      </p-toggleButton>
+      <p-button label="Cancel" [text]="true" (click)="cancel()"></p-button>
+      <p-button label="Validate" icon="pi pi-check" severity="secondary" (click)="validate()"></p-button>
+      <p-button label="Save" icon="pi pi-save" (click)="save()" [loading]="saving()"></p-button>
+    </div>
+  </div>
+
+  <div class="grid mt-4">
+    <!-- Metadata Card -->
+    <div class="col-12">
+      <p-card>
+        <div class="formgrid grid">
+          <div class="field col-12 md:col-4">
+            <label for="name">Name</label>
+            <input id="name" type="text" pInputText class="w-full" [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Pipeline name" />
+          </div>
+          <div class="field col-12 md:col-8">
+            <label for="description">Description</label>
+            <input id="description" type="text" pInputText class="w-full" [ngModel]="description()" (ngModelChange)="description.set($event)" placeholder="Pipeline description" />
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <!-- Visual Editor -->
+    @if (visualMode()) {
+    <div class="col-12">
+      <div class="grid">
+        <!-- Palette -->
+        <div class="col-12 md:col-3">
+          <p-panel header="Operations" [style]="{'height': '100%'}">
+            <div class="operations-list" cdkDropList [cdkDropListData]="availableOperations()" [cdkDropListConnectedTo]="['pipeline-steps']" [cdkDropListEnterPredicate]="noEnter">
+              @for (op of availableOperations(); track op.id) {
+                <div class="operation-item" cdkDrag [cdkDragData]="op">
+                  <i class="pi pi-cog mr-2"></i> {{ op.name }}
+                </div>
+              }
+            </div>
+          </p-panel>
+        </div>
+
+        <!-- Canvas -->
+        <div class="col-12 md:col-9">
+          <p-panel header="Pipeline Steps" [style]="{'min-height': '500px'}">
+            <div id="pipeline-steps" class="pipeline-steps" cdkDropList (cdkDropListDropped)="drop($event)" [cdkDropListData]="pipelineSteps()">
+              @for (step of pipelineSteps(); track step.id; let i = $index) {
+                <div class="step-card" cdkDrag>
+                  <div class="step-header">
+                    <span class="step-handle" cdkDragHandle><i class="pi pi-bars"></i></span>
+                    <span class="step-title">{{ step.operationName }}</span>
+                    <div class="step-actions">
+                      <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="configureStep(step)" aria-label="Configure step"></button>
+                      <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm" (click)="removeStep(i)" aria-label="Remove step"></button>
+                    </div>
+                  </div>
+                </div>
+              }
+              
+              @if (pipelineSteps().length === 0) {
+                <div class="empty-placeholder">
+                  Drag operations here to build your pipeline
+                </div>
+              }
+            </div>
+          </p-panel>
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- Code Editor -->
+    @if (!visualMode()) {
+    <div class="col-12">
+      <p-card header="Pipeline Definition">
+        <div class="mb-3">
+           <p-select id="format" [options]="formatOptions" [ngModel]="definitionFormat()" (ngModelChange)="definitionFormat.set($event)" optionLabel="label" optionValue="value"></p-select>
+        </div>
+        <textarea pInputTextarea class="w-full definition-editor" [rows]="20" [ngModel]="definition()" (ngModelChange)="definition.set($event)" placeholder="Enter pipeline definition..."></textarea>
+      </p-card>
+    </div>
+    }
+  </div>
+  
+  <!-- Configuration Dialog -->
+  <p-dialog [(visible)]="configDialogVisible" [header]="'Configure ' + selectedStep()?.operationName" [modal]="true" [style]="{width: '500px'}">
+    @if (selectedStep(); as step) {
+      @if (getOperationById(step.operationId); as op) {
+        <div class="p-fluid">
+          <div class="field mb-3">
+            <span class="font-bold">Description</span>
+            <p>{{ op.description }}</p>
+          </div>
+          
+          @for (param of op.parameters; track param.name) {
+            <div class="field mb-3">
+              <span id="label-param-{{ param.name }}">{{ param.name }} @if (param.required) { <span class="text-red-500">*</span> }</span>
+              <input [id]="'param-' + param.name" type="text" pInputText [(ngModel)]="step.params[param.name]" [placeholder]="param.description || ''" [attr.aria-labelledby]="'label-param-' + param.name" />
+            </div>
+          }
+        </div>
+      }
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="configDialogVisible.set(false)"></p-button>
+      <p-button label="Apply" (click)="saveStepConfig()"></p-button>
+    </ng-template>
+  </p-dialog>
+</div>

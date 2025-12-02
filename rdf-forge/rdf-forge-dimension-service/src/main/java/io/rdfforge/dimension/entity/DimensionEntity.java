@@ -28,7 +28,7 @@ public class DimensionEntity {
     private String description;
     
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "type")
     private DimensionType type = DimensionType.KEY;
     
     @Enumerated(EnumType.STRING)

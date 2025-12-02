@@ -1,1 +1,113 @@
-<p>data-manager works!</p>
+<p-toast></p-toast>
+
+<div class="data-manager">
+  <div class="header">
+    <h1>Data Sources</h1>
+    <div class="actions">
+      <span class="p-input-icon-left">
+        <i class="pi pi-search"></i>
+        <input type="text" pInputText placeholder="Search..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </span>
+      <p-button label="Upload Data" icon="pi pi-upload" (click)="uploadDialogVisible.set(true)"></p-button>
+    </div>
+  </div>
+
+  <p-table
+    [value]="dataSources()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="10"
+    dataKey="id"
+    responsiveLayout="scroll"
+    styleClass="p-datatable-sm">
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <i class="pi pi-database"></i>
+            <p>No data sources</p>
+            <p-button label="Upload your first file" icon="pi pi-upload" (click)="uploadDialogVisible.set(true)"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="min-width: 200px">Name</th>
+        <th style="width: 100px">Format</th>
+        <th style="width: 100px">Size</th>
+        <th style="width: 100px">Rows</th>
+        <th style="width: 150px">Uploaded</th>
+        <th style="width: 150px">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-source>
+      <tr>
+        <td>
+          <div class="source-name">
+            <span class="name">{{ source.name }}</span>
+            <span class="filename">{{ source.originalFilename }}</span>
+          </div>
+        </td>
+        <td><p-tag [value]="source.format" [severity]="getFormatSeverity(source.format)"></p-tag></td>
+        <td>{{ formatSize(source.sizeBytes) }}</td>
+        <td>{{ source.rowCount | number }}</td>
+        <td>{{ formatDate(source.uploadedAt) }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button icon="pi pi-eye" severity="info" [text]="true" [rounded]="true" (click)="previewData(source, $event)" pTooltip="Preview"></p-button>
+            <p-button icon="pi pi-download" severity="secondary" [text]="true" [rounded]="true" (click)="downloadData(source, $event)" pTooltip="Download"></p-button>
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="deleteData(source, $event)" pTooltip="Delete"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog [(visible)]="uploadDialogVisible" header="Upload Data" [modal]="true" [style]="{ width: '500px' }">
+    <p-fileUpload
+      mode="advanced"
+      [auto]="true"
+      accept=".csv,.json,.xlsx,.xml,.parquet,.tsv"
+      [maxFileSize]="104857600"
+      (onUpload)="onUpload($any($event))"
+      (onSelect)="onUpload($any($event))">
+      <ng-template pTemplate="content">
+        <div class="upload-content">
+          <i class="pi pi-cloud-upload"></i>
+          <p>Drag and drop files here or click to browse</p>
+          <p class="text-muted">Supported: CSV, JSON, XLSX, XML, TSV, Parquet (max 100MB)</p>
+        </div>
+      </ng-template>
+    </p-fileUpload>
+  </p-dialog>
+
+  <p-dialog [(visible)]="previewDialogVisible" header="Data Preview" [modal]="true" [style]="{ width: '80vw', maxWidth: '1200px' }">
+    @if (previewLoading()) {
+      <div class="preview-loading">Loading preview...</div>
+    } @else if (preview()) {
+      <div class="preview-info">
+        <span>Showing {{ preview()!.data.length }} of {{ preview()!.totalRows | number }} rows</span>
+      </div>
+      <p-table [value]="preview()!.data" [scrollable]="true" scrollHeight="400px">
+        <ng-template pTemplate="header">
+          <tr>
+            @for (col of preview()!.columns; track col) {
+              <th>{{ col }}</th>
+            }
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+          <tr>
+            @for (col of preview()!.columns; track col) {
+              <td>{{ row[col] }}</td>
+            }
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-dialog>
+</div>

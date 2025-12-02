@@ -1,1 +1,97 @@
-<p>job-monitor works!</p>
+<p-toast></p-toast>
+
+<div class="job-monitor">
+  @if (loading()) {
+    <div class="loading">Loading job details...</div>
+  } @else if (job()) {
+    <div class="header">
+      <div>
+        <h1>Job {{ job()!.id.substring(0, 8) }}</h1>
+        <p class="pipeline-name">{{ job()!.pipelineName }} v{{ job()!.pipelineVersion }}</p>
+      </div>
+      <div class="actions">
+        <p-button label="Back" icon="pi pi-arrow-left" [text]="true" (click)="goBack()"></p-button>
+        @if (job()!.status === 'running') {
+          <p-button label="Cancel" icon="pi pi-stop" severity="danger" (click)="cancelJob()"></p-button>
+        }
+        @if (job()!.status === 'failed') {
+          <p-button label="Retry" icon="pi pi-refresh" severity="warn" (click)="retryJob()"></p-button>
+        }
+      </div>
+    </div>
+
+    <div class="grid mt-4">
+      <div class="col-12 lg:col-4">
+        <p-card header="Status">
+          <div class="status-info">
+            <p-tag [value]="job()!.status" [severity]="getStatusSeverity(job()!.status)" styleClass="mb-3"></p-tag>
+            @if (job()!.status === 'running') {
+              <p-progressBar [value]="job()!.progress" [showValue]="true"></p-progressBar>
+            }
+          </div>
+          <div class="info-row mt-3">
+            <span class="label">Started</span>
+            <span class="value">{{ formatDate(job()!.startedAt) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Completed</span>
+            <span class="value">{{ formatDate(job()!.completedAt) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Duration</span>
+            <span class="value">{{ formatDuration(job()!.duration) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Triggered By</span>
+            <span class="value">{{ job()!.triggeredBy }}</span>
+          </div>
+        </p-card>
+
+        @if (job()!.metrics) {
+          <p-card header="Metrics" styleClass="mt-3">
+            <div class="info-row">
+              <span class="label">Rows Processed</span>
+              <span class="value">{{ job()!.metrics!.rowsProcessed | number }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Quads Generated</span>
+              <span class="value">{{ job()!.metrics!.quadsGenerated | number }}</span>
+            </div>
+          </p-card>
+        }
+
+        @if (job()!.errorMessage) {
+          <p-card header="Error" styleClass="mt-3">
+            <div class="error-message">{{ job()!.errorMessage }}</div>
+          </p-card>
+        }
+      </div>
+
+      <div class="col-12 lg:col-8">
+        <p-card header="Logs">
+          <p-table [value]="logs()" [scrollable]="true" scrollHeight="500px" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width: 150px">Time</th>
+                <th style="width: 80px">Level</th>
+                <th>Message</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-log>
+              <tr>
+                <td class="log-time">{{ formatDate(log.timestamp) }}</td>
+                <td><p-tag [value]="log.level" [severity]="getLogSeverity(log.level)"></p-tag></td>
+                <td class="log-message">{{ log.message }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr><td colspan="3" class="text-center text-muted">No logs available</td></tr>
+            </ng-template>
+          </p-table>
+        </p-card>
+      </div>
+    </div>
+  } @else {
+    <div class="not-found">Job not found</div>
+  }
+</div>

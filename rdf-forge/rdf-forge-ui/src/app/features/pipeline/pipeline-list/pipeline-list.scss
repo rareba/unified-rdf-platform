@@ -1,0 +1,78 @@
+.pipeline-list {
+  padding: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.pipeline-name {
+  display: flex;
+  flex-direction: column;
+}
+
+.pipeline-name .name {
+  font-weight: 600;
+}
+
+.pipeline-name .description {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+}
+
+.step-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-200);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  font-weight: 600;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  gap: 1rem;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: var(--text-color-secondary);
+}
+
+.confirmation-content {
+  display: flex;
+  align-items: center;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}

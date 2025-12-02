@@ -1,1 +1,77 @@
-<router-outlet></router-outlet>
+<div class="app-container">
+  <div class="layout-wrapper">
+    <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="pi pi-box"></i>
+        </div>
+        @if (!sidebarCollapsed()) {
+          <div class="logo-text">
+            <span class="cube">Cube Creator</span>
+            <span class="creator">X</span>
+          </div>
+        }
+      </div>
+
+      <nav class="nav-menu">
+        <a class="nav-item" [routerLink]="['/']" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          <i class="pi pi-home"></i>
+          @if (!sidebarCollapsed()) { <span>Dashboard</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/pipelines']" routerLinkActive="active">
+          <i class="pi pi-sitemap"></i>
+          @if (!sidebarCollapsed()) { <span>Pipelines</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/shacl']" routerLinkActive="active">
+          <i class="pi pi-check-square"></i>
+          @if (!sidebarCollapsed()) { <span>SHACL Studio</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/cubes']" routerLinkActive="active">
+          <i class="pi pi-box"></i>
+          @if (!sidebarCollapsed()) { <span>Cube Creator</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/jobs']" routerLinkActive="active">
+          <i class="pi pi-sync"></i>
+          @if (!sidebarCollapsed()) { <span>Jobs</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/data']" routerLinkActive="active">
+          <i class="pi pi-database"></i>
+          @if (!sidebarCollapsed()) { <span>Data Sources</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/dimensions']" routerLinkActive="active">
+          <i class="pi pi-share-alt"></i>
+          @if (!sidebarCollapsed()) { <span>Dimensions</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/triplestore']" routerLinkActive="active">
+          <i class="pi pi-server"></i>
+          @if (!sidebarCollapsed()) { <span>Triplestore</span> }
+        </a>
+        <a class="nav-item" [routerLink]="['/settings']" routerLinkActive="active">
+          <i class="pi pi-cog"></i>
+          @if (!sidebarCollapsed()) { <span>Settings</span> }
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="toggle-btn" type="button" (click)="toggleSidebar()">
+          <i [class]="sidebarCollapsed() ? 'pi pi-angle-right' : 'pi pi-angle-left'"></i>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb">
+          {{ currentPageTitle() }}
+        </div>
+        <div class="toolbar">
+          <!-- Placeholder for future toolbar actions -->
+        </div>
+      </header>
+
+      <div class="page-content">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+</div>

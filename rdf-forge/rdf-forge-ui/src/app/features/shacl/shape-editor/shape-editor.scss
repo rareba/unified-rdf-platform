@@ -1,0 +1,35 @@
+.shape-editor {
+  padding: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--text-color-secondary);
+}
+
+.definition-editor {
+  font-family: monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

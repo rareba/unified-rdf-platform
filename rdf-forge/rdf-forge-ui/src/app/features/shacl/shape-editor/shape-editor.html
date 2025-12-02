@@ -1,1 +1,96 @@
-<p>shape-editor works!</p>
+<p-toast></p-toast>
+
+<div class="shape-editor">
+  <div class="header">
+    <h1>{{ isNew() ? 'New Shape' : 'Edit Shape' }}</h1>
+    <div class="actions">
+      <p-button label="Cancel" [text]="true" (click)="cancel()"></p-button>
+      <p-button label="Validate Syntax" icon="pi pi-check" severity="secondary" (click)="validateSyntax()"></p-button>
+      <p-button label="Save" icon="pi pi-save" (click)="save()" [loading]="saving()"></p-button>
+    </div>
+  </div>
+
+  <div class="grid mt-4">
+    <div class="col-12 lg:col-4">
+      <p-card header="Metadata">
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" type="text" pInputText class="w-full" [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Shape name" />
+        </div>
+        <div class="field">
+          <label for="uri">URI</label>
+          <input id="uri" type="text" pInputText class="w-full" [ngModel]="uri()" (ngModelChange)="uri.set($event)" placeholder="http://example.org/shapes/MyShape" />
+        </div>
+        <div class="field">
+          <label for="targetClass">Target Class</label>
+          <input id="targetClass" type="text" pInputText class="w-full" [ngModel]="targetClass()" (ngModelChange)="targetClass.set($event)" placeholder="http://example.org/Person" />
+        </div>
+        <div class="field">
+          <label for="format">Format</label>
+          <p-select id="format" [options]="formatOptions" [ngModel]="contentFormat()" (ngModelChange)="contentFormat.set($event)" optionLabel="label" optionValue="value" class="w-full"></p-select>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="col-12 lg:col-8">
+      <p-tabs [value]="0">
+        <p-tablist>
+          <p-tab [value]="0">Shape Definition</p-tab>
+          <p-tab [value]="1">Test Validation</p-tab>
+        </p-tablist>
+        <p-tabpanels>
+          <p-tabpanel [value]="0">
+            <textarea pInputTextarea class="w-full definition-editor" [rows]="25" [ngModel]="content()" (ngModelChange)="content.set($event)" placeholder="Enter SHACL shape definition..."></textarea>
+          </p-tabpanel>
+          
+          <p-tabpanel [value]="1">
+            <div class="grid">
+              <div class="col-12 mb-3">
+                <span class="block mb-2">Test Data Format</span>
+                <p-select [options]="testFormatOptions" [ngModel]="testDataFormat()" (ngModelChange)="testDataFormat.set($event)" optionLabel="label" optionValue="value"></p-select>
+              </div>
+              <div class="col-12 mb-3">
+                <span class="block mb-2">Test Data (RDF)</span>
+                <textarea pInputTextarea class="w-full definition-editor" [rows]="10" [ngModel]="testData()" (ngModelChange)="testData.set($event)" placeholder="Enter RDF data to validate..."></textarea>
+              </div>
+              <div class="col-12 mb-3">
+                <p-button label="Run Validation" icon="pi pi-play" (click)="runValidation()" [loading]="validating()" [disabled]="!testData()"></p-button>
+              </div>
+              
+              @if (validationResult()) {
+              <div class="col-12">
+                <p-card [header]="validationResult()!.conforms ? 'Conforms' : 'Validation Failed'" [styleClass]="validationResult()!.conforms ? 'bg-green-50' : 'bg-red-50'">
+                  @if (!validationResult()!.conforms) {
+                    <h4>Violations ({{ validationResult()!.violationCount }})</h4>
+                    <p-table [value]="validationResult()!.violations || []" styleClass="p-datatable-sm">
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>Focus Node</th>
+                          <th>Path</th>
+                          <th>Message</th>
+                          <th>Severity</th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-violation>
+                        <tr>
+                          <td><small>{{ violation.focusNode }}</small></td>
+                          <td><small>{{ violation.path }}</small></td>
+                          <td>{{ violation.message }}</td>
+                          <td><p-tag [value]="violation.severity" severity="danger"></p-tag></td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  }
+                  @if (validationResult()!.conforms) {
+                    <p class="text-green-700"><i class="pi pi-check-circle mr-2"></i> The data conforms to the shape.</p>
+                  }
+                </p-card>
+              </div>
+              }
+            </div>
+          </p-tabpanel>
+        </p-tabpanels>
+      </p-tabs>
+    </div>
+  </div>
+</div>

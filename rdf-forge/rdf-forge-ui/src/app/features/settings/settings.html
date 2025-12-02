@@ -1,1 +1,41 @@
-<p>settings works!</p>
+<div class="settings">
+  <h1>Settings</h1>
+
+  <div class="grid mt-4">
+    <div class="col-12 lg:col-6">
+      <p-card header="Environment">
+        <div class="setting-row">
+          <span class="setting-label">API Base URL</span>
+          <span class="setting-value">{{ env.apiBaseUrl }}</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Authentication</span>
+          <span class="setting-value">{{ authStatus }}</span>
+        </div>
+        @if (env.auth.enabled && env.auth.keycloak) {
+          <div class="setting-row">
+            <span class="setting-label">Keycloak Realm</span>
+            <span class="setting-value">{{ env.auth.keycloak.realm }}</span>
+          </div>
+        }
+      </p-card>
+    </div>
+
+    <div class="col-12 lg:col-6">
+      <p-card header="Application Info">
+        <div class="setting-row">
+          <span class="setting-label">Application</span>
+          <span class="setting-value">Cube Creator X</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Framework</span>
+          <span class="setting-value">Angular 21</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">UI Library</span>
+          <span class="setting-value">PrimeNG 20</span>
+        </div>
+      </p-card>
+    </div>
+  </div>
+</div>

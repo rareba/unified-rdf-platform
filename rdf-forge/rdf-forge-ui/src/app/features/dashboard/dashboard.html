@@ -1,1 +1,126 @@
-<p>dashboard works!</p>
+<div class="dashboard">
+  <div class="grid">
+    <div class="col-12 md:col-6 lg:col-3">
+      <p-card styleClass="stat-card">
+        <div class="stat-content">
+          <div class="stat-icon bg-blue-100">
+            <i class="pi pi-sitemap text-blue-500"></i>
+          </div>
+          <div class="stat-info">
+            @if (loading()) {
+              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
+              <p-skeleton width="4rem" height="1rem"></p-skeleton>
+            } @else {
+              <span class="stat-value">{{ stats().pipelines }}</span>
+              <span class="stat-label">Pipelines</span>
+            }
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="col-12 md:col-6 lg:col-3">
+      <p-card styleClass="stat-card">
+        <div class="stat-content">
+          <div class="stat-icon bg-green-100">
+            <i class="pi pi-check-circle text-green-500"></i>
+          </div>
+          <div class="stat-info">
+            @if (loading()) {
+              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
+              <p-skeleton width="6rem" height="1rem"></p-skeleton>
+            } @else {
+              <span class="stat-value">{{ stats().completedJobs }}</span>
+              <span class="stat-label">Completed Jobs</span>
+            }
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="col-12 md:col-6 lg:col-3">
+      <p-card styleClass="stat-card">
+        <div class="stat-content">
+          <div class="stat-icon bg-purple-100">
+            <i class="pi pi-check-square text-purple-500"></i>
+          </div>
+          <div class="stat-info">
+            @if (loading()) {
+              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
+              <p-skeleton width="5rem" height="1rem"></p-skeleton>
+            } @else {
+              <span class="stat-value">{{ stats().shapes }}</span>
+              <span class="stat-label">SHACL Shapes</span>
+            }
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div class="col-12 md:col-6 lg:col-3">
+      <p-card styleClass="stat-card">
+        <div class="stat-content">
+          <div class="stat-icon bg-orange-100">
+            <i class="pi pi-database text-orange-500"></i>
+          </div>
+          <div class="stat-info">
+            @if (loading()) {
+              <p-skeleton width="3rem" height="2rem" styleClass="mb-2"></p-skeleton>
+              <p-skeleton width="5rem" height="1rem"></p-skeleton>
+            } @else {
+              <span class="stat-value">{{ stats().dataSources }}</span>
+              <span class="stat-label">Data Sources</span>
+            }
+          </div>
+        </div>
+      </p-card>
+    </div>
+  </div>
+
+  <div class="grid mt-4">
+    <div class="col-12 lg:col-8">
+      <p-card>
+        <ng-template pTemplate="header">
+          <div class="card-header">Recent Jobs</div>
+        </ng-template>
+        <p-table [value]="recentJobs()" [rows]="5" responsiveLayout="scroll" [loading]="loading()">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Pipeline</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Duration</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-job>
+            <tr>
+              <td>{{ job.pipelineName }}</td>
+              <td><p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)"></p-tag></td>
+              <td>{{ formatDate(job.startedAt) }}</td>
+              <td>{{ formatDuration(job.duration) }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="4" class="text-center text-muted">No jobs yet</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+    </div>
+
+    <div class="col-12 lg:col-4">
+      <p-card>
+        <ng-template pTemplate="header">
+          <div class="card-header">Quick Actions</div>
+        </ng-template>
+        <div class="quick-actions">
+          <p-button label="New Pipeline" icon="pi pi-plus" styleClass="w-full mb-2" (click)="navigateTo('/pipelines/new')"></p-button>
+          <p-button label="Create Shape" icon="pi pi-plus" styleClass="w-full mb-2" severity="secondary" (click)="navigateTo('/shacl/new')"></p-button>
+          <p-button label="Upload Data" icon="pi pi-upload" styleClass="w-full mb-2" severity="info" (click)="navigateTo('/data')"></p-button>
+          <p-button label="Create Cube" icon="pi pi-box" styleClass="w-full" severity="help" (click)="navigateTo('/cube')"></p-button>
+        </div>
+      </p-card>
+    </div>
+  </div>
+</div>

@@ -1,1 +1,57 @@
-<p>shacl-studio works!</p>
+<p-toast></p-toast>
+
+<div class="shacl-studio">
+  <div class="header">
+    <h1>SHACL Studio</h1>
+    <div class="actions">
+      <span class="p-input-icon-left">
+        <i class="pi pi-search"></i>
+        <input type="text" pInputText placeholder="Search shapes..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      </span>
+      <p-button label="New Shape" icon="pi pi-plus" (click)="createShape()"></p-button>
+    </div>
+  </div>
+
+  <p-table [value]="shapes()" [loading]="loading()" [paginator]="true" [rows]="10" dataKey="id" responsiveLayout="scroll" styleClass="p-datatable-sm">
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <i class="pi pi-check-square"></i>
+            <p>No SHACL shapes defined</p>
+            <p-button label="Create your first shape" icon="pi pi-plus" (click)="createShape()"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="min-width: 200px">Name</th>
+        <th style="width: 150px">Target Class</th>
+        <th style="width: 120px">Format</th>
+        <th style="width: 120px">Updated</th>
+        <th style="width: 100px">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-shape>
+      <tr (click)="editShape(shape)" class="cursor-pointer">
+        <td>
+          <div class="shape-name">
+            <span class="name">{{ shape.name }}</span>
+            <span class="uri">{{ shape.uri }}</span>
+          </div>
+        </td>
+        <td>{{ shape.targetClass || '-' }}</td>
+        <td><p-tag [value]="shape.contentFormat" [severity]="shape.contentFormat === 'turtle' ? 'success' : 'info'"></p-tag></td>
+        <td>{{ formatDate(shape.updatedAt) }}</td>
+        <td>
+          <div class="row-actions">
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="deleteShape(shape, $event)"></p-button>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

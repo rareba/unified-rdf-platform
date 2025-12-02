@@ -1,3 +1,16 @@
+# =============================================================================
+# RDF Forge - Original Compose (Full stack with Keycloak & Fuseki)
+# =============================================================================
+#
+# Note: This file exposes services on ports 3000 and 8000-8006 on the host.
+# On Windows, these ports can conflict with Hyper-V reserved ranges.
+# For local development or demos on Windows, prefer:
+#   - docker-compose.standalone.yml  (single-command, Windows-safe ports)
+#   - docker-compose.development.yml (flexible dev profiles)
+# Use this compose primarily for non-Windows environments or where these
+# specific host ports are required and not reserved.
+# =============================================================================
+
 services:
   postgres:
     image: postgres:16-alpine

@@ -7,6 +7,7 @@ import io.rdfforge.job.entity.JobLogEntity;
 import io.rdfforge.job.entity.JobLogEntity.LogLevel;
 import io.rdfforge.job.repository.JobLogRepository;
 import io.rdfforge.job.repository.JobRepository;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +29,7 @@ public class JobService {
     private final JobLogRepository jobLogRepository;
     private final JobExecutorService executorService;
     
-    public JobService(JobRepository jobRepository, JobLogRepository jobLogRepository, JobExecutorService executorService) {
+    public JobService(JobRepository jobRepository, JobLogRepository jobLogRepository, @Lazy JobExecutorService executorService) {
         this.jobRepository = jobRepository;
         this.jobLogRepository = jobLogRepository;
         this.executorService = executorService;

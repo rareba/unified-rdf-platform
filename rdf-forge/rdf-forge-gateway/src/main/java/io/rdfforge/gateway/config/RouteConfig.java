@@ -1,5 +1,6 @@
 package io.rdfforge.gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
@@ -7,6 +8,24 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RouteConfig {
+    
+    @Value("${PIPELINE_SERVICE_URL:http://pipeline-service:8080}")
+    private String pipelineServiceUrl;
+    
+    @Value("${SHACL_SERVICE_URL:http://shacl-service:8080}")
+    private String shaclServiceUrl;
+    
+    @Value("${JOB_SERVICE_URL:http://job-service:8080}")
+    private String jobServiceUrl;
+    
+    @Value("${DATA_SERVICE_URL:http://data-service:8080}")
+    private String dataServiceUrl;
+    
+    @Value("${DIMENSION_SERVICE_URL:http://dimension-service:8080}")
+    private String dimensionServiceUrl;
+    
+    @Value("${TRIPLESTORE_SERVICE_URL:http://triplestore-service:8080}")
+    private String triplestoreServiceUrl;
     
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
@@ -17,7 +36,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://pipeline-service")
+                .uri(pipelineServiceUrl)
             )
             .route("shacl-service", r -> r
                 .path("/api/v1/shapes/**", "/api/v1/validation/**")
@@ -25,7 +44,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://shacl-service")
+                .uri(shaclServiceUrl)
             )
             .route("job-service", r -> r
                 .path("/api/v1/jobs/**", "/api/v1/schedules/**")
@@ -33,7 +52,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://job-service")
+                .uri(jobServiceUrl)
             )
             .route("data-service", r -> r
                 .path("/api/v1/data/**")
@@ -41,7 +60,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://data-service")
+                .uri(dataServiceUrl)
             )
             .route("dimension-service", r -> r
                 .path("/api/v1/dimensions/**", "/api/v1/hierarchies/**")
@@ -49,7 +68,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://dimension-service")
+                .uri(dimensionServiceUrl)
             )
             .route("triplestore-service", r -> r
                 .path("/api/v1/triplestores/**", "/api/v1/sparql/**", "/api/v1/graphs/**")
@@ -57,7 +76,7 @@ public class RouteConfig {
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
-                .uri("lb://triplestore-service")
+                .uri(triplestoreServiceUrl)
             )
             .build();
     }
