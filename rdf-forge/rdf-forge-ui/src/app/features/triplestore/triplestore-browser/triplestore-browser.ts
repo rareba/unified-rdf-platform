@@ -1,22 +1,22 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SelectModule } from 'primeng/select';
-import { CardModule } from 'primeng/card';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { TextareaModule } from 'primeng/textarea';
-import { InputTextModule } from 'primeng/inputtext';
-import { ToastModule } from 'primeng/toast';
-import { TooltipModule } from 'primeng/tooltip';
-import { DialogModule } from 'primeng/dialog';
-import { TagModule } from 'primeng/tag';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { TabsModule } from 'primeng/tabs';
-import { SplitterModule } from 'primeng/splitter';
-import { DividerModule } from 'primeng/divider';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCardModule } from '@angular/material/card';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { OverlayModule } from '@angular/cdk/overlay';
 import { TriplestoreService } from '../../../core/services';
 import {
   TriplestoreConnection,
@@ -40,30 +40,29 @@ interface QueryTemplate {
   imports: [
     CommonModule,
     FormsModule,
-    SelectModule,
-    CardModule,
-    TableModule,
-    ButtonModule,
-    TextareaModule,
-    InputTextModule,
-    ToastModule,
-    TooltipModule,
-    DialogModule,
-    TagModule,
-    ProgressBarModule,
-    ConfirmDialogModule,
-    TabsModule,
-    SplitterModule,
-    DividerModule
+    MatSelectModule,
+    MatCardModule,
+    MatTableModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatChipsModule,
+    MatProgressBarModule,
+    MatTabsModule,
+    MatDividerModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    OverlayModule
   ],
-  providers: [MessageService, ConfirmationService],
   templateUrl: './triplestore-browser.html',
   styleUrl: './triplestore-browser.scss',
 })
 export class TriplestoreBrowser implements OnInit {
   private readonly triplestoreService = inject(TriplestoreService);
-  private readonly messageService = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   // Core data
   connections = signal<TriplestoreConnection[]>([]);
@@ -203,7 +202,7 @@ export class TriplestoreBrowser implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load connections' });
+        this.snackBar.open('Failed to load connections', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -266,7 +265,7 @@ export class TriplestoreBrowser implements OnInit {
         this.resourcesLoading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Search failed' });
+        this.snackBar.open('Search failed', 'Close', { duration: 3000 });
         this.resourcesLoading.set(false);
       }
     });
@@ -283,7 +282,7 @@ export class TriplestoreBrowser implements OnInit {
         this.resourceDialogVisible.set(true);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load resource' });
+        this.snackBar.open('Failed to load resource', 'Close', { duration: 3000 });
       }
     });
   }
@@ -310,18 +309,18 @@ export class TriplestoreBrowser implements OnInit {
   createConnection(): void {
     const conn = this.newConnection();
     if (!conn.name || !conn.url) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Name and URL are required' });
+      this.snackBar.open('Name and URL are required', 'Close', { duration: 3000 });
       return;
     }
 
     this.triplestoreService.create(conn).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Connection created successfully' });
+        this.snackBar.open('Connection created successfully', 'Close', { duration: 3000 });
         this.connectionDialogVisible.set(false);
         this.loadConnections();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create connection' });
+        this.snackBar.open('Failed to create connection', 'Close', { duration: 3000 });
       }
     });
   }
@@ -332,39 +331,33 @@ export class TriplestoreBrowser implements OnInit {
 
     this.triplestoreService.update(conn.id, conn).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Connection updated successfully' });
+        this.snackBar.open('Connection updated successfully', 'Close', { duration: 3000 });
         this.editConnectionDialogVisible.set(false);
         this.loadConnections();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update connection' });
+        this.snackBar.open('Failed to update connection', 'Close', { duration: 3000 });
       }
     });
   }
 
   confirmDeleteConnection(conn: TriplestoreConnection): void {
-    this.confirmationService.confirm({
-      message: `Are you sure you want to delete "${conn.name}"?`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.deleteConnection(conn);
-      }
-    });
+    if (confirm(`Are you sure you want to delete "${conn.name}"?`)) {
+      this.deleteConnection(conn);
+    }
   }
 
   deleteConnection(conn: TriplestoreConnection): void {
     this.triplestoreService.delete(conn.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Connection deleted successfully' });
+        this.snackBar.open('Connection deleted successfully', 'Close', { duration: 3000 });
         if (this.selectedConnection()?.id === conn.id) {
           this.selectedConnection.set(null);
         }
         this.loadConnections();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete connection' });
+        this.snackBar.open('Failed to delete connection', 'Close', { duration: 3000 });
       }
     });
   }
@@ -374,23 +367,15 @@ export class TriplestoreBrowser implements OnInit {
     this.triplestoreService.test(conn.id).subscribe({
       next: (result) => {
         if (result.success) {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Connected',
-            detail: `Connection successful (${result.latencyMs}ms)`
-          });
+          this.snackBar.open(`Connection successful (${result.latencyMs}ms)`, 'Close', { duration: 3000 });
         } else {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Failed',
-            detail: result.message || 'Connection failed'
-          });
+          this.snackBar.open(result.message || 'Connection failed', 'Close', { duration: 3000 });
         }
         this.testingConnection.set(false);
         this.loadConnections();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Connection test failed' });
+        this.snackBar.open('Connection test failed', 'Close', { duration: 3000 });
         this.testingConnection.set(false);
       }
     });
@@ -406,18 +391,10 @@ export class TriplestoreBrowser implements OnInit {
       next: (result) => {
         this.queryResult.set(result);
         this.queryLoading.set(false);
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Query Executed',
-          detail: `${result.bindings.length} results in ${result.executionTime}ms`
-        });
+        this.snackBar.open(`${result.bindings.length} results in ${result.executionTime}ms`, 'Close', { duration: 3000 });
       },
       error: (err) => {
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Query Error',
-          detail: err.error?.message || 'Query execution failed'
-        });
+        this.snackBar.open(err.error?.message || 'Query execution failed', 'Close', { duration: 3000 });
         this.queryLoading.set(false);
       }
     });
@@ -442,39 +419,29 @@ export class TriplestoreBrowser implements OnInit {
     const conn = this.selectedConnection();
     const form = this.uploadForm();
     if (!conn || !form.graphUri || !form.content) {
-      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Graph URI and content are required' });
+      this.snackBar.open('Graph URI and content are required', 'Close', { duration: 3000 });
       return;
     }
 
     this.uploadingRdf.set(true);
     this.triplestoreService.uploadRdf(conn.id, form.graphUri, form.content, form.format).subscribe({
       next: (result) => {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Uploaded',
-          detail: `${result.triplesLoaded} triples loaded`
-        });
+        this.snackBar.open(`${result.triplesLoaded} triples loaded`, 'Close', { duration: 3000 });
         this.uploadingRdf.set(false);
         this.uploadDialogVisible.set(false);
         this.loadGraphs(conn.id);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to upload RDF' });
+        this.snackBar.open('Failed to upload RDF', 'Close', { duration: 3000 });
         this.uploadingRdf.set(false);
       }
     });
   }
 
   confirmDeleteGraph(graph: Graph): void {
-    this.confirmationService.confirm({
-      message: `Are you sure you want to delete graph "${graph.uri}"? This will remove ${this.formatNumber(graph.tripleCount)} triples.`,
-      header: 'Confirm Delete',
-      icon: 'pi pi-exclamation-triangle',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.deleteGraph(graph);
-      }
-    });
+    if (confirm(`Are you sure you want to delete graph "${graph.uri}"? This will remove ${this.formatNumber(graph.tripleCount)} triples.`)) {
+      this.deleteGraph(graph);
+    }
   }
 
   deleteGraph(graph: Graph): void {
@@ -483,14 +450,14 @@ export class TriplestoreBrowser implements OnInit {
 
     this.triplestoreService.deleteGraph(conn.id, graph.uri).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Graph deleted successfully' });
+        this.snackBar.open('Graph deleted successfully', 'Close', { duration: 3000 });
         if (this.selectedGraph()?.uri === graph.uri) {
           this.selectedGraph.set(null);
         }
         this.loadGraphs(conn.id);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete graph' });
+        this.snackBar.open('Failed to delete graph', 'Close', { duration: 3000 });
       }
     });
   }
@@ -509,10 +476,10 @@ export class TriplestoreBrowser implements OnInit {
         a.download = `graph-export.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
-        this.messageService.add({ severity: 'success', summary: 'Exported', detail: 'Graph exported successfully' });
+        this.snackBar.open('Graph exported successfully', 'Close', { duration: 3000 });
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to export graph' });
+        this.snackBar.open('Failed to export graph', 'Close', { duration: 3000 });
       }
     });
   }
@@ -523,30 +490,30 @@ export class TriplestoreBrowser implements OnInit {
   }
 
   // Helpers
-  getStatusSeverity(status: string): 'success' | 'danger' | 'warn' | 'secondary' {
+  getStatusColor(status: string): string {
     switch (status) {
-      case 'healthy': return 'success';
-      case 'unhealthy': return 'danger';
-      default: return 'secondary';
+      case 'healthy': return 'primary';
+      case 'unhealthy': return 'warn';
+      default: return '';
     }
   }
 
   getStatusIcon(status: string): string {
     switch (status) {
-      case 'healthy': return 'pi pi-check-circle';
-      case 'unhealthy': return 'pi pi-times-circle';
-      default: return 'pi pi-question-circle';
+      case 'healthy': return 'check_circle';
+      case 'unhealthy': return 'cancel';
+      default: return 'help';
     }
   }
 
   getTypeIcon(type: string): string {
     switch (type) {
-      case 'fuseki': return 'pi pi-server';
-      case 'stardog': return 'pi pi-star';
-      case 'graphdb': return 'pi pi-sitemap';
-      case 'neptune': return 'pi pi-cloud';
-      case 'virtuoso': return 'pi pi-database';
-      default: return 'pi pi-database';
+      case 'fuseki': return 'dns';
+      case 'stardog': return 'star';
+      case 'graphdb': return 'account_tree';
+      case 'neptune': return 'cloud';
+      case 'virtuoso': return 'storage';
+      default: return 'storage';
     }
   }
 
@@ -569,7 +536,7 @@ export class TriplestoreBrowser implements OnInit {
 
   copyToClipboard(text: string, label: string): void {
     navigator.clipboard.writeText(text).then(() => {
-      this.messageService.add({ severity: 'info', summary: 'Copied', detail: `${label} copied to clipboard` });
+      this.snackBar.open(`${label} copied to clipboard`, 'Close', { duration: 2000 });
     });
   }
 

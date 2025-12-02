@@ -1,29 +1,25 @@
-<p-toast></p-toast>
-<p-confirmDialog></p-confirmDialog>
-
 <div class="triplestore-browser">
   <!-- Header -->
   <div class="header">
     <div class="header-left">
       <h1>Triplestore Browser</h1>
       @if (selectedConnection()) {
-        <p-tag
-          [value]="connectionStatus()"
-          [severity]="getStatusSeverity(connectionStatus())"
-          [icon]="getStatusIcon(connectionStatus())"></p-tag>
+        <mat-chip [class]="'status-chip status-' + getStatusColor(connectionStatus())">
+          <mat-icon>{{ getStatusIcon(connectionStatus()) }}</mat-icon>
+          {{ connectionStatus() }}
+        </mat-chip>
       }
     </div>
     <div class="actions">
-      <p-button
-        label="Add Connection"
-        icon="pi pi-plus"
-        (click)="openConnectionDialog()"></p-button>
+      <button mat-raised-button color="primary" (click)="openConnectionDialog()">
+        <mat-icon>add</mat-icon>
+        Add Connection
+      </button>
       @if (selectedConnection()) {
-        <p-button
-          label="Upload RDF"
-          icon="pi pi-upload"
-          severity="secondary"
-          (click)="openUploadDialog()"></p-button>
+        <button mat-raised-button (click)="openUploadDialog()">
+          <mat-icon>upload</mat-icon>
+          Upload RDF
+        </button>
       }
     </div>
   </div>
@@ -31,53 +27,58 @@
   <!-- Stats Row -->
   @if (connections().length > 0) {
     <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="pi pi-link"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-value">{{ connections().length }}</span>
-          <span class="stat-label">Connections</span>
-        </div>
-      </div>
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <div class="stat-icon">
+            <mat-icon>link</mat-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ connections().length }}</span>
+            <span class="stat-label">Connections</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
       @if (selectedConnection()) {
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="pi pi-sitemap"></i>
-          </div>
-          <div class="stat-info">
-            <span class="stat-value">{{ graphs().length }}</span>
-            <span class="stat-label">Named Graphs</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">
-            <i class="pi pi-database"></i>
-          </div>
-          <div class="stat-info">
-            <span class="stat-value">{{ formatNumber(totalTriples()) }}</span>
-            <span class="stat-label">Total Triples</span>
-          </div>
-        </div>
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-icon">
+              <mat-icon>account_tree</mat-icon>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value">{{ graphs().length }}</span>
+              <span class="stat-label">Named Graphs</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-icon">
+              <mat-icon>storage</mat-icon>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value">{{ formatNumber(totalTriples()) }}</span>
+              <span class="stat-label">Total Triples</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
       }
     </div>
   }
 
   @if (loading()) {
     <div class="loading-state">
-      <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+      <mat-spinner diameter="50"></mat-spinner>
       <p>Loading connections...</p>
     </div>
   } @else if (connections().length === 0) {
     <div class="empty-state">
-      <i class="pi pi-database"></i>
+      <mat-icon>storage</mat-icon>
       <h3>No Connections Configured</h3>
       <p>Add a triplestore connection to get started</p>
-      <p-button
-        label="Add Connection"
-        icon="pi pi-plus"
-        (click)="openConnectionDialog()"
-        class="mt-3"></p-button>
+      <button mat-raised-button color="primary" (click)="openConnectionDialog()">
+        <mat-icon>add</mat-icon>
+        Add Connection
+      </button>
     </div>
   } @else {
     <!-- Main Content -->
@@ -85,11 +86,11 @@
       <!-- Left Sidebar - Connections & Graphs -->
       <div class="sidebar">
         <!-- Connections List -->
-        <div class="sidebar-section">
-          <div class="section-header">
-            <span>Connections</span>
-          </div>
-          <div class="connection-list">
+        <mat-card class="sidebar-section">
+          <mat-card-header class="section-header">
+            <mat-card-title>Connections</mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="connection-list">
             @for (conn of connections(); track conn.id) {
               <div
                 class="connection-item"
@@ -97,178 +98,160 @@
                 (click)="selectConnection(conn)">
                 <div class="connection-info">
                   <div class="connection-name">
-                    <i [class]="getTypeIcon(conn.type)"></i>
+                    <mat-icon>{{ getTypeIcon(conn.type) }}</mat-icon>
                     <span>{{ conn.name }}</span>
                     @if (conn.isDefault) {
-                      <p-tag value="Default" severity="info" class="ml-2" [style]="{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }"></p-tag>
+                      <mat-chip class="default-chip">Default</mat-chip>
                     }
                   </div>
                   <div class="connection-url">{{ conn.url }}</div>
                 </div>
                 <div class="connection-status">
-                  <p-tag
-                    [value]="conn.healthStatus"
-                    [severity]="getStatusSeverity(conn.healthStatus)"
-                    [style]="{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }"></p-tag>
+                  <mat-chip class="status-mini-chip" [class]="'status-' + getStatusColor(conn.healthStatus)">
+                    {{ conn.healthStatus }}
+                  </mat-chip>
                 </div>
                 <div class="connection-actions" (click)="$event.stopPropagation()">
-                  <p-button
-                    icon="pi pi-sync"
-                    [rounded]="true"
-                    [text]="true"
-                    severity="secondary"
-                    size="small"
-                    pTooltip="Test Connection"
-                    tooltipPosition="top"
-                    [loading]="testingConnection()"
-                    (click)="testConnection(conn)"></p-button>
-                  <p-button
-                    icon="pi pi-pencil"
-                    [rounded]="true"
-                    [text]="true"
-                    severity="secondary"
-                    size="small"
-                    pTooltip="Edit"
-                    tooltipPosition="top"
-                    (click)="openEditConnectionDialog(conn)"></p-button>
-                  <p-button
-                    icon="pi pi-trash"
-                    [rounded]="true"
-                    [text]="true"
-                    severity="danger"
-                    size="small"
-                    pTooltip="Delete"
-                    tooltipPosition="top"
-                    (click)="confirmDeleteConnection(conn)"></p-button>
+                  <button
+                    mat-icon-button
+                    matTooltip="Test Connection"
+                    [disabled]="testingConnection()"
+                    (click)="testConnection(conn)">
+                    <mat-icon>sync</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    matTooltip="Edit"
+                    (click)="openEditConnectionDialog(conn)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    color="warn"
+                    matTooltip="Delete"
+                    (click)="confirmDeleteConnection(conn)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
                 </div>
               </div>
             }
-          </div>
-        </div>
+          </mat-card-content>
+        </mat-card>
 
         <!-- Graphs List -->
         @if (selectedConnection()) {
-          <div class="sidebar-section">
-            <div class="section-header">
-              <span>Named Graphs</span>
+          <mat-card class="sidebar-section">
+            <mat-card-header class="section-header">
+              <mat-card-title>Named Graphs</mat-card-title>
               @if (graphsLoading()) {
-                <i class="pi pi-spin pi-spinner"></i>
+                <mat-spinner diameter="20"></mat-spinner>
               }
-            </div>
-            @if (graphs().length === 0) {
-              <div class="empty-hint">
-                <p>No graphs found</p>
-              </div>
-            } @else {
-              <div class="graph-list">
-                @for (graph of graphs(); track graph.uri) {
-                  <div
-                    class="graph-item"
-                    [class.selected]="selectedGraph()?.uri === graph.uri"
-                    (click)="selectGraph(graph)">
-                    <div class="graph-info">
-                      <span class="graph-uri" [pTooltip]="graph.uri" tooltipPosition="right">
-                        {{ shortenUri(graph.uri, 40) }}
-                      </span>
-                      <span class="graph-count">{{ formatNumber(graph.tripleCount) }} triples</span>
+            </mat-card-header>
+            <mat-card-content>
+              @if (graphs().length === 0) {
+                <div class="empty-hint">
+                  <p>No graphs found</p>
+                </div>
+              } @else {
+                <div class="graph-list">
+                  @for (graph of graphs(); track graph.uri) {
+                    <div
+                      class="graph-item"
+                      [class.selected]="selectedGraph()?.uri === graph.uri"
+                      (click)="selectGraph(graph)">
+                      <div class="graph-info">
+                        <span class="graph-uri" [matTooltip]="graph.uri">
+                          {{ shortenUri(graph.uri, 40) }}
+                        </span>
+                        <span class="graph-count">{{ formatNumber(graph.tripleCount) }} triples</span>
+                      </div>
+                      <div class="graph-actions" (click)="$event.stopPropagation()">
+                        <button
+                          mat-icon-button
+                          matTooltip="Details"
+                          (click)="viewGraphDetails(graph)">
+                          <mat-icon>info</mat-icon>
+                        </button>
+                        <button
+                          mat-icon-button
+                          matTooltip="Export"
+                          (click)="exportGraph(graph)">
+                          <mat-icon>download</mat-icon>
+                        </button>
+                        <button
+                          mat-icon-button
+                          color="warn"
+                          matTooltip="Delete"
+                          (click)="confirmDeleteGraph(graph)">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
                     </div>
-                    <div class="graph-actions" (click)="$event.stopPropagation()">
-                      <p-button
-                        icon="pi pi-info-circle"
-                        [rounded]="true"
-                        [text]="true"
-                        severity="secondary"
-                        size="small"
-                        pTooltip="Details"
-                        tooltipPosition="top"
-                        (click)="viewGraphDetails(graph)"></p-button>
-                      <p-button
-                        icon="pi pi-download"
-                        [rounded]="true"
-                        [text]="true"
-                        severity="secondary"
-                        size="small"
-                        pTooltip="Export"
-                        tooltipPosition="top"
-                        (click)="exportGraph(graph)"></p-button>
-                      <p-button
-                        icon="pi pi-trash"
-                        [rounded]="true"
-                        [text]="true"
-                        severity="danger"
-                        size="small"
-                        pTooltip="Delete"
-                        tooltipPosition="top"
-                        (click)="confirmDeleteGraph(graph)"></p-button>
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-          </div>
+                  }
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
         }
       </div>
 
       <!-- Main Area -->
-      <div class="main-area">
+      <mat-card class="main-area">
         @if (selectedConnection()) {
-          <p-tabs>
-            <p-tabpanel header="SPARQL Query">
+          <mat-tab-group>
+            <mat-tab label="SPARQL Query">
               <div class="query-section">
                 <!-- Query Templates -->
                 <div class="templates-bar">
                   <span class="templates-label">Templates:</span>
                   @for (template of queryTemplates; track template.name) {
-                    <p-button
-                      [label]="template.name"
-                      [text]="true"
-                      size="small"
-                      [pTooltip]="template.description"
-                      tooltipPosition="bottom"
-                      (click)="applyTemplate(template)"></p-button>
+                    <button
+                      mat-button
+                      [matTooltip]="template.description"
+                      (click)="applyTemplate(template)">
+                      {{ template.name }}
+                    </button>
                   }
                 </div>
 
                 <!-- Query Editor -->
-                <div class="query-editor">
+                <mat-form-field class="query-editor" appearance="outline">
+                  <mat-label>SPARQL Query</mat-label>
                   <textarea
-                    pInputTextarea
+                    matInput
                     [ngModel]="sparqlQuery()"
                     (ngModelChange)="sparqlQuery.set($event)"
-                    [rows]="8"
-                    class="query-textarea"
+                    rows="8"
                     placeholder="Enter your SPARQL query..."></textarea>
-                </div>
+                </mat-form-field>
 
                 <!-- Query Actions -->
                 <div class="query-actions">
                   <div class="query-options">
                     @if (graphs().length > 0) {
-                      <p-select
-                        [options]="graphs()"
-                        [ngModel]="selectedGraph()"
-                        (ngModelChange)="selectedGraph.set($event)"
-                        optionLabel="uri"
-                        placeholder="All graphs"
-                        [showClear]="true"
-                        [style]="{ width: '300px' }">
-                        <ng-template pTemplate="selectedItem" let-graph>
-                          {{ shortenUri(graph?.uri || '', 35) }}
-                        </ng-template>
-                        <ng-template pTemplate="item" let-graph>
-                          <div class="graph-option">
-                            <span>{{ shortenUri(graph.uri, 40) }}</span>
-                            <span class="graph-option-count">{{ formatNumber(graph.tripleCount) }}</span>
-                          </div>
-                        </ng-template>
-                      </p-select>
+                      <mat-form-field appearance="outline">
+                        <mat-label>Target Graph</mat-label>
+                        <mat-select
+                          [ngModel]="selectedGraph()"
+                          (ngModelChange)="selectedGraph.set($event)">
+                          <mat-option [value]="null">All graphs</mat-option>
+                          @for (graph of graphs(); track graph.uri) {
+                            <mat-option [value]="graph">
+                              {{ shortenUri(graph.uri, 35) }} ({{ formatNumber(graph.tripleCount) }})
+                            </mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
                     }
                   </div>
-                  <p-button
-                    label="Execute Query"
-                    icon="pi pi-play"
-                    (click)="executeQuery()"
-                    [loading]="queryLoading()"></p-button>
+                  <button
+                    mat-raised-button
+                    color="primary"
+                    [disabled]="queryLoading()"
+                    (click)="executeQuery()">
+                    <mat-icon>play_arrow</mat-icon>
+                    Execute Query
+                  </button>
                 </div>
 
                 <!-- Query Results -->
@@ -279,441 +262,419 @@
                         {{ queryResult()!.bindings.length }} results in {{ queryResult()!.executionTime }}ms
                       </span>
                       <div class="results-actions">
-                        <p-button
-                          icon="pi pi-copy"
-                          label="Copy Results"
-                          [text]="true"
-                          size="small"
-                          (click)="copyToClipboard(getResultsJson(), 'Results')"></p-button>
+                        <button
+                          mat-button
+                          (click)="copyToClipboard(getResultsJson(), 'Results')">
+                          <mat-icon>content_copy</mat-icon>
+                          Copy Results
+                        </button>
                       </div>
                     </div>
-                    <p-table
-                      [value]="queryResult()!.bindings"
-                      [scrollable]="true"
-                      scrollHeight="400px"
-                      styleClass="p-datatable-sm p-datatable-striped">
-                      <ng-template pTemplate="header">
-                        <tr>
-                          @for (v of queryResult()!.variables; track v) {
-                            <th>{{ v }}</th>
-                          }
-                        </tr>
-                      </ng-template>
-                      <ng-template pTemplate="body" let-row>
-                        <tr>
-                          @for (v of queryResult()!.variables; track v) {
-                            <td class="result-cell" [pTooltip]="row[v]?.value" tooltipPosition="top">
-                              {{ row[v]?.value }}
+                    <div class="table-container">
+                      <table mat-table [dataSource]="queryResult()!.bindings" class="results-table">
+                        @for (variable of queryResult()!.variables; track variable) {
+                          <ng-container [matColumnDef]="variable">
+                            <th mat-header-cell *matHeaderCellDef>{{ variable }}</th>
+                            <td mat-cell *matCellDef="let row" [matTooltip]="row[variable]?.value">
+                              {{ row[variable]?.value }}
                             </td>
-                          }
-                        </tr>
-                      </ng-template>
-                      <ng-template pTemplate="emptymessage">
-                        <tr>
-                          <td [colSpan]="queryResult()!.variables.length" class="text-center text-muted py-4">
-                            No results found
-                          </td>
-                        </tr>
-                      </ng-template>
-                    </p-table>
+                          </ng-container>
+                        }
+                        <tr mat-header-row *matHeaderRowDef="queryResult()!.variables"></tr>
+                        <tr mat-row *matRowDef="let row; columns: queryResult()!.variables;"></tr>
+                      </table>
+                    </div>
                   </div>
                 }
               </div>
-            </p-tabpanel>
+            </mat-tab>
 
-            <p-tabpanel header="Browse Resources">
+            <mat-tab label="Browse Resources">
               @if (selectedGraph()) {
                 <div class="resources-section">
                   <!-- Search Bar -->
                   <div class="resources-header">
-                    <div class="resources-search">
-                      <span class="p-input-icon-left w-full">
-                        <i class="pi pi-search"></i>
-                        <input
-                          type="text"
-                          pInputText
-                          [ngModel]="resourceSearchQuery()"
-                          (ngModelChange)="resourceSearchQuery.set($event)"
-                          (keyup.enter)="searchResources()"
-                          placeholder="Search resources..."
-                          class="w-full" />
-                      </span>
-                    </div>
-                    <p-button
-                      label="Search"
-                      icon="pi pi-search"
-                      (click)="searchResources()"
-                      [loading]="resourcesLoading()"></p-button>
-                    <p-button
-                      label="Refresh"
-                      icon="pi pi-refresh"
-                      severity="secondary"
-                      (click)="loadResources(selectedGraph()!.uri)"
-                      [loading]="resourcesLoading()"></p-button>
+                    <mat-form-field class="resources-search" appearance="outline">
+                      <mat-label>Search resources</mat-label>
+                      <input
+                        matInput
+                        [ngModel]="resourceSearchQuery()"
+                        (ngModelChange)="resourceSearchQuery.set($event)"
+                        (keyup.enter)="searchResources()"
+                        placeholder="Search resources..." />
+                      <mat-icon matPrefix>search</mat-icon>
+                    </mat-form-field>
+                    <button
+                      mat-raised-button
+                      color="primary"
+                      [disabled]="resourcesLoading()"
+                      (click)="searchResources()">
+                      <mat-icon>search</mat-icon>
+                      Search
+                    </button>
+                    <button
+                      mat-raised-button
+                      [disabled]="resourcesLoading()"
+                      (click)="loadResources(selectedGraph()!.uri)">
+                      <mat-icon>refresh</mat-icon>
+                      Refresh
+                    </button>
                   </div>
 
                   <!-- Resources Table -->
                   @if (resourcesLoading()) {
                     <div class="loading-hint">
-                      <i class="pi pi-spin pi-spinner"></i>
+                      <mat-spinner diameter="30"></mat-spinner>
                       <span>Loading resources...</span>
                     </div>
                   } @else if (resources().length === 0) {
                     <div class="empty-hint">
-                      <i class="pi pi-inbox"></i>
+                      <mat-icon>inbox</mat-icon>
                       <p>No resources found</p>
                     </div>
                   } @else {
-                    <p-table
-                      [value]="resources()"
-                      [scrollable]="true"
-                      scrollHeight="500px"
-                      styleClass="p-datatable-sm">
-                      <ng-template pTemplate="header">
-                        <tr>
-                          <th>URI</th>
-                          <th>Type</th>
-                          <th>Label</th>
-                          <th style="width: 80px;"></th>
-                        </tr>
-                      </ng-template>
-                      <ng-template pTemplate="body" let-resource>
-                        <tr class="resource-row" (click)="viewResource(resource)">
-                          <td class="uri-cell">
-                            <span [pTooltip]="resource.uri" tooltipPosition="right">
-                              {{ shortenUri(resource.uri) }}
-                            </span>
+                    <div class="table-container">
+                      <table mat-table [dataSource]="resources()" class="resources-table">
+                        <ng-container matColumnDef="uri">
+                          <th mat-header-cell *matHeaderCellDef>URI</th>
+                          <td mat-cell *matCellDef="let resource" [matTooltip]="resource.uri">
+                            {{ shortenUri(resource.uri) }}
                           </td>
-                          <td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="type">
+                          <th mat-header-cell *matHeaderCellDef>Type</th>
+                          <td mat-cell *matCellDef="let resource">
                             @if (resource.types?.length > 0) {
                               <span class="type-badge">{{ shortenUri(resource.types[0], 30) }}</span>
                             } @else {
                               <span class="text-muted">-</span>
                             }
                           </td>
-                          <td>{{ resource.label || '-' }}</td>
-                          <td>
-                            <p-button
-                              icon="pi pi-external-link"
-                              [rounded]="true"
-                              [text]="true"
-                              severity="secondary"
-                              size="small"
-                              pTooltip="View Details"
-                              tooltipPosition="left"
-                              (click)="$event.stopPropagation(); viewResource(resource)"></p-button>
+                        </ng-container>
+
+                        <ng-container matColumnDef="label">
+                          <th mat-header-cell *matHeaderCellDef>Label</th>
+                          <td mat-cell *matCellDef="let resource">{{ resource.label || '-' }}</td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="actions">
+                          <th mat-header-cell *matHeaderCellDef></th>
+                          <td mat-cell *matCellDef="let resource">
+                            <button
+                              mat-icon-button
+                              matTooltip="View Details"
+                              (click)="viewResource(resource)">
+                              <mat-icon>open_in_new</mat-icon>
+                            </button>
                           </td>
-                        </tr>
-                      </ng-template>
-                    </p-table>
+                        </ng-container>
+
+                        <tr mat-header-row *matHeaderRowDef="['uri', 'type', 'label', 'actions']"></tr>
+                        <tr
+                          mat-row
+                          *matRowDef="let row; columns: ['uri', 'type', 'label', 'actions'];"
+                          class="resource-row"
+                          (click)="viewResource(row)"></tr>
+                      </table>
+                    </div>
                   }
                 </div>
               } @else {
                 <div class="select-graph-hint">
-                  <i class="pi pi-arrow-left"></i>
+                  <mat-icon>arrow_back</mat-icon>
                   <p>Select a graph from the sidebar to browse resources</p>
                 </div>
               }
-            </p-tabpanel>
-          </p-tabs>
+            </mat-tab>
+          </mat-tab-group>
         } @else {
           <div class="select-connection-hint">
-            <i class="pi pi-arrow-left"></i>
+            <mat-icon>arrow_back</mat-icon>
             <p>Select a connection from the sidebar to get started</p>
           </div>
         }
-      </div>
+      </mat-card>
     </div>
   }
 </div>
 
 <!-- Add Connection Dialog -->
-<p-dialog
-  header="Add Connection"
-  [(visible)]="connectionDialogVisible"
-  [modal]="true"
-  [style]="{ width: '500px' }"
-  [closable]="true">
-  <div class="form-content">
-    <div class="form-field">
-      <label>Name <span class="required">*</span></label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="newConnection().name"
-        (ngModelChange)="updateNewConnectionName($event)"
-        placeholder="My Triplestore" />
-    </div>
-
-    <div class="form-row">
-      <div class="form-field">
-        <label>Type <span class="required">*</span></label>
-        <p-select
-          [options]="triplestoreTypes"
-          [ngModel]="newConnection().type"
-          (ngModelChange)="updateNewConnectionType($event)"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Select type"></p-select>
-      </div>
-      <div class="form-field">
-        <label>Authentication</label>
-        <p-select
-          [options]="authTypes"
-          [ngModel]="newConnection().authType"
-          (ngModelChange)="updateNewConnectionAuthType($event)"
-          optionLabel="label"
-          optionValue="value"></p-select>
-      </div>
-    </div>
-
-    <div class="form-field">
-      <label>Endpoint URL <span class="required">*</span></label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="newConnection().url"
-        (ngModelChange)="updateNewConnectionUrl($event)"
-        placeholder="http://localhost:3030/dataset" />
-      <span class="field-hint">The SPARQL endpoint URL</span>
-    </div>
-
-    @if (newConnection().authType === 'basic') {
-      <div class="form-row">
-        <div class="form-field">
-          <label>Username</label>
+@if (connectionDialogVisible()) {
+  <div class="dialog-overlay" (click)="connectionDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Add Connection</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-content">
+        <mat-form-field appearance="outline">
+          <mat-label>Name <span class="required">*</span></mat-label>
           <input
-            type="text"
-            pInputText
-            [ngModel]="newConnection().authConfig?.username"
-            (ngModelChange)="updateNewConnectionAuthUsername($event)"
-            placeholder="Username" />
+            matInput
+            [ngModel]="newConnection().name"
+            (ngModelChange)="updateNewConnectionName($event)"
+            placeholder="My Triplestore" />
+        </mat-form-field>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Type <span class="required">*</span></mat-label>
+            <mat-select
+              [ngModel]="newConnection().type"
+              (ngModelChange)="updateNewConnectionType($event)">
+              @for (type of triplestoreTypes; track type.value) {
+                <mat-option [value]="type.value">{{ type.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Authentication</mat-label>
+            <mat-select
+              [ngModel]="newConnection().authType"
+              (ngModelChange)="updateNewConnectionAuthType($event)">
+              @for (auth of authTypes; track auth.value) {
+                <mat-option [value]="auth.value">{{ auth.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
-        <div class="form-field">
-          <label>Password</label>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Endpoint URL <span class="required">*</span></mat-label>
           <input
-            type="password"
-            pInputText
-            [ngModel]="newConnection().authConfig?.password"
-            (ngModelChange)="updateNewConnectionAuthPassword($event)"
-            placeholder="Password" />
-        </div>
-      </div>
-    }
+            matInput
+            [ngModel]="newConnection().url"
+            (ngModelChange)="updateNewConnectionUrl($event)"
+            placeholder="http://localhost:3030/dataset" />
+          <mat-hint>The SPARQL endpoint URL</mat-hint>
+        </mat-form-field>
 
-    @if (newConnection().authType === 'apikey') {
-      <div class="form-field">
-        <label>API Key</label>
-        <input
-          type="password"
-          pInputText
-          [ngModel]="newConnection().authConfig?.apiKey"
-          (ngModelChange)="updateNewConnectionAuthApiKey($event)"
-          placeholder="API Key" />
-      </div>
-    }
+        @if (newConnection().authType === 'basic') {
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Username</mat-label>
+              <input
+                matInput
+                [ngModel]="newConnection().authConfig?.username"
+                (ngModelChange)="updateNewConnectionAuthUsername($event)"
+                placeholder="Username" />
+            </mat-form-field>
 
-    <div class="form-field">
-      <label>Default Graph (optional)</label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="newConnection().defaultGraph"
-        (ngModelChange)="updateNewConnectionDefaultGraph($event)"
-        placeholder="http://example.org/graph" />
-    </div>
+            <mat-form-field appearance="outline">
+              <mat-label>Password</mat-label>
+              <input
+                matInput
+                type="password"
+                [ngModel]="newConnection().authConfig?.password"
+                (ngModelChange)="updateNewConnectionAuthPassword($event)"
+                placeholder="Password" />
+            </mat-form-field>
+          </div>
+        }
+
+        @if (newConnection().authType === 'apikey') {
+          <mat-form-field appearance="outline">
+            <mat-label>API Key</mat-label>
+            <input
+              matInput
+              type="password"
+              [ngModel]="newConnection().authConfig?.apiKey"
+              (ngModelChange)="updateNewConnectionAuthApiKey($event)"
+              placeholder="API Key" />
+          </mat-form-field>
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Default Graph (optional)</mat-label>
+          <input
+            matInput
+            [ngModel]="newConnection().defaultGraph"
+            (ngModelChange)="updateNewConnectionDefaultGraph($event)"
+            placeholder="http://example.org/graph" />
+        </mat-form-field>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="connectionDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="createConnection()">
+          <mat-icon>check</mat-icon>
+          Create
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button
-      label="Cancel"
-      severity="secondary"
-      (click)="connectionDialogVisible.set(false)"></p-button>
-    <p-button
-      label="Create"
-      icon="pi pi-check"
-      (click)="createConnection()"></p-button>
-  </ng-template>
-</p-dialog>
+}
 
 <!-- Edit Connection Dialog -->
-<p-dialog
-  header="Edit Connection"
-  [(visible)]="editConnectionDialogVisible"
-  [modal]="true"
-  [style]="{ width: '500px' }"
-  [closable]="true">
-  <div class="form-content">
-    <div class="form-field">
-      <label>Name <span class="required">*</span></label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="editConnection().name"
-        (ngModelChange)="updateEditConnectionName($event)" />
-    </div>
+@if (editConnectionDialogVisible()) {
+  <div class="dialog-overlay" (click)="editConnectionDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Edit Connection</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-content">
+        <mat-form-field appearance="outline">
+          <mat-label>Name <span class="required">*</span></mat-label>
+          <input
+            matInput
+            [ngModel]="editConnection().name"
+            (ngModelChange)="updateEditConnectionName($event)" />
+        </mat-form-field>
 
-    <div class="form-row">
-      <div class="form-field">
-        <label>Type</label>
-        <p-select
-          [options]="triplestoreTypes"
-          [ngModel]="editConnection().type"
-          (ngModelChange)="updateEditConnectionType($event)"
-          optionLabel="label"
-          optionValue="value"></p-select>
-      </div>
-      <div class="form-field">
-        <label>Authentication</label>
-        <p-select
-          [options]="authTypes"
-          [ngModel]="editConnection().authType"
-          (ngModelChange)="updateEditConnectionAuthType($event)"
-          optionLabel="label"
-          optionValue="value"></p-select>
-      </div>
-    </div>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Type</mat-label>
+            <mat-select
+              [ngModel]="editConnection().type"
+              (ngModelChange)="updateEditConnectionType($event)">
+              @for (type of triplestoreTypes; track type.value) {
+                <mat-option [value]="type.value">{{ type.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-    <div class="form-field">
-      <label>Endpoint URL <span class="required">*</span></label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="editConnection().url"
-        (ngModelChange)="updateEditConnectionUrl($event)" />
-    </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Authentication</mat-label>
+            <mat-select
+              [ngModel]="editConnection().authType"
+              (ngModelChange)="updateEditConnectionAuthType($event)">
+              @for (auth of authTypes; track auth.value) {
+                <mat-option [value]="auth.value">{{ auth.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-    <div class="form-field">
-      <label>Default Graph</label>
-      <input
-        type="text"
-        pInputText
-        [ngModel]="editConnection().defaultGraph"
-        (ngModelChange)="updateEditConnectionDefaultGraph($event)" />
-    </div>
+        <mat-form-field appearance="outline">
+          <mat-label>Endpoint URL <span class="required">*</span></mat-label>
+          <input
+            matInput
+            [ngModel]="editConnection().url"
+            (ngModelChange)="updateEditConnectionUrl($event)" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Default Graph</mat-label>
+          <input
+            matInput
+            [ngModel]="editConnection().defaultGraph"
+            (ngModelChange)="updateEditConnectionDefaultGraph($event)" />
+        </mat-form-field>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="editConnectionDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="saveConnection()">
+          <mat-icon>check</mat-icon>
+          Save
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button
-      label="Cancel"
-      severity="secondary"
-      (click)="editConnectionDialogVisible.set(false)"></p-button>
-    <p-button
-      label="Save"
-      icon="pi pi-check"
-      (click)="saveConnection()"></p-button>
-  </ng-template>
-</p-dialog>
+}
 
 <!-- Upload RDF Dialog -->
-<p-dialog
-  header="Upload RDF Data"
-  [(visible)]="uploadDialogVisible"
-  [modal]="true"
-  [style]="{ width: '600px' }"
-  [closable]="true">
-  <div class="form-content">
-    <div class="form-row">
-      <div class="form-field" style="flex: 2;">
-        <label>Target Graph URI <span class="required">*</span></label>
-        <input
-          type="text"
-          pInputText
-          [ngModel]="uploadForm().graphUri"
-          (ngModelChange)="updateUploadGraphUri($event)"
-          placeholder="http://example.org/mygraph" />
-      </div>
-      <div class="form-field" style="flex: 1;">
-        <label>Format</label>
-        <p-select
-          [options]="rdfFormats"
-          [ngModel]="uploadForm().format"
-          (ngModelChange)="updateUploadFormat($event)"
-          optionLabel="label"
-          optionValue="value"></p-select>
-      </div>
-    </div>
+@if (uploadDialogVisible()) {
+  <div class="dialog-overlay" (click)="uploadDialogVisible.set(false)">
+    <mat-card class="dialog-card dialog-wide" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Upload RDF Data</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="form-content">
+        <div class="form-row">
+          <mat-form-field appearance="outline" style="flex: 2;">
+            <mat-label>Target Graph URI <span class="required">*</span></mat-label>
+            <input
+              matInput
+              [ngModel]="uploadForm().graphUri"
+              (ngModelChange)="updateUploadGraphUri($event)"
+              placeholder="http://example.org/mygraph" />
+          </mat-form-field>
 
-    <div class="form-field">
-      <label>RDF Content <span class="required">*</span></label>
-      <textarea
-        pInputTextarea
-        [ngModel]="uploadForm().content"
-        (ngModelChange)="updateUploadContent($event)"
-        [rows]="12"
-        class="rdf-content-area"
-        placeholder="@prefix ex: <http://example.org/> .
+          <mat-form-field appearance="outline" style="flex: 1;">
+            <mat-label>Format</mat-label>
+            <mat-select
+              [ngModel]="uploadForm().format"
+              (ngModelChange)="updateUploadFormat($event)">
+              @for (format of rdfFormats; track format.value) {
+                <mat-option [value]="format.value">{{ format.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" class="rdf-content-field">
+          <mat-label>RDF Content <span class="required">*</span></mat-label>
+          <textarea
+            matInput
+            [ngModel]="uploadForm().content"
+            (ngModelChange)="updateUploadContent($event)"
+            rows="12"
+            placeholder="@prefix ex: <http://example.org/> .
 
 ex:subject1 a ex:Class ;
   rdfs:label &quot;Example&quot; ."></textarea>
-    </div>
+        </mat-form-field>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="uploadDialogVisible.set(false)">Cancel</button>
+        <button
+          mat-raised-button
+          color="primary"
+          [disabled]="uploadingRdf()"
+          (click)="uploadRdf()">
+          <mat-icon>upload</mat-icon>
+          Upload
+        </button>
+      </mat-card-actions>
+    </mat-card>
   </div>
-
-  <ng-template pTemplate="footer">
-    <p-button
-      label="Cancel"
-      severity="secondary"
-      (click)="uploadDialogVisible.set(false)"></p-button>
-    <p-button
-      label="Upload"
-      icon="pi pi-upload"
-      [loading]="uploadingRdf()"
-      (click)="uploadRdf()"></p-button>
-  </ng-template>
-</p-dialog>
+}
 
 <!-- Resource Details Dialog -->
-<p-dialog
-  header="Resource Details"
-  [(visible)]="resourceDialogVisible"
-  [modal]="true"
-  [style]="{ width: '700px' }"
-  [closable]="true">
-  @if (selectedResource()) {
-    <div class="resource-details">
-      <div class="resource-uri">
-        <label>URI</label>
-        <div class="uri-display">
-          <code>{{ selectedResource()!.uri }}</code>
-          <p-button
-            icon="pi pi-copy"
-            [rounded]="true"
-            [text]="true"
-            size="small"
-            (click)="copyToClipboard(selectedResource()!.uri, 'URI')"></p-button>
-        </div>
-      </div>
-
-      @if (selectedResource()?.types && selectedResource()!.types.length > 0) {
-        <div class="resource-types">
-          <label>Types</label>
-          <div class="types-list">
-            @for (type of selectedResource()!.types; track type) {
-              <p-tag [value]="shortenUri(type, 50)" severity="info"></p-tag>
-            }
+@if (resourceDialogVisible() && selectedResource()) {
+  <div class="dialog-overlay" (click)="resourceDialogVisible.set(false)">
+    <mat-card class="dialog-card dialog-wide" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Resource Details</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="resource-details">
+        <div class="resource-uri">
+          <label>URI</label>
+          <div class="uri-display">
+            <code>{{ selectedResource()!.uri }}</code>
+            <button
+              mat-icon-button
+              (click)="copyToClipboard(selectedResource()!.uri, 'URI')">
+              <mat-icon>content_copy</mat-icon>
+            </button>
           </div>
         </div>
-      }
 
-      @if (selectedResource()?.properties && selectedResource()!.properties.length > 0) {
-        <div class="resource-properties">
-          <label>Properties</label>
-          <p-table [value]="selectedResource()!.properties" styleClass="p-datatable-sm">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Predicate</th>
-                <th>Value</th>
-                <th>Type</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-prop>
-              <tr>
-                <td class="predicate-cell">
-                  <span [pTooltip]="prop.predicate" tooltipPosition="right">
-                    {{ shortenUri(prop.predicate, 40) }}
-                  </span>
+        @if (selectedResource()?.types && selectedResource()!.types.length > 0) {
+          <div class="resource-types">
+            <label>Types</label>
+            <div class="types-list">
+              @for (type of selectedResource()!.types; track type) {
+                <mat-chip>{{ shortenUri(type, 50) }}</mat-chip>
+              }
+            </div>
+          </div>
+        }
+
+        @if (selectedResource()?.properties && selectedResource()!.properties.length > 0) {
+          <div class="resource-properties">
+            <label>Properties</label>
+            <table mat-table [dataSource]="selectedResource()!.properties" class="properties-table">
+              <ng-container matColumnDef="predicate">
+                <th mat-header-cell *matHeaderCellDef>Predicate</th>
+                <td mat-cell *matCellDef="let prop" [matTooltip]="prop.predicate">
+                  {{ shortenUri(prop.predicate, 40) }}
                 </td>
-                <td class="object-cell">
+              </ng-container>
+
+              <ng-container matColumnDef="value">
+                <th mat-header-cell *matHeaderCellDef>Value</th>
+                <td mat-cell *matCellDef="let prop">
                   @if (prop.objectType === 'uri') {
                     <a [href]="prop.object" target="_blank" class="uri-link">
                       {{ shortenUri(prop.object, 50) }}
@@ -725,103 +686,100 @@ ex:subject1 a ex:Class ;
                     }
                   }
                 </td>
-                <td>
-                  <p-tag
-                    [value]="prop.objectType"
-                    [severity]="prop.objectType === 'uri' ? 'info' : 'secondary'"
-                    [style]="{ fontSize: '0.65rem' }"></p-tag>
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
-        </div>
-      }
-    </div>
-  }
+              </ng-container>
 
-  <ng-template pTemplate="footer">
-    <p-button
-      label="Close"
-      severity="secondary"
-      (click)="resourceDialogVisible.set(false)"></p-button>
-  </ng-template>
-</p-dialog>
+              <ng-container matColumnDef="type">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let prop">
+                  <mat-chip class="type-chip">{{ prop.objectType }}</mat-chip>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="['predicate', 'value', 'type']"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['predicate', 'value', 'type'];"></tr>
+            </table>
+          </div>
+        }
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="resourceDialogVisible.set(false)">Close</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
 
 <!-- Graph Details Dialog -->
-<p-dialog
-  header="Graph Details"
-  [(visible)]="graphDetailsDialogVisible"
-  [modal]="true"
-  [style]="{ width: '500px' }"
-  [closable]="true">
-  @if (selectedGraph()) {
-    <div class="graph-details">
-      <div class="detail-item">
-        <label>URI</label>
-        <div class="uri-display">
-          <code>{{ selectedGraph()!.uri }}</code>
-          <p-button
-            icon="pi pi-copy"
-            [rounded]="true"
-            [text]="true"
-            size="small"
-            (click)="copyToClipboard(selectedGraph()!.uri, 'Graph URI')"></p-button>
-        </div>
-      </div>
-      <div class="detail-item">
-        <label>Triple Count</label>
-        <span class="detail-value">{{ formatNumber(selectedGraph()!.tripleCount) }}</span>
-      </div>
-      @if (selectedGraph()!.lastModified) {
+@if (graphDetailsDialogVisible() && selectedGraph()) {
+  <div class="dialog-overlay" (click)="graphDetailsDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Graph Details</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="graph-details">
         <div class="detail-item">
-          <label>Last Modified</label>
-          <span class="detail-value">{{ formatDate(selectedGraph()!.lastModified) }}</span>
+          <label>URI</label>
+          <div class="uri-display">
+            <code>{{ selectedGraph()!.uri }}</code>
+            <button
+              mat-icon-button
+              (click)="copyToClipboard(selectedGraph()!.uri, 'Graph URI')">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+          </div>
         </div>
-      }
-
-      <p-divider></p-divider>
-
-      <div class="export-options">
-        <label>Export As</label>
-        <div class="export-buttons">
-          <p-button
-            label="Turtle"
-            icon="pi pi-download"
-            severity="secondary"
-            size="small"
-            (click)="exportGraph(selectedGraph()!, 'turtle')"></p-button>
-          <p-button
-            label="RDF/XML"
-            icon="pi pi-download"
-            severity="secondary"
-            size="small"
-            (click)="exportGraph(selectedGraph()!, 'rdfxml')"></p-button>
-          <p-button
-            label="N-Triples"
-            icon="pi pi-download"
-            severity="secondary"
-            size="small"
-            (click)="exportGraph(selectedGraph()!, 'ntriples')"></p-button>
-          <p-button
-            label="JSON-LD"
-            icon="pi pi-download"
-            severity="secondary"
-            size="small"
-            (click)="exportGraph(selectedGraph()!, 'jsonld')"></p-button>
+        <div class="detail-item">
+          <label>Triple Count</label>
+          <span class="detail-value">{{ formatNumber(selectedGraph()!.tripleCount) }}</span>
         </div>
-      </div>
-    </div>
-  }
+        @if (selectedGraph()!.lastModified) {
+          <div class="detail-item">
+            <label>Last Modified</label>
+            <span class="detail-value">{{ formatDate(selectedGraph()!.lastModified) }}</span>
+          </div>
+        }
 
-  <ng-template pTemplate="footer">
-    <p-button
-      label="Delete Graph"
-      icon="pi pi-trash"
-      severity="danger"
-      (click)="graphDetailsDialogVisible.set(false); confirmDeleteGraph(selectedGraph()!)"></p-button>
-    <p-button
-      label="Close"
-      severity="secondary"
-      (click)="graphDetailsDialogVisible.set(false)"></p-button>
-  </ng-template>
-</p-dialog>
+        <mat-divider></mat-divider>
+
+        <div class="export-options">
+          <label>Export As</label>
+          <div class="export-buttons">
+            <button
+              mat-raised-button
+              (click)="exportGraph(selectedGraph()!, 'turtle')">
+              <mat-icon>download</mat-icon>
+              Turtle
+            </button>
+            <button
+              mat-raised-button
+              (click)="exportGraph(selectedGraph()!, 'rdfxml')">
+              <mat-icon>download</mat-icon>
+              RDF/XML
+            </button>
+            <button
+              mat-raised-button
+              (click)="exportGraph(selectedGraph()!, 'ntriples')">
+              <mat-icon>download</mat-icon>
+              N-Triples
+            </button>
+            <button
+              mat-raised-button
+              (click)="exportGraph(selectedGraph()!, 'jsonld')">
+              <mat-icon>download</mat-icon>
+              JSON-LD
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button
+          mat-raised-button
+          color="warn"
+          (click)="graphDetailsDialogVisible.set(false); confirmDeleteGraph(selectedGraph()!)">
+          <mat-icon>delete</mat-icon>
+          Delete Graph
+        </button>
+        <button mat-button (click)="graphDetailsDialogVisible.set(false)">Close</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
