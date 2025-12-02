@@ -1,37 +1,82 @@
 <p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
 <div class="job-list">
   <div class="header">
-    <h1>Jobs</h1>
+    <div class="header-left">
+      <h1>Jobs</h1>
+      <p-tag [value]="filteredJobs().length + ' jobs'" severity="secondary"></p-tag>
+    </div>
     <div class="actions">
       <span class="p-input-icon-left">
         <i class="pi pi-search"></i>
         <input type="text" pInputText placeholder="Search jobs..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
       </span>
-      <p-select [options]="statusOptions" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" optionLabel="label" optionValue="value" placeholder="Status"></p-select>
-      <p-button label="Refresh" icon="pi pi-refresh" [outlined]="true" (click)="loadJobs()" [loading]="loading()"></p-button>
+      <p-select [options]="statusOptions" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" optionLabel="label" optionValue="value" placeholder="Status" [style]="{minWidth: '150px'}"></p-select>
+      <p-button icon="pi pi-refresh" [outlined]="true" (click)="loadJobs()" [loading]="loading()" pTooltip="Refresh"></p-button>
+      <p-button label="Run Pipeline" icon="pi pi-play" (click)="openNewJobDialog()"></p-button>
     </div>
   </div>
 
-  <div class="stats-bar">
-    <div class="stat-item">
-      <span class="stat-value">{{ runningCount() }}</span>
-      <span class="stat-label">Running</span>
+  <!-- Stats Cards -->
+  <div class="stats-row">
+    <div class="stat-card running">
+      <div class="stat-icon">
+        <i class="pi pi-spin pi-spinner"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ runningCount() }}</span>
+        <span class="stat-label">Running</span>
+      </div>
     </div>
-    <div class="stat-item">
-      <span class="stat-value">{{ completedToday() }}</span>
-      <span class="stat-label">Completed Today</span>
+    <div class="stat-card pending">
+      <div class="stat-icon">
+        <i class="pi pi-clock"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ pendingCount() }}</span>
+        <span class="stat-label">Pending</span>
+      </div>
     </div>
-    <div class="stat-item">
-      <span class="stat-value">{{ failedToday() }}</span>
-      <span class="stat-label">Failed Today</span>
+    <div class="stat-card success">
+      <div class="stat-icon">
+        <i class="pi pi-check-circle"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ completedToday() }}</span>
+        <span class="stat-label">Completed Today</span>
+      </div>
     </div>
-    <div class="stat-item">
-      <span class="stat-value">{{ avgDuration() }}</span>
-      <span class="stat-label">Avg Duration</span>
+    <div class="stat-card danger">
+      <div class="stat-icon">
+        <i class="pi pi-times-circle"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ failedToday() }}</span>
+        <span class="stat-label">Failed Today</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">
+        <i class="pi pi-stopwatch"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ avgDuration() }}</span>
+        <span class="stat-label">Avg Duration</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">
+        <i class="pi pi-database"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ formatNumber(totalRowsProcessed()) }}</span>
+        <span class="stat-label">Rows Processed</span>
+      </div>
     </div>
   </div>
 
+  <!-- Jobs Table -->
   <p-table
     [value]="filteredJobs()"
     [loading]="loading()"
@@ -40,14 +85,26 @@
     [rowsPerPageOptions]="[15, 30, 50]"
     dataKey="id"
     responsiveLayout="scroll"
-    styleClass="p-datatable-sm">
+    styleClass="p-datatable-sm p-datatable-striped"
+    [globalFilterFields]="['id', 'pipelineName']">
+
+    <ng-template pTemplate="caption">
+      <div class="table-caption">
+        <span>Pipeline execution jobs with real-time status updates</span>
+        <span class="auto-refresh-indicator">
+          <i class="pi pi-sync"></i> Auto-refresh every 5s
+        </span>
+      </div>
+    </ng-template>
 
     <ng-template pTemplate="emptymessage">
       <tr>
         <td colspan="8">
           <div class="empty-state">
             <i class="pi pi-clock"></i>
-            <p>No jobs found</p>
+            <h3>No jobs found</h3>
+            <p>Run a pipeline to create your first job</p>
+            <p-button label="Run Pipeline" icon="pi pi-play" (click)="openNewJobDialog()"></p-button>
           </div>
         </td>
       </tr>
@@ -56,42 +113,57 @@
     <ng-template pTemplate="header">
       <tr>
         <th style="width: 150px">Job ID</th>
-        <th style="min-width: 200px">Pipeline</th>
-        <th style="width: 130px">Status</th>
-        <th style="width: 150px">Progress</th>
-        <th style="width: 180px">Metrics</th>
-        <th pSortableColumn="startedAt" style="width: 150px">Started <p-sortIcon field="startedAt"></p-sortIcon></th>
+        <th style="min-width: 200px" pSortableColumn="pipelineName">Pipeline <p-sortIcon field="pipelineName"></p-sortIcon></th>
+        <th style="width: 120px" pSortableColumn="status">Status <p-sortIcon field="status"></p-sortIcon></th>
+        <th style="width: 140px">Progress</th>
+        <th style="width: 160px">Metrics</th>
+        <th style="width: 140px" pSortableColumn="startedAt">Started <p-sortIcon field="startedAt"></p-sortIcon></th>
         <th style="width: 100px">Duration</th>
-        <th style="width: 120px">Actions</th>
+        <th style="width: 150px">Actions</th>
       </tr>
     </ng-template>
 
     <ng-template pTemplate="body" let-job>
-      <tr (click)="openJob(job)" class="cursor-pointer">
-        <td><code class="job-id">{{ job.id.substring(0, 8) }}</code></td>
+      <tr class="job-row" (click)="openJob(job)">
+        <td>
+          <div class="job-id-cell">
+            <code class="job-id">{{ job.id.substring(0, 8) }}</code>
+            <button class="copy-btn" (click)="copyJobId(job, $event)" pTooltip="Copy ID">
+              <i class="pi pi-copy"></i>
+            </button>
+          </div>
+        </td>
         <td>
           <div class="pipeline-info">
             <span class="pipeline-name">{{ job.pipelineName }}</span>
-            <span class="pipeline-version">v{{ job.pipelineVersion }}</span>
+            <div class="pipeline-meta">
+              <span class="pipeline-version">v{{ job.pipelineVersion }}</span>
+              <p-tag [value]="job.triggeredBy" [severity]="getTriggerSeverity(job.triggeredBy)" [icon]="getTriggerIcon(job.triggeredBy)" styleClass="trigger-tag"></p-tag>
+            </div>
           </div>
         </td>
-        <td><p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)" [icon]="getStatusIcon(job.status)"></p-tag></td>
+        <td>
+          <p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)" [icon]="getStatusIcon(job.status)"></p-tag>
+        </td>
         <td>
           @if (job.status === 'running') {
-            <p-progressBar [value]="job.progress" [showValue]="true" [style]="{ height: '8px' }"></p-progressBar>
+            <div class="progress-cell">
+              <p-progressBar [value]="job.progress" [showValue]="false" [style]="{ height: '6px' }"></p-progressBar>
+              <span class="progress-text">{{ job.progress }}%</span>
+            </div>
           } @else if (job.status === 'completed') {
-            <span class="text-green-500">100%</span>
+            <span class="text-success"><i class="pi pi-check"></i> Complete</span>
           } @else if (job.status === 'failed') {
-            <span class="text-red-500">Failed</span>
+            <span class="text-danger"><i class="pi pi-times"></i> Failed</span>
           } @else {
             <span class="text-muted">-</span>
           }
         </td>
         <td>
           @if (job.metrics) {
-            <div class="metrics">
-              <span><i class="pi pi-database"></i> {{ formatNumber(job.metrics.rowsProcessed) }} rows</span>
-              <span><i class="pi pi-share-alt"></i> {{ formatNumber(job.metrics.quadsGenerated) }} quads</span>
+            <div class="metrics-cell">
+              <span class="metric"><i class="pi pi-database"></i> {{ formatNumber(job.metrics.rowsProcessed) }}</span>
+              <span class="metric"><i class="pi pi-share-alt"></i> {{ formatNumber(job.metrics.quadsGenerated) }}</span>
             </div>
           } @else {
             <span class="text-muted">-</span>
@@ -100,26 +172,218 @@
         <td>{{ formatDate(job.startedAt) }}</td>
         <td>
           @if (job.duration) {
-            {{ formatDuration(job.duration) }}
+            <span class="duration">{{ formatDuration(job.duration) }}</span>
           } @else if (job.status === 'running') {
-            <span class="running-timer">{{ getRunningTime(job.startedAt) }}</span>
+            <span class="running-timer"><i class="pi pi-stopwatch"></i> {{ getRunningTime(job.startedAt) }}</span>
           } @else {
             <span class="text-muted">-</span>
           }
         </td>
         <td>
           <div class="row-actions">
+            <p-button icon="pi pi-info-circle" severity="secondary" [text]="true" [rounded]="true" (click)="viewDetails(job, $event)" pTooltip="Details"></p-button>
+            <p-button icon="pi pi-file" severity="secondary" [text]="true" [rounded]="true" (click)="viewLogs(job, $event)" pTooltip="Logs"></p-button>
             @if (job.status === 'running') {
               <p-button icon="pi pi-stop" severity="danger" [text]="true" [rounded]="true" (click)="cancelJob(job, $event)" pTooltip="Cancel"></p-button>
             }
             @if (job.status === 'failed') {
               <p-button icon="pi pi-refresh" severity="warn" [text]="true" [rounded]="true" (click)="retryJob(job, $event)" pTooltip="Retry"></p-button>
             }
-            <p-button icon="pi pi-file" severity="secondary" [text]="true" [rounded]="true" (click)="viewLogs(job, $event)" pTooltip="Logs"></p-button>
-            <p-button icon="pi pi-external-link" [text]="true" [rounded]="true" (click)="openJob(job)" pTooltip="Details"></p-button>
           </div>
         </td>
       </tr>
     </ng-template>
   </p-table>
+
+  <!-- Job Details Dialog -->
+  <p-dialog [(visible)]="detailsDialogVisible" [header]="'Job Details: ' + (selectedJob()?.id?.substring(0, 8) || '')" [modal]="true" [style]="{ width: '700px' }">
+    @if (selectedJob(); as job) {
+      <div class="details-content">
+        <div class="details-grid">
+          <div class="detail-item">
+            <label>Job ID</label>
+            <code>{{ job.id }}</code>
+          </div>
+          <div class="detail-item">
+            <label>Pipeline</label>
+            <span>{{ job.pipelineName }} <span class="version-badge">v{{ job.pipelineVersion }}</span></span>
+          </div>
+          <div class="detail-item">
+            <label>Status</label>
+            <p-tag [value]="job.status" [severity]="getStatusSeverity(job.status)"></p-tag>
+          </div>
+          <div class="detail-item">
+            <label>Triggered By</label>
+            <p-tag [value]="job.triggeredBy" [severity]="getTriggerSeverity(job.triggeredBy)"></p-tag>
+          </div>
+          <div class="detail-item">
+            <label>Created</label>
+            <span>{{ formatFullDate(job.createdAt) }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Started</label>
+            <span>{{ formatFullDate(job.startedAt) }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Completed</label>
+            <span>{{ formatFullDate(job.completedAt) }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Duration</label>
+            <span>{{ formatDuration(job.duration) }}</span>
+          </div>
+        </div>
+
+        @if (job.metrics) {
+          <div class="metrics-section">
+            <h4>Metrics</h4>
+            <div class="metrics-grid">
+              <div class="metric-item">
+                <span class="metric-value">{{ job.metrics.rowsProcessed | number }}</span>
+                <span class="metric-label">Rows Processed</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-value">{{ job.metrics.quadsGenerated | number }}</span>
+                <span class="metric-label">Quads Generated</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (job.steps && job.steps.length > 0) {
+          <div class="steps-section">
+            <h4>Pipeline Steps</h4>
+            <div class="steps-timeline">
+              @for (step of job.steps; track step.id) {
+                <div class="step-item" [class]="'step-' + step.status">
+                  <div class="step-indicator">
+                    <i [class]="getStepIcon(step.status)" [style.color]="getStepColor(step.status)"></i>
+                  </div>
+                  <div class="step-content">
+                    <span class="step-name">{{ step.name }}</span>
+                    <div class="step-meta">
+                      <span class="step-status">{{ step.status }}</span>
+                      @if (step.duration) {
+                        <span class="step-duration">{{ formatDuration(step.duration) }}</span>
+                      }
+                      @if (step.metrics?.rowsProcessed) {
+                        <span class="step-rows">{{ step.metrics?.rowsProcessed | number }} rows</span>
+                      }
+                    </div>
+                    @if (step.error) {
+                      <div class="step-error">{{ step.error }}</div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (job.errorMessage) {
+          <div class="error-section">
+            <h4><i class="pi pi-exclamation-triangle"></i> Error</h4>
+            <div class="error-message">{{ job.errorMessage }}</div>
+            @if (job.errorDetails?.stackTrace) {
+              <details class="stack-trace">
+                <summary>Stack Trace</summary>
+                <pre>{{ job.errorDetails?.stackTrace }}</pre>
+              </details>
+            }
+          </div>
+        }
+
+        @if (job.variables && hasVariables(job.variables)) {
+          <div class="variables-section">
+            <h4>Variables</h4>
+            <div class="variables-list">
+              @for (key of getVariableKeys(job.variables); track key) {
+                <div class="variable-item">
+                  <span class="var-key">{{ key }}</span>
+                  <span class="var-value">{{ job.variables[key] }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="View Logs" icon="pi pi-file" [outlined]="true" (click)="viewLogs(selectedJob()!, $event); detailsDialogVisible.set(false)"></p-button>
+      <p-button label="Close" [text]="true" (click)="detailsDialogVisible.set(false)"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Logs Dialog -->
+  <p-dialog [(visible)]="logsDialogVisible" [header]="'Logs: ' + (selectedJob()?.pipelineName || '')" [modal]="true" [style]="{ width: '900px' }" [contentStyle]="{'max-height': '70vh', 'overflow': 'auto'}">
+    @if (logsLoading()) {
+      <div class="logs-loading">
+        <i class="pi pi-spin pi-spinner text-3xl"></i>
+        <p>Loading logs...</p>
+      </div>
+    } @else {
+      <div class="logs-container">
+        <div class="logs-header">
+          <span class="logs-count">{{ jobLogs().length }} log entries</span>
+          <p-button icon="pi pi-refresh" [text]="true" [rounded]="true" (click)="loadLogs(selectedJob()!.id)" pTooltip="Refresh logs"></p-button>
+        </div>
+        <div class="logs-content">
+          @if (jobLogs().length === 0) {
+            <div class="no-logs">
+              <i class="pi pi-inbox"></i>
+              <p>No logs available for this job</p>
+            </div>
+          } @else {
+            @for (log of jobLogs(); track log.id) {
+              <div class="log-entry" [class]="'log-' + log.level">
+                <span class="log-time">{{ formatFullDate(log.timestamp) }}</span>
+                <p-tag [value]="log.level" [severity]="getLogSeverity(log.level)" styleClass="log-level-tag"></p-tag>
+                @if (log.step) {
+                  <span class="log-step">[{{ log.step }}]</span>
+                }
+                <span class="log-message">{{ log.message }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="Close" [text]="true" (click)="logsDialogVisible.set(false)"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- New Job Dialog -->
+  <p-dialog [(visible)]="newJobDialogVisible" header="Run Pipeline" [modal]="true" [style]="{ width: '500px' }">
+    <div class="new-job-form">
+      <div class="form-field">
+        <label>Select Pipeline</label>
+        <p-select
+          [options]="pipelines()"
+          [ngModel]="selectedPipelineId()"
+          (ngModelChange)="selectedPipelineId.set($event)"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Choose a pipeline to run"
+          [filter]="true"
+          filterPlaceholder="Search pipelines..."
+          [style]="{ width: '100%' }">
+          <ng-template let-pipeline pTemplate="item">
+            <div class="pipeline-option">
+              <span class="pipeline-option-name">{{ pipeline.name }}</span>
+              <span class="pipeline-option-version">v{{ pipeline.version }}</span>
+            </div>
+          </ng-template>
+        </p-select>
+      </div>
+      <p class="form-hint">
+        <i class="pi pi-info-circle"></i>
+        The pipeline will run with default variables. You can configure variables in the pipeline designer.
+      </p>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="newJobDialogVisible.set(false)"></p-button>
+      <p-button label="Run Pipeline" icon="pi pi-play" (click)="createJob()" [loading]="creatingJob()" [disabled]="!selectedPipelineId()"></p-button>
+    </ng-template>
+  </p-dialog>
 </div>

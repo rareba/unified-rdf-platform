@@ -7,10 +7,16 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
-}
 
-.header h1 {
-  margin: 0;
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  h1 {
+    margin: 0;
+  }
 }
 
 .actions {
@@ -19,18 +25,75 @@
   align-items: center;
 }
 
+// Stats Row
+.stats-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  min-width: 180px;
+
+  i {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-color-secondary);
+    }
+  }
+}
+
+// Table
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-color-secondary);
+  font-size: 0.875rem;
+}
+
 .source-name {
   display: flex;
   flex-direction: column;
-}
 
-.source-name .name {
-  font-weight: 600;
-}
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 
-.source-name .filename {
-  font-size: 0.875rem;
-  color: var(--text-color-secondary);
+    .format-icon {
+      color: var(--text-color-secondary);
+    }
+  }
+
+  .name {
+    font-weight: 600;
+  }
+
+  .filename {
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
+  }
 }
 
 .row-actions {
@@ -38,43 +101,186 @@
   gap: 0.25rem;
 }
 
+.row-num {
+  width: 50px;
+  text-align: center;
+  background: var(--surface-50);
+}
+
+// Empty State
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 3rem;
-  gap: 1rem;
+  padding: 4rem 2rem;
+  gap: 0.75rem;
+
+  i {
+    font-size: 4rem;
+    color: var(--surface-400);
+  }
+
+  h3 {
+    margin: 0;
+    color: var(--text-color);
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-color-secondary);
+  }
 }
 
-.empty-state i {
-  font-size: 3rem;
-  color: var(--text-color-secondary);
+// Upload Dialog
+.upload-dialog {
+  .upload-toolbar {
+    text-align: center;
+    padding: 0.5rem;
+    color: var(--text-color-secondary);
+  }
 }
 
 .upload-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
+  justify-content: center;
+  padding: 3rem 2rem;
   gap: 0.5rem;
+  border: 2px dashed var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-50);
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-50);
+  }
+
+  &.uploading {
+    border-color: var(--primary-color);
+    background: var(--primary-50);
+  }
+
+  i {
+    font-size: 3rem;
+    color: var(--primary-color);
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-color-secondary);
+  }
 }
 
-.upload-content i {
-  font-size: 3rem;
-  color: var(--primary-color);
+.upload-info {
+  h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-color-secondary);
+  }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }
 
+// Details Dialog
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-color-secondary);
+      font-weight: 500;
+    }
+
+    &.full-width {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .columns-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+
+    .column-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      background: var(--surface-100);
+      border-radius: 4px;
+      font-size: 0.8rem;
+
+      .col-name {
+        font-weight: 500;
+      }
+
+      .col-type {
+        color: var(--text-color-secondary);
+        font-size: 0.7rem;
+      }
+    }
+  }
+}
+
+// Preview
 .preview-loading {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-color-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  gap: 1rem;
+
+  i {
+    color: var(--primary-color);
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-color-secondary);
+  }
+}
+
+.preview-header {
+  margin-bottom: 1rem;
 }
 
 .preview-info {
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   color: var(--text-color-secondary);
+  font-size: 0.875rem;
+
+  .separator {
+    color: var(--surface-300);
+  }
 }
 
-.text-muted {
-  color: var(--text-color-secondary);
+// PrimeNG Overrides
+:host ::ng-deep {
+  .p-fileupload {
+    .p-fileupload-buttonbar {
+      display: none;
+    }
+
+    .p-fileupload-content {
+      border: none;
+      padding: 0;
+    }
+  }
 }

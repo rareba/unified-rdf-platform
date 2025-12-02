@@ -1,41 +1,669 @@
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
+
 <div class="settings">
-  <h1>Settings</h1>
-
-  <div class="grid mt-4">
-    <div class="col-12 lg:col-6">
-      <p-card header="Environment">
-        <div class="setting-row">
-          <span class="setting-label">API Base URL</span>
-          <span class="setting-value">{{ env.apiBaseUrl }}</span>
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">Authentication</span>
-          <span class="setting-value">{{ authStatus }}</span>
-        </div>
-        @if (env.auth.enabled && env.auth.keycloak) {
-          <div class="setting-row">
-            <span class="setting-label">Keycloak Realm</span>
-            <span class="setting-value">{{ env.auth.keycloak.realm }}</span>
-          </div>
-        }
-      </p-card>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <i class="pi pi-cog header-icon"></i>
+      <h1>Settings</h1>
     </div>
-
-    <div class="col-12 lg:col-6">
-      <p-card header="Application Info">
-        <div class="setting-row">
-          <span class="setting-label">Application</span>
-          <span class="setting-value">Cube Creator X</span>
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">Framework</span>
-          <span class="setting-value">Angular 21</span>
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">UI Library</span>
-          <span class="setting-value">PrimeNG 20</span>
-        </div>
-      </p-card>
+    <div class="header-actions">
+      <p-button
+        icon="pi pi-download"
+        label="Export"
+        [outlined]="true"
+        size="small"
+        (onClick)="openExportDialog()"
+        pTooltip="Export settings to file"
+      ></p-button>
+      <p-button
+        icon="pi pi-upload"
+        label="Import"
+        [outlined]="true"
+        size="small"
+        (onClick)="openImportDialog()"
+        pTooltip="Import settings from file"
+      ></p-button>
+      <p-button
+        icon="pi pi-save"
+        label="Save All"
+        (onClick)="saveSettings()"
+        [loading]="saving()"
+      ></p-button>
     </div>
   </div>
+
+  <!-- Main Content -->
+  <div class="settings-content">
+    <p-tabs [(value)]="activeTab">
+      <p-tablist>
+        <p-tab [value]="0"><i class="pi pi-palette mr-2"></i>Appearance</p-tab>
+        <p-tab [value]="1"><i class="pi pi-code mr-2"></i>RDF Configuration</p-tab>
+        <p-tab [value]="2"><i class="pi pi-play mr-2"></i>Pipeline Defaults</p-tab>
+        <p-tab [value]="3"><i class="pi pi-server mr-2"></i>System</p-tab>
+      </p-tablist>
+
+      <p-tabpanels>
+        <!-- Appearance Tab -->
+        <p-tabpanel [value]="0">
+          <div class="tab-content">
+            <!-- User Profile Section -->
+            @if (userProfile()) {
+              <div class="settings-section">
+                <div class="section-header">
+                  <i class="pi pi-user"></i>
+                  <h3>User Profile</h3>
+                </div>
+                <div class="section-content">
+                  <div class="profile-card">
+                    <div class="profile-avatar">
+                      <i class="pi pi-user"></i>
+                    </div>
+                    <div class="profile-info">
+                      <div class="profile-name">{{ userProfile()?.firstName }} {{ userProfile()?.lastName }}</div>
+                      <div class="profile-username">{{ userProfile()?.username }}</div>
+                      <div class="profile-email">{{ userProfile()?.email }}</div>
+                    </div>
+                    <div class="profile-status">
+                      <p-tag [value]="getAuthStatus()" [severity]="isAuthenticated() ? 'success' : 'warn'"></p-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+
+            <!-- Theme & Display -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-palette"></i>
+                <h3>Theme & Display</h3>
+              </div>
+              <div class="section-content">
+                <div class="settings-grid">
+                  <div class="setting-item">
+                    <label>Theme</label>
+                    <p-select
+                      [options]="themeOptions"
+                      [ngModel]="settings().theme"
+                      (ngModelChange)="updateSetting('theme', $event)"
+                      optionLabel="label"
+                      optionValue="value"
+                      styleClass="w-full"
+                    ></p-select>
+                    <small>Choose your preferred color scheme</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Language</label>
+                    <p-select
+                      [options]="languageOptions"
+                      [ngModel]="settings().language"
+                      (ngModelChange)="updateSetting('language', $event)"
+                      optionLabel="label"
+                      optionValue="value"
+                      styleClass="w-full"
+                    ></p-select>
+                    <small>Interface language (requires reload)</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Date Format</label>
+                    <p-select
+                      [options]="dateFormatOptions"
+                      [ngModel]="settings().dateFormat"
+                      (ngModelChange)="updateSetting('dateFormat', $event)"
+                      optionLabel="label"
+                      optionValue="value"
+                      styleClass="w-full"
+                    ></p-select>
+                    <small>How dates are displayed</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Page Size</label>
+                    <p-select
+                      [options]="pageSizeOptions"
+                      [ngModel]="settings().pageSize"
+                      (ngModelChange)="updateSetting('pageSize', $event)"
+                      optionLabel="label"
+                      optionValue="value"
+                      styleClass="w-full"
+                    ></p-select>
+                    <small>Default items per page in tables</small>
+                  </div>
+                </div>
+
+                <p-divider></p-divider>
+
+                <div class="settings-row">
+                  <div class="setting-toggle">
+                    <p-checkbox
+                      [ngModel]="settings().autoRefresh"
+                      (ngModelChange)="updateSetting('autoRefresh', $event)"
+                      [binary]="true"
+                      inputId="autoRefresh"
+                    ></p-checkbox>
+                    <label for="autoRefresh">
+                      <span class="toggle-label">Auto-refresh data</span>
+                      <span class="toggle-hint">Automatically refresh lists and statuses</span>
+                    </label>
+                  </div>
+
+                  @if (settings().autoRefresh) {
+                    <div class="setting-inline">
+                      <label>Interval (seconds)</label>
+                      <p-inputNumber
+                        [ngModel]="settings().refreshInterval"
+                        (ngModelChange)="updateSetting('refreshInterval', $event)"
+                        [min]="5"
+                        [max]="300"
+                        [showButtons]="true"
+                        styleClass="w-8rem"
+                      ></p-inputNumber>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        </p-tabpanel>
+
+        <!-- RDF Configuration Tab -->
+        <p-tabpanel [value]="1">
+          <div class="tab-content">
+            <!-- Namespace Settings -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-link"></i>
+                <h3>Namespace Configuration</h3>
+              </div>
+              <div class="section-content">
+                <div class="settings-grid">
+                  <div class="setting-item full-width">
+                    <label>Default Base URI</label>
+                    <input
+                      type="text"
+                      pInputText
+                      [ngModel]="settings().defaultBaseUri"
+                      (ngModelChange)="updateSetting('defaultBaseUri', $event)"
+                      class="w-full"
+                      placeholder="http://example.org/"
+                    />
+                    <small>Base URI for new resources (shapes, cubes, dimensions)</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Default RDF Format</label>
+                    <p-select
+                      [options]="formatOptions"
+                      [ngModel]="settings().defaultFormat"
+                      (ngModelChange)="updateSetting('defaultFormat', $event)"
+                      optionLabel="label"
+                      optionValue="value"
+                      styleClass="w-full"
+                    ></p-select>
+                    <small>Preferred serialization format for exports</small>
+                  </div>
+                </div>
+
+                <div class="settings-row mt-3">
+                  <div class="setting-toggle">
+                    <p-checkbox
+                      [ngModel]="settings().showPrefixes"
+                      (ngModelChange)="updateSetting('showPrefixes', $event)"
+                      [binary]="true"
+                      inputId="showPrefixes"
+                    ></p-checkbox>
+                    <label for="showPrefixes">
+                      <span class="toggle-label">Show URI prefixes</span>
+                      <span class="toggle-hint">Display shortened URIs using prefix mappings</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prefix Mappings -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-tags"></i>
+                <h3>Prefix Mappings</h3>
+                <p-button
+                  icon="pi pi-plus"
+                  label="Add Prefix"
+                  [outlined]="true"
+                  size="small"
+                  (onClick)="openPrefixDialog()"
+                ></p-button>
+              </div>
+              <div class="section-content">
+                <p-table [value]="prefixes()" styleClass="p-datatable-sm" [scrollable]="true" scrollHeight="300px">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 120px">Prefix</th>
+                      <th>URI</th>
+                      <th style="width: 80px">Type</th>
+                      <th style="width: 100px">Actions</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-prefix>
+                    <tr>
+                      <td>
+                        <code class="prefix-code">{{ prefix.prefix }}:</code>
+                      </td>
+                      <td class="uri-cell">{{ prefix.uri }}</td>
+                      <td>
+                        <p-tag
+                          [value]="prefix.builtin ? 'Built-in' : 'Custom'"
+                          [severity]="prefix.builtin ? 'secondary' : 'info'"
+                          styleClass="text-xs"
+                        ></p-tag>
+                      </td>
+                      <td>
+                        <div class="action-buttons">
+                          <p-button
+                            icon="pi pi-copy"
+                            [rounded]="true"
+                            [text]="true"
+                            size="small"
+                            (onClick)="copyPrefix(prefix)"
+                            pTooltip="Copy SPARQL PREFIX"
+                          ></p-button>
+                          @if (!prefix.builtin) {
+                            <p-button
+                              icon="pi pi-trash"
+                              [rounded]="true"
+                              [text]="true"
+                              severity="danger"
+                              size="small"
+                              (onClick)="removePrefix(prefix)"
+                              pTooltip="Remove"
+                            ></p-button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="emptymessage">
+                    <tr>
+                      <td colspan="4" class="text-center text-muted p-4">No prefix mappings defined</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+                <div class="prefix-summary">
+                  <span>{{ totalPrefixes() }} prefixes ({{ customPrefixes().length }} custom)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </p-tabpanel>
+
+        <!-- Pipeline Defaults Tab -->
+        <p-tabpanel [value]="2">
+          <div class="tab-content">
+            <!-- Pipeline Settings -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-play"></i>
+                <h3>Pipeline Execution</h3>
+              </div>
+              <div class="section-content">
+                <div class="settings-grid">
+                  <div class="setting-item">
+                    <label>Timeout (seconds)</label>
+                    <p-inputNumber
+                      [ngModel]="settings().pipelineTimeout"
+                      (ngModelChange)="updateSetting('pipelineTimeout', $event)"
+                      [min]="30"
+                      [max]="3600"
+                      [showButtons]="true"
+                      styleClass="w-full"
+                    ></p-inputNumber>
+                    <small>Maximum execution time for pipelines</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Max Parallel Jobs</label>
+                    <p-inputNumber
+                      [ngModel]="settings().maxParallelJobs"
+                      (ngModelChange)="updateSetting('maxParallelJobs', $event)"
+                      [min]="1"
+                      [max]="10"
+                      [showButtons]="true"
+                      styleClass="w-full"
+                    ></p-inputNumber>
+                    <small>Maximum concurrent job executions</small>
+                  </div>
+                </div>
+
+                <p-divider></p-divider>
+
+                <div class="settings-row">
+                  <div class="setting-toggle">
+                    <p-checkbox
+                      [ngModel]="settings().autoRetryFailed"
+                      (ngModelChange)="updateSetting('autoRetryFailed', $event)"
+                      [binary]="true"
+                      inputId="autoRetry"
+                    ></p-checkbox>
+                    <label for="autoRetry">
+                      <span class="toggle-label">Auto-retry failed jobs</span>
+                      <span class="toggle-hint">Automatically retry failed pipeline executions</span>
+                    </label>
+                  </div>
+
+                  @if (settings().autoRetryFailed) {
+                    <div class="setting-inline">
+                      <label>Retry attempts</label>
+                      <p-inputNumber
+                        [ngModel]="settings().retryAttempts"
+                        (ngModelChange)="updateSetting('retryAttempts', $event)"
+                        [min]="1"
+                        [max]="5"
+                        [showButtons]="true"
+                        styleClass="w-8rem"
+                      ></p-inputNumber>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- SPARQL Settings -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-database"></i>
+                <h3>SPARQL Query Defaults</h3>
+              </div>
+              <div class="section-content">
+                <div class="settings-grid">
+                  <div class="setting-item">
+                    <label>Query Timeout (seconds)</label>
+                    <p-inputNumber
+                      [ngModel]="settings().sparqlTimeout"
+                      (ngModelChange)="updateSetting('sparqlTimeout', $event)"
+                      [min]="10"
+                      [max]="600"
+                      [showButtons]="true"
+                      styleClass="w-full"
+                    ></p-inputNumber>
+                    <small>Maximum time for SPARQL queries</small>
+                  </div>
+
+                  <div class="setting-item">
+                    <label>Result Limit</label>
+                    <p-inputNumber
+                      [ngModel]="settings().sparqlResultLimit"
+                      (ngModelChange)="updateSetting('sparqlResultLimit', $event)"
+                      [min]="100"
+                      [max]="10000"
+                      [step]="100"
+                      [showButtons]="true"
+                      styleClass="w-full"
+                    ></p-inputNumber>
+                    <small>Default LIMIT for SELECT queries</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-key"></i>
+                <h3>Keyboard Shortcuts</h3>
+              </div>
+              <div class="section-content">
+                <p-table [value]="shortcuts" styleClass="p-datatable-sm">
+                  <ng-template pTemplate="header">
+                    <tr>
+                      <th style="width: 150px">Action</th>
+                      <th style="width: 150px">Shortcut</th>
+                      <th>Description</th>
+                    </tr>
+                  </ng-template>
+                  <ng-template pTemplate="body" let-shortcut>
+                    <tr>
+                      <td class="font-semibold">{{ shortcut.action }}</td>
+                      <td><kbd class="shortcut-key">{{ shortcut.keys }}</kbd></td>
+                      <td class="text-muted">{{ shortcut.description }}</td>
+                    </tr>
+                  </ng-template>
+                </p-table>
+              </div>
+            </div>
+          </div>
+        </p-tabpanel>
+
+        <!-- System Tab -->
+        <p-tabpanel [value]="3">
+          <div class="tab-content">
+            <!-- Environment Info -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-info-circle"></i>
+                <h3>Environment Information</h3>
+              </div>
+              <div class="section-content">
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="info-label">Environment</span>
+                    <span class="info-value">
+                      <p-tag [value]="env.production ? 'Production' : 'Development'" [severity]="env.production ? 'success' : 'info'"></p-tag>
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">API Endpoint</span>
+                    <span class="info-value mono">{{ env.apiBaseUrl }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Authentication</span>
+                    <span class="info-value">{{ env.auth.enabled ? 'Keycloak SSO' : 'Disabled' }}</span>
+                  </div>
+                  @if (env.auth.enabled && env.auth.keycloak) {
+                    <div class="info-item">
+                      <span class="info-label">Keycloak Realm</span>
+                      <span class="info-value mono">{{ env.auth.keycloak.realm }}</span>
+                    </div>
+                  }
+                  <div class="info-item">
+                    <span class="info-label">Framework</span>
+                    <span class="info-value">Angular 21</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">UI Library</span>
+                    <span class="info-value">PrimeNG 20</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">Local Storage Used</span>
+                    <span class="info-value">{{ getStorageUsage() }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Service Health -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-server"></i>
+                <h3>Service Health</h3>
+                <p-button
+                  icon="pi pi-refresh"
+                  label="Check Health"
+                  [outlined]="true"
+                  size="small"
+                  (onClick)="checkServicesHealth()"
+                  [loading]="checkingHealth()"
+                ></p-button>
+              </div>
+              <div class="section-content">
+                @if (services().length === 0 && !checkingHealth()) {
+                  <div class="empty-hint">
+                    <i class="pi pi-info-circle"></i>
+                    <p>Click "Check Health" to verify service connectivity</p>
+                  </div>
+                } @else {
+                  <div class="health-grid">
+                    @for (service of services(); track service.name) {
+                      <div class="health-card">
+                        <div class="health-status">
+                          <p-tag [value]="service.status" [severity]="getHealthSeverity(service.status)"></p-tag>
+                        </div>
+                        <div class="health-info">
+                          <span class="health-name">{{ service.name }}</span>
+                          @if (service.responseTime !== undefined) {
+                            <span class="health-time">{{ service.responseTime }}ms</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Maintenance -->
+            <div class="settings-section">
+              <div class="section-header">
+                <i class="pi pi-wrench"></i>
+                <h3>Maintenance</h3>
+              </div>
+              <div class="section-content">
+                <div class="maintenance-actions">
+                  <div class="maintenance-item">
+                    <div class="maintenance-info">
+                      <span class="maintenance-title">Clear Cache</span>
+                      <span class="maintenance-desc">Remove cached data while preserving settings</span>
+                    </div>
+                    <p-button
+                      icon="pi pi-trash"
+                      label="Clear Cache"
+                      severity="secondary"
+                      [outlined]="true"
+                      (onClick)="confirmClearCache()"
+                    ></p-button>
+                  </div>
+
+                  <p-divider></p-divider>
+
+                  <div class="maintenance-item">
+                    <div class="maintenance-info">
+                      <span class="maintenance-title">Reset to Defaults</span>
+                      <span class="maintenance-desc">Restore all settings to their original values</span>
+                    </div>
+                    <p-button
+                      icon="pi pi-refresh"
+                      label="Reset Settings"
+                      severity="danger"
+                      [outlined]="true"
+                      (onClick)="confirmReset()"
+                    ></p-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </p-tabpanel>
+      </p-tabpanels>
+    </p-tabs>
+  </div>
 </div>
+
+<!-- Add Prefix Dialog -->
+<p-dialog
+  header="Add Prefix Mapping"
+  [(visible)]="prefixDialogVisible"
+  [modal]="true"
+  [style]="{ width: '450px' }"
+>
+  <div class="dialog-content">
+    <div class="form-field">
+      <label for="prefix">Prefix <span class="required">*</span></label>
+      <input
+        id="prefix"
+        type="text"
+        pInputText
+        [ngModel]="newPrefix().prefix"
+        (ngModelChange)="updateNewPrefixPrefix($event)"
+        class="w-full"
+        placeholder="myns"
+      />
+      <small>Short name without colon (e.g., "ex", "myns")</small>
+    </div>
+
+    <div class="form-field">
+      <label for="prefixUri">URI <span class="required">*</span></label>
+      <input
+        id="prefixUri"
+        type="text"
+        pInputText
+        [ngModel]="newPrefix().uri"
+        (ngModelChange)="updateNewPrefixUri($event)"
+        class="w-full"
+        placeholder="http://example.org/ns#"
+      />
+      <small>Full namespace URI ending with # or /</small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" (onClick)="prefixDialogVisible.set(false)"></p-button>
+    <p-button label="Add Prefix" icon="pi pi-plus" (onClick)="addPrefix()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Export Dialog -->
+<p-dialog
+  header="Export Settings"
+  [(visible)]="exportDialogVisible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+>
+  <div class="dialog-content">
+    <p class="text-muted mb-3">Copy or download your settings configuration:</p>
+    <textarea
+      pInputTextarea
+      [ngModel]="exportData()"
+      [rows]="15"
+      class="w-full export-textarea"
+      readonly
+    ></textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Close" [text]="true" (onClick)="exportDialogVisible.set(false)"></p-button>
+    <p-button label="Copy" icon="pi pi-copy" [outlined]="true" (onClick)="copyExport()"></p-button>
+    <p-button label="Download" icon="pi pi-download" (onClick)="downloadExport()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Import Dialog -->
+<p-dialog
+  header="Import Settings"
+  [(visible)]="importDialogVisible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+>
+  <div class="dialog-content">
+    <p class="text-muted mb-3">Paste your settings JSON configuration:</p>
+    <textarea
+      pInputTextarea
+      [ngModel]="importData()"
+      (ngModelChange)="importData.set($event)"
+      [rows]="15"
+      class="w-full import-textarea"
+      placeholder='{"settings": {...}, "prefixes": [...]}'
+    ></textarea>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" [text]="true" (onClick)="importDialogVisible.set(false)"></p-button>
+    <p-button
+      label="Import"
+      icon="pi pi-upload"
+      (onClick)="importSettings()"
+      [disabled]="!importData()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

@@ -1,26 +1,41 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, KeyValuePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CardModule } from 'primeng/card';
 import { InputTextModule } from 'primeng/inputtext';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { TextareaModule } from 'primeng/textarea';
 import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
-import { ToggleButtonModule } from 'primeng/togglebutton';
+import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { PanelModule } from 'primeng/panel';
-import { MessageService } from 'primeng/api';
+import { AccordionModule } from 'primeng/accordion';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { DividerModule } from 'primeng/divider';
+import { TabsModule } from 'primeng/tabs';
+import { MessageService, ConfirmationService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { PipelineService } from '../../../core/services';
-import { PipelineCreateRequest, Operation } from '../../../core/models';
+import {
+  Pipeline,
+  PipelineCreateRequest,
+  Operation,
+  OperationType,
+  OperationParameter,
+  PipelineNode,
+  PipelineEdge,
+  PipelineDefinition
+} from '../../../core/models';
 
-interface PipelineStep {
-  id: string;
-  operationId: string;
-  operationName: string;
-  params: Record<string, unknown>;
+interface OperationGroup {
+  type: OperationType;
+  label: string;
+  icon: string;
+  operations: Operation[];
 }
 
 @Component({
@@ -28,18 +43,24 @@ interface PipelineStep {
   imports: [
     CommonModule,
     FormsModule,
-    DragDropModule,
     CardModule,
     InputTextModule,
+    InputNumberModule,
     TextareaModule,
     SelectModule,
     ButtonModule,
     ToastModule,
-    ToggleButtonModule,
+    CheckboxModule,
     DialogModule,
-    PanelModule
+    PanelModule,
+    AccordionModule,
+    TagModule,
+    TooltipModule,
+    DividerModule,
+    TabsModule,
+    ConfirmDialogModule
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './pipeline-designer.html',
   styleUrl: './pipeline-designer.scss',
 })
@@ -48,36 +69,116 @@ export class PipelineDesigner implements OnInit {
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
   private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
 
+  @ViewChild('canvas') canvasRef!: ElementRef<HTMLDivElement>;
+
+  // State
   loading = signal(false);
   saving = signal(false);
   isNew = signal(true);
   pipelineId = signal<string | null>(null);
-  
-  // Basic Info
-  name = signal('');
+
+  // Pipeline Info
+  name = signal('New Pipeline');
   description = signal('');
   tags = signal<string[]>([]);
-  
-  // Editor Mode
-  visualMode = signal(true);
-  definition = signal('');
-  definitionFormat = signal<'yaml' | 'turtle'>('yaml');
-  
-  // Visual Editor Data
-  availableOperations = signal<Operation[]>([]);
-  pipelineSteps = signal<PipelineStep[]>([]);
-  selectedStep = signal<PipelineStep | null>(null);
-  configDialogVisible = signal(false);
 
-  formatOptions = [
-    { label: 'YAML', value: 'yaml' },
-    { label: 'Turtle (RDF)', value: 'turtle' }
-  ];
+  // Operations
+  availableOperations = signal<Operation[]>([]);
+  operationGroups = computed<OperationGroup[]>(() => {
+    const ops = this.availableOperations();
+    const groups: OperationGroup[] = [
+      { type: 'SOURCE', label: 'Data Sources', icon: 'pi pi-download', operations: [] },
+      { type: 'TRANSFORM', label: 'Transformations', icon: 'pi pi-sync', operations: [] },
+      { type: 'CUBE', label: 'Cube Operations', icon: 'pi pi-th-large', operations: [] },
+      { type: 'VALIDATION', label: 'Validation', icon: 'pi pi-check-circle', operations: [] },
+      { type: 'OUTPUT', label: 'Outputs', icon: 'pi pi-upload', operations: [] }
+    ];
+    ops.forEach(op => {
+      const group = groups.find(g => g.type === op.type);
+      if (group) group.operations.push(op);
+    });
+    return groups.filter(g => g.operations.length > 0);
+  });
+
+  // Visual Editor
+  nodes = signal<PipelineNode[]>([]);
+  edges = signal<PipelineEdge[]>([]);
+  selectedNode = signal<PipelineNode | null>(null);
+  selectedOperation = signal<Operation | null>(null);
+
+  // Dialogs
+  configDialogVisible = signal(false);
+  runDialogVisible = signal(false);
+  jsonDialogVisible = signal(false);
+
+  // Drag state
+  isDraggingNode = false;
+  draggedNodeId: string | null = null;
+  dragOffset = { x: 0, y: 0 };
+
+  // Edge drawing state
+  isDrawingEdge = false;
+  edgeStartNodeId: string | null = null;
+  mousePos = { x: 0, y: 0 };
+
+  // Run variables
+  runVariables = signal<Record<string, string>>({});
+
+  // JSON view
+  pipelineJson = computed(() => {
+    const definition: PipelineDefinition = {
+      steps: this.nodes().map(node => ({
+        id: node.id,
+        operation: node.operationId,
+        params: node.params
+      }))
+    };
+    return JSON.stringify(definition, null, 2);
+  });
+
+  // Validation
+  validationErrors = computed(() => {
+    const errors: string[] = [];
+    const nodeList = this.nodes();
+    const ops = this.availableOperations();
+
+    if (nodeList.length === 0) {
+      errors.push('Pipeline has no steps');
+      return errors;
+    }
+
+    const hasSource = nodeList.some(n => n.operationType === 'SOURCE');
+    if (!hasSource) {
+      errors.push('Pipeline should start with a source operation');
+    }
+
+    nodeList.forEach(node => {
+      const op = ops.find(o => o.id === node.operationId);
+      if (op) {
+        Object.entries(op.parameters).forEach(([key, param]) => {
+          if (param.required) {
+            const value = node.params[key];
+            if (value === undefined || value === null || value === '') {
+              errors.push(`${node.operationName}: Missing required parameter "${param.name}"`);
+            }
+          }
+        });
+      }
+    });
+
+    return errors;
+  });
+
+  isValid = computed(() => this.validationErrors().length === 0);
+
+  // For template access to navigator
+  navigator = navigator;
 
   ngOnInit(): void {
     this.loadOperations();
-    
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       this.isNew.set(false);
@@ -89,7 +190,7 @@ export class PipelineDesigner implements OnInit {
   loadOperations(): void {
     this.pipelineService.getOperations().subscribe({
       next: (ops) => this.availableOperations.set(ops),
-      error: () => console.error('Failed to load operations')
+      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load operations' })
     });
   }
 
@@ -98,13 +199,9 @@ export class PipelineDesigner implements OnInit {
     this.pipelineService.get(id).subscribe({
       next: (pipeline) => {
         this.name.set(pipeline.name);
-        this.description.set(pipeline.description);
-        this.definition.set(pipeline.definition);
-        this.definitionFormat.set(pipeline.definitionFormat);
-        this.tags.set(pipeline.tags);
-        
-        // Try to parse definition to visual steps if simple YAML
-        // This is a simplification; real parsing of Barnard59 is complex
+        this.description.set(pipeline.description || '');
+        this.tags.set(pipeline.tags || []);
+        this.parsePipelineDefinition(pipeline.definition);
         this.loading.set(false);
       },
       error: () => {
@@ -114,17 +211,314 @@ export class PipelineDesigner implements OnInit {
     });
   }
 
-  save(): void {
-    // If in visual mode, generate definition
-    if (this.visualMode()) {
-      this.generateDefinition();
+  parsePipelineDefinition(definition: string): void {
+    try {
+      const parsed = JSON.parse(definition);
+      const steps = parsed.steps || [];
+      const ops = this.availableOperations();
+
+      const loadedNodes: PipelineNode[] = steps.map((step: any, index: number) => {
+        const op = ops.find(o => o.id === step.operation);
+        return {
+          id: step.id || `step-${index}`,
+          operationId: step.operation,
+          operationName: op?.name || step.operation,
+          operationType: op?.type || 'TRANSFORM',
+          x: step.ui?.x ?? (100 + (index % 3) * 320),
+          y: step.ui?.y ?? (100 + Math.floor(index / 3) * 160),
+          params: step.params || step.parameters || {}
+        };
+      });
+
+      this.nodes.set(loadedNodes);
+
+      // Create sequential edges if no explicit connections
+      const loadedEdges: PipelineEdge[] = [];
+      for (let i = 1; i < loadedNodes.length; i++) {
+        loadedEdges.push({
+          id: `edge-${i}`,
+          sourceId: loadedNodes[i - 1].id,
+          targetId: loadedNodes[i].id
+        });
+      }
+      this.edges.set(loadedEdges);
+    } catch (e) {
+      console.warn('Failed to parse pipeline definition', e);
     }
+  }
+
+  getOperationById(id: string): Operation | undefined {
+    return this.availableOperations().find(o => o.id === id);
+  }
+
+  // Drag operation from palette to canvas
+  onDragStart(event: DragEvent, op: Operation): void {
+    event.dataTransfer?.setData('application/json', JSON.stringify(op));
+    event.dataTransfer!.effectAllowed = 'copy';
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'copy';
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    const data = event.dataTransfer?.getData('application/json');
+    if (!data) return;
+
+    const op = JSON.parse(data) as Operation;
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    this.addNode(op, x, y);
+  }
+
+  addNode(op: Operation, x: number, y: number): void {
+    const newNode: PipelineNode = {
+      id: `node-${Date.now()}`,
+      operationId: op.id,
+      operationName: op.name,
+      operationType: op.type,
+      x,
+      y,
+      params: this.getDefaultParams(op)
+    };
+
+    this.nodes.update(n => [...n, newNode]);
+
+    // Auto-connect to last node
+    const nodeList = this.nodes();
+    if (nodeList.length > 1) {
+      const lastNode = nodeList[nodeList.length - 2];
+      this.addEdge(lastNode.id, newNode.id);
+    }
+  }
+
+  getDefaultParams(op: Operation): Record<string, unknown> {
+    const params: Record<string, unknown> = {};
+    if (op.parameters) {
+      Object.entries(op.parameters).forEach(([key, param]) => {
+        if (param.defaultValue !== null && param.defaultValue !== undefined) {
+          params[key] = param.defaultValue;
+        }
+      });
+    }
+    return params;
+  }
+
+  // Node interaction
+  configureNode(node: PipelineNode, event?: Event): void {
+    event?.stopPropagation();
+    this.selectedNode.set({ ...node });
+    const op = this.availableOperations().find(o => o.id === node.operationId);
+    this.selectedOperation.set(op || null);
+    this.configDialogVisible.set(true);
+  }
+
+  removeNode(id: string, event: Event): void {
+    event.stopPropagation();
+    this.confirmationService.confirm({
+      message: 'Remove this step from the pipeline?',
+      accept: () => {
+        this.nodes.update(n => n.filter(node => node.id !== id));
+        this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
+        if (this.selectedNode()?.id === id) {
+          this.selectedNode.set(null);
+          this.configDialogVisible.set(false);
+        }
+      }
+    });
+  }
+
+  // Node dragging
+  startNodeDrag(event: MouseEvent, node: PipelineNode): void {
+    if ((event.target as HTMLElement).classList.contains('node-connector')) return;
+    event.stopPropagation();
+    this.isDraggingNode = true;
+    this.draggedNodeId = node.id;
+    const rect = (event.target as HTMLElement).closest('.pipeline-node')?.getBoundingClientRect();
+    if (rect) {
+      this.dragOffset = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent): void {
+    if (this.isDraggingNode && this.draggedNodeId && this.canvasRef) {
+      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+      const x = event.clientX - rect.left - this.dragOffset.x;
+      const y = event.clientY - rect.top - this.dragOffset.y;
+
+      this.nodes.update(nodes => nodes.map(n =>
+        n.id === this.draggedNodeId ? { ...n, x: Math.max(0, x), y: Math.max(0, y) } : n
+      ));
+    }
+
+    if (this.isDrawingEdge && this.canvasRef) {
+      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+      this.mousePos = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+  }
+
+  @HostListener('document:mouseup')
+  onMouseUp(): void {
+    this.isDraggingNode = false;
+    this.draggedNodeId = null;
+    if (this.isDrawingEdge) {
+      this.isDrawingEdge = false;
+      this.edgeStartNodeId = null;
+    }
+  }
+
+  // Edge creation
+  startEdgeDraw(event: MouseEvent, nodeId: string): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.isDrawingEdge = true;
+    this.edgeStartNodeId = nodeId;
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    this.mousePos = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+  }
+
+  finishEdgeDraw(event: MouseEvent, targetNodeId: string): void {
+    event.stopPropagation();
+    if (this.isDrawingEdge && this.edgeStartNodeId && this.edgeStartNodeId !== targetNodeId) {
+      this.addEdge(this.edgeStartNodeId, targetNodeId);
+    }
+    this.isDrawingEdge = false;
+    this.edgeStartNodeId = null;
+  }
+
+  addEdge(sourceId: string, targetId: string): void {
+    const exists = this.edges().some(e => e.sourceId === sourceId && e.targetId === targetId);
+    if (exists) return;
+
+    this.edges.update(e => [...e, {
+      id: `edge-${Date.now()}`,
+      sourceId,
+      targetId
+    }]);
+  }
+
+  removeEdge(id: string, event: Event): void {
+    event.stopPropagation();
+    this.edges.update(e => e.filter(edge => edge.id !== id));
+  }
+
+  // Parameter editing
+  updateNodeParam(key: string, value: unknown): void {
+    const node = this.selectedNode();
+    if (!node) return;
+
+    const updatedNode = { ...node, params: { ...node.params, [key]: value } };
+    this.nodes.update(nodes => nodes.map(n => n.id === node.id ? updatedNode : n));
+    this.selectedNode.set(updatedNode);
+  }
+
+  saveNodeConfig(): void {
+    this.configDialogVisible.set(false);
+  }
+
+  // Type helpers
+  getParamType(type: string): 'text' | 'number' | 'boolean' | 'map' | 'char' {
+    if (type === 'java.lang.Boolean' || type === 'boolean') return 'boolean';
+    if (type === 'java.lang.Integer' || type === 'java.lang.Long' ||
+        type === 'java.lang.Double' || type === 'int' || type === 'long' || type === 'double') return 'number';
+    if (type === 'java.util.Map') return 'map';
+    if (type === 'java.lang.Character' || type === 'char') return 'char';
+    return 'text';
+  }
+
+  getMapValue(key: string): string {
+    const node = this.selectedNode();
+    if (!node) return '';
+    const val = node.params[key];
+    if (val && typeof val === 'object') {
+      return JSON.stringify(val, null, 2);
+    }
+    return '';
+  }
+
+  updateMapParam(key: string, jsonStr: string): void {
+    try {
+      const value = JSON.parse(jsonStr);
+      this.updateNodeParam(key, value);
+    } catch {
+      // Invalid JSON - don't update
+    }
+  }
+
+  // Path calculations
+  getNodeCenter(nodeId: string): { x: number; y: number } {
+    const node = this.nodes().find(n => n.id === nodeId);
+    if (!node) return { x: 0, y: 0 };
+    return { x: node.x + 150, y: node.y + 50 };
+  }
+
+  getPathForEdge(edge: PipelineEdge): string {
+    const start = this.getNodeCenter(edge.sourceId);
+    const end = this.getNodeCenter(edge.targetId);
+    const dx = Math.abs(end.x - start.x) * 0.4;
+    return `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
+  }
+
+  getDrawingPath(): string {
+    if (!this.isDrawingEdge || !this.edgeStartNodeId) return '';
+    const start = this.getNodeCenter(this.edgeStartNodeId);
+    const end = this.mousePos;
+    const dx = Math.abs(end.x - start.x) * 0.4;
+    return `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
+  }
+
+  // Type colors
+  getTypeColor(type: OperationType): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
+    switch (type) {
+      case 'SOURCE': return 'info';
+      case 'TRANSFORM': return 'success';
+      case 'CUBE': return 'warn';
+      case 'VALIDATION': return 'secondary';
+      case 'OUTPUT': return 'danger';
+      default: return 'secondary';
+    }
+  }
+
+  getNodeBorderColor(type: OperationType): string {
+    switch (type) {
+      case 'SOURCE': return '#3b82f6';
+      case 'TRANSFORM': return '#22c55e';
+      case 'CUBE': return '#f59e0b';
+      case 'VALIDATION': return '#6b7280';
+      case 'OUTPUT': return '#ef4444';
+      default: return '#6b7280';
+    }
+  }
+
+  // Save & Run
+  save(): void {
+    const definition: PipelineDefinition = {
+      steps: this.nodes().map(node => ({
+        id: node.id,
+        operation: node.operationId,
+        params: node.params
+      }))
+    };
 
     const data: PipelineCreateRequest = {
       name: this.name(),
       description: this.description(),
-      definition: this.definition(),
-      definitionFormat: this.definitionFormat(),
+      definition: JSON.stringify(definition),
+      definitionFormat: 'json',
       tags: this.tags()
     };
 
@@ -134,105 +528,99 @@ export class PipelineDesigner implements OnInit {
       : this.pipelineService.update(this.pipelineId()!, data);
 
     request.subscribe({
-      next: () => {
+      next: (result) => {
         this.messageService.add({ severity: 'success', summary: 'Saved', detail: 'Pipeline saved successfully' });
         this.saving.set(false);
-        this.router.navigate(['/pipelines']);
+        if (this.isNew()) {
+          this.isNew.set(false);
+          this.pipelineId.set(result.id);
+          this.router.navigate(['/pipelines', result.id], { replaceUrl: true });
+        }
       },
-      error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to save pipeline' });
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to save pipeline' });
         this.saving.set(false);
       }
     });
   }
 
-  validate(): void {
-    if (this.visualMode()) {
-      this.generateDefinition();
+  openRunDialog(): void {
+    this.runVariables.set({});
+    this.runDialogVisible.set(true);
+  }
+
+  run(): void {
+    const id = this.pipelineId();
+    if (!id) {
+      this.messageService.add({ severity: 'warn', summary: 'Warning', detail: 'Save pipeline first' });
+      return;
     }
-    
-    this.pipelineService.validate(this.definition(), this.definitionFormat()).subscribe({
+
+    this.pipelineService.run(id, this.runVariables()).subscribe({
       next: (result) => {
-        if (result.valid) {
-          this.messageService.add({ severity: 'success', summary: 'Valid', detail: 'Pipeline definition is valid' });
-        } else {
-          this.messageService.add({ severity: 'error', summary: 'Invalid', detail: result.errors.map(e => e.message).join(', ') });
-        }
+        this.messageService.add({ severity: 'success', summary: 'Started', detail: `Job started: ${result.jobId}` });
+        this.runDialogVisible.set(false);
+        this.router.navigate(['/jobs']);
       },
-      error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Validation failed' });
+      error: (err) => {
+        this.messageService.add({ severity: 'error', summary: 'Error', detail: err?.error?.message || 'Failed to run pipeline' });
+      }
+    });
+  }
+
+  validate(): void {
+    const errors = this.validationErrors();
+    if (errors.length === 0) {
+      this.messageService.add({ severity: 'success', summary: 'Valid', detail: 'Pipeline is valid and ready to run' });
+    } else {
+      this.messageService.add({ severity: 'error', summary: 'Validation Failed', detail: errors.join('\n'), life: 10000 });
+    }
+  }
+
+  showJson(): void {
+    this.jsonDialogVisible.set(true);
+  }
+
+  importPipelineJson(json: string): void {
+    this.parsePipelineDefinition(json);
+    this.jsonDialogVisible.set(false);
+    this.messageService.add({ severity: 'success', summary: 'Imported', detail: 'Pipeline definition imported' });
+  }
+
+  copyPipelineJson(): void {
+    navigator.clipboard.writeText(this.pipelineJson()).then(() => {
+      this.messageService.add({ severity: 'info', summary: 'Copied', detail: 'Pipeline JSON copied to clipboard' });
+    });
+  }
+
+  addRunVariable(keyEl: HTMLInputElement, valueEl: HTMLInputElement): void {
+    if (keyEl.value && valueEl.value) {
+      this.runVariables.update(v => ({ ...v, [keyEl.value]: valueEl.value }));
+      keyEl.value = '';
+      valueEl.value = '';
+    }
+  }
+
+  removeRunVariable(key: string): void {
+    this.runVariables.update(vars => {
+      const copy = { ...vars };
+      delete copy[key];
+      return copy;
+    });
+  }
+
+  clearCanvas(): void {
+    this.confirmationService.confirm({
+      message: 'Clear all nodes from the canvas?',
+      accept: () => {
+        this.nodes.set([]);
+        this.edges.set([]);
+        this.selectedNode.set(null);
       }
     });
   }
 
   cancel(): void {
     this.router.navigate(['/pipelines']);
-  }
-
-  // Drag and Drop Logic
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  drop(event: CdkDragDrop<any[]>): void {
-    if (event.previousContainer === event.container) {
-      // Reordering
-      const steps = [...this.pipelineSteps()];
-      moveItemInArray(steps, event.previousIndex, event.currentIndex);
-      this.pipelineSteps.set(steps);
-    } else {
-      // Adding from available operations
-      const operation = event.previousContainer.data[event.previousIndex] as Operation;
-      const newStep: PipelineStep = {
-        id: crypto.randomUUID(),
-        operationId: operation.id,
-        operationName: operation.name,
-        params: {}
-      };
-      
-      const steps = [...this.pipelineSteps()];
-      steps.splice(event.currentIndex, 0, newStep);
-      this.pipelineSteps.set(steps);
-    }
-  }
-
-  removeStep(index: number): void {
-    const steps = [...this.pipelineSteps()];
-    steps.splice(index, 1);
-    this.pipelineSteps.set(steps);
-  }
-
-  configureStep(step: PipelineStep): void {
-    this.selectedStep.set({ ...step }); // Copy to avoid direct mutation
-    this.configDialogVisible.set(true);
-  }
-
-  saveStepConfig(): void {
-    const updatedStep = this.selectedStep();
-    if (updatedStep) {
-      const steps = this.pipelineSteps().map(s => s.id === updatedStep.id ? updatedStep : s);
-      this.pipelineSteps.set(steps);
-    }
-    this.configDialogVisible.set(false);
-  }
-
-  getOperationById(id: string): Operation | undefined {
-    return this.availableOperations().find(op => op.id === id);
-  }
-
-  // Prevent items from being dropped back into the operations palette
-  noEnter = () => false;
-
-  generateDefinition(): void {
-    // Simple YAML generation from steps
-    // This is a placeholder for actual Barnard59 logic
-    const steps = this.pipelineSteps().map(step => {
-      return {
-        operation: step.operationId,
-        params: step.params
-      };
-    });
-    
-    this.definition.set(JSON.stringify({ steps }, null, 2)); // Using JSON as simple "YAML" for now or need a yaml dumper
-    // Ideally we use a library like 'js-yaml' but I don't want to add dependencies blindly
-    // For now, I'll default to 'yaml' format but output JSON which is valid YAML 1.2
-    this.definitionFormat.set('yaml');
   }
 }

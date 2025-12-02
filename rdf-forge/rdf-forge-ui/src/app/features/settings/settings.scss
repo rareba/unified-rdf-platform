@@ -1,24 +1,474 @@
 .settings {
   padding: 1.5rem;
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
 }
 
-.setting-row {
+// Header
+.header {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--surface-200);
+  align-items: center;
+  margin-bottom: 1.5rem;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .header-icon {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+  }
+
+  h1 {
+    margin: 0;
+  }
 }
 
-.setting-row:last-child {
-  border-bottom: none;
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
-.setting-label {
-  font-weight: 500;
+// Main Content
+.settings-content {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab-content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+// Settings Section
+.settings-section {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-50);
+  border-bottom: 1px solid var(--surface-border);
+
+  i {
+    color: var(--primary-color);
+    font-size: 1.125rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    flex: 1;
+  }
+}
+
+.section-content {
+  padding: 1.25rem;
+}
+
+// Settings Grid
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.25rem;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--text-color);
+  }
+
+  small {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+  }
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+// Settings Row
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.setting-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    cursor: pointer;
+  }
+
+  .toggle-label {
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .toggle-hint {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+  }
+}
+
+.setting-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  label {
+    font-size: 0.875rem;
+    color: var(--text-color-secondary);
+    white-space: nowrap;
+  }
+}
+
+// Profile Card
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface-50);
+  border-radius: 8px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  i {
+    font-size: 2rem;
+    color: var(--primary-color);
+  }
+}
+
+.profile-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.profile-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.profile-username {
+  font-size: 0.875rem;
   color: var(--text-color-secondary);
 }
 
-.setting-value {
-  font-family: monospace;
-  color: var(--text-color);
+.profile-email {
+  font-size: 0.875rem;
+  color: var(--text-color-secondary);
+}
+
+// Prefix Table
+.prefix-code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.875rem;
+  color: var(--primary-color);
+  background: var(--primary-50);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.uri-cell {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+  word-break: break-all;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.prefix-summary {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+  text-align: right;
+}
+
+// Keyboard Shortcuts
+.shortcut-key {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface-100);
+  border: 1px solid var(--surface-300);
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+// Info Grid
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--surface-50);
+  border-radius: 6px;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.info-value {
+  font-size: 0.9rem;
+
+  &.mono {
+    font-family: 'Consolas', 'Monaco', monospace;
+  }
+}
+
+// Health Grid
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.health-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface-50);
+  border-radius: 6px;
+}
+
+.health-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.health-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.health-time {
+  font-size: 0.75rem;
+  color: var(--text-color-secondary);
+}
+
+// Maintenance
+.maintenance-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.maintenance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.maintenance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.maintenance-title {
+  font-weight: 500;
+}
+
+.maintenance-desc {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+}
+
+// Empty State
+.empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--text-color-secondary);
+
+  i {
+    font-size: 1.5rem;
+    color: var(--surface-400);
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+// Dialogs
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .required {
+    color: #ef4444;
+  }
+
+  small {
+    font-size: 0.75rem;
+    color: var(--text-color-secondary);
+  }
+}
+
+.export-textarea,
+.import-textarea {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  resize: none;
+}
+
+// Text utilities
+.text-muted {
+  color: var(--text-color-secondary);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mono {
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+// PrimeNG Overrides
+:host ::ng-deep {
+  .p-tabs {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .p-tabpanels {
+    flex: 1;
+    overflow: auto;
+  }
+
+  .p-tabpanel {
+    padding: 0;
+  }
+
+  .p-datatable-sm .p-datatable-tbody > tr > td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .p-divider {
+    margin: 1rem 0;
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .settings {
+    padding: 1rem;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid,
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .maintenance-item {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .profile-card {
+    flex-direction: column;
+    text-align: center;
+  }
 }

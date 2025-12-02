@@ -1,113 +1,298 @@
 <p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
 <div class="pipeline-designer">
+  <!-- Header -->
   <div class="header">
-    <h1>{{ isNew() ? 'New Pipeline' : 'Edit Pipeline' }}</h1>
+    <div class="header-left">
+      <h1>{{ isNew() ? 'New Pipeline' : 'Edit Pipeline' }}</h1>
+      @if (!isNew()) {
+        <p-tag [value]="pipelineId()?.substring(0, 8) + '...'" severity="secondary" styleClass="ml-2"></p-tag>
+      }
+    </div>
     <div class="actions">
-      <p-toggleButton 
-        [(ngModel)]="visualMode" 
-        onLabel="Visual Mode" 
-        offLabel="Code Mode" 
-        onIcon="pi pi-eye" 
-        offIcon="pi pi-code"
-        styleClass="mr-2">
-      </p-toggleButton>
+      @if (validationErrors().length > 0) {
+        <p-tag severity="danger" icon="pi pi-exclamation-triangle" [value]="validationErrors().length + ' issues'"></p-tag>
+      } @else if (nodes().length > 0) {
+        <p-tag severity="success" icon="pi pi-check" value="Valid"></p-tag>
+      }
       <p-button label="Cancel" [text]="true" (click)="cancel()"></p-button>
+      <p-button label="Clear" icon="pi pi-trash" severity="secondary" [text]="true" (click)="clearCanvas()"></p-button>
+      <p-button label="JSON" icon="pi pi-code" severity="secondary" [outlined]="true" (click)="showJson()"></p-button>
       <p-button label="Validate" icon="pi pi-check" severity="secondary" (click)="validate()"></p-button>
       <p-button label="Save" icon="pi pi-save" (click)="save()" [loading]="saving()"></p-button>
+      @if (!isNew()) {
+        <p-button label="Run" icon="pi pi-play" severity="success" (click)="openRunDialog()" [disabled]="!isValid()"></p-button>
+      }
     </div>
   </div>
 
-  <div class="grid mt-4">
-    <!-- Metadata Card -->
-    <div class="col-12">
-      <p-card>
-        <div class="formgrid grid">
-          <div class="field col-12 md:col-4">
-            <label for="name">Name</label>
-            <input id="name" type="text" pInputText class="w-full" [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Pipeline name" />
-          </div>
-          <div class="field col-12 md:col-8">
-            <label for="description">Description</label>
-            <input id="description" type="text" pInputText class="w-full" [ngModel]="description()" (ngModelChange)="description.set($event)" placeholder="Pipeline description" />
-          </div>
-        </div>
-      </p-card>
+  <!-- Pipeline Metadata -->
+  <div class="metadata-row">
+    <div class="flex-1">
+      <label for="pipeline-name" class="block text-sm font-medium mb-1">Pipeline Name</label>
+      <input id="pipeline-name" type="text" pInputText class="w-full" [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="Enter pipeline name" />
     </div>
+    <div class="flex-1">
+      <label for="pipeline-desc" class="block text-sm font-medium mb-1">Description</label>
+      <input id="pipeline-desc" type="text" pInputText class="w-full" [ngModel]="description()" (ngModelChange)="description.set($event)" placeholder="Optional description" />
+    </div>
+  </div>
 
-    <!-- Visual Editor -->
-    @if (visualMode()) {
-    <div class="col-12">
-      <div class="grid">
-        <!-- Palette -->
-        <div class="col-12 md:col-3">
-          <p-panel header="Operations" [style]="{'height': '100%'}">
-            <div class="operations-list" cdkDropList [cdkDropListData]="availableOperations()" [cdkDropListConnectedTo]="['pipeline-steps']" [cdkDropListEnterPredicate]="noEnter">
-              @for (op of availableOperations(); track op.id) {
-                <div class="operation-item" cdkDrag [cdkDragData]="op">
-                  <i class="pi pi-cog mr-2"></i> {{ op.name }}
+  <!-- Main Content -->
+  <div class="designer-content">
+    <!-- Operations Palette -->
+    <div class="palette">
+      <div class="palette-header">
+        <i class="pi pi-th-large"></i>
+        <span>Operations</span>
+      </div>
+      <div class="palette-content">
+        <p-accordion [multiple]="true" [value]="['source']">
+          @for (group of operationGroups(); track group.type) {
+            <p-accordion-panel [value]="group.type">
+              <p-accordion-header>
+                <div class="flex align-items-center gap-2">
+                  <i [class]="group.icon"></i>
+                  <span>{{ group.label }}</span>
+                  <p-tag [value]="group.operations.length + ''" [severity]="getTypeColor(group.type)" styleClass="ml-auto"></p-tag>
                 </div>
-              }
-            </div>
-          </p-panel>
-        </div>
-
-        <!-- Canvas -->
-        <div class="col-12 md:col-9">
-          <p-panel header="Pipeline Steps" [style]="{'min-height': '500px'}">
-            <div id="pipeline-steps" class="pipeline-steps" cdkDropList (cdkDropListDropped)="drop($event)" [cdkDropListData]="pipelineSteps()">
-              @for (step of pipelineSteps(); track step.id; let i = $index) {
-                <div class="step-card" cdkDrag>
-                  <div class="step-header">
-                    <span class="step-handle" cdkDragHandle><i class="pi pi-bars"></i></span>
-                    <span class="step-title">{{ step.operationName }}</span>
-                    <div class="step-actions">
-                      <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm" (click)="configureStep(step)" aria-label="Configure step"></button>
-                      <button pButton icon="pi pi-trash" class="p-button-text p-button-danger p-button-sm" (click)="removeStep(i)" aria-label="Remove step"></button>
+              </p-accordion-header>
+              <p-accordion-content>
+                <div class="operations-list">
+                  @for (op of group.operations; track op.id) {
+                    <div class="operation-item"
+                         draggable="true"
+                         (dragstart)="onDragStart($event, op)"
+                         [pTooltip]="op.description"
+                         tooltipPosition="right">
+                      <div class="op-icon" [style.background-color]="getNodeBorderColor(op.type)">
+                        <i [class]="group.icon" class="text-white text-xs"></i>
+                      </div>
+                      <div class="op-info">
+                        <span class="op-name">{{ op.name }}</span>
+                        <span class="op-params">{{ (op.parameters | keyvalue).length }} params</span>
+                      </div>
                     </div>
-                  </div>
+                  }
                 </div>
-              }
-              
-              @if (pipelineSteps().length === 0) {
-                <div class="empty-placeholder">
-                  Drag operations here to build your pipeline
-                </div>
-              }
-            </div>
-          </p-panel>
-        </div>
+              </p-accordion-content>
+            </p-accordion-panel>
+          }
+        </p-accordion>
+
+        @if (availableOperations().length === 0) {
+          <div class="text-center p-4 text-500">
+            <i class="pi pi-spin pi-spinner text-2xl mb-2"></i>
+            <p>Loading operations...</p>
+          </div>
+        }
       </div>
     </div>
-    }
 
-    <!-- Code Editor -->
-    @if (!visualMode()) {
-    <div class="col-12">
-      <p-card header="Pipeline Definition">
-        <div class="mb-3">
-           <p-select id="format" [options]="formatOptions" [ngModel]="definitionFormat()" (ngModelChange)="definitionFormat.set($event)" optionLabel="label" optionValue="value"></p-select>
-        </div>
-        <textarea pInputTextarea class="w-full definition-editor" [rows]="20" [ngModel]="definition()" (ngModelChange)="definition.set($event)" placeholder="Enter pipeline definition..."></textarea>
-      </p-card>
-    </div>
-    }
-  </div>
-  
-  <!-- Configuration Dialog -->
-  <p-dialog [(visible)]="configDialogVisible" [header]="'Configure ' + selectedStep()?.operationName" [modal]="true" [style]="{width: '500px'}">
-    @if (selectedStep(); as step) {
-      @if (getOperationById(step.operationId); as op) {
-        <div class="p-fluid">
-          <div class="field mb-3">
-            <span class="font-bold">Description</span>
-            <p>{{ op.description }}</p>
+    <!-- Canvas -->
+    <div class="canvas-wrapper">
+      <div class="canvas-container"
+           #canvas
+           (dragover)="onDragOver($event)"
+           (drop)="onDrop($event)">
+
+        <!-- Edges Layer -->
+        <svg class="edges-layer">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+            </marker>
+          </defs>
+
+          @for (edge of edges(); track edge.id) {
+            <path [attr.d]="getPathForEdge(edge)"
+                  stroke="#64748b"
+                  stroke-width="2"
+                  fill="none"
+                  marker-end="url(#arrowhead)"
+                  class="edge-path"
+                  (click)="removeEdge(edge.id, $event)">
+            </path>
+          }
+
+          @if (isDrawingEdge) {
+            <path [attr.d]="getDrawingPath()" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,5" fill="none"></path>
+          }
+        </svg>
+
+        <!-- Nodes Layer -->
+        @for (node of nodes(); track node.id) {
+          <div class="pipeline-node"
+               [class.selected]="selectedNode()?.id === node.id"
+               [style.left.px]="node.x"
+               [style.top.px]="node.y"
+               [style.border-color]="getNodeBorderColor(node.operationType)"
+               (mousedown)="startNodeDrag($event, node)"
+               (dblclick)="configureNode(node, $event)">
+
+            <!-- Input Port -->
+            <div class="port input-port"
+                 (mouseup)="finishEdgeDraw($event, node.id)">
+            </div>
+
+            <div class="node-header">
+              <p-tag [value]="node.operationType" [severity]="getTypeColor(node.operationType)" styleClass="text-xs"></p-tag>
+              <div class="node-actions">
+                <i class="pi pi-cog cursor-pointer hover:text-primary" (click)="configureNode(node, $event)" pTooltip="Configure"></i>
+                <i class="pi pi-trash cursor-pointer hover:text-red-500" (click)="removeNode(node.id, $event)" pTooltip="Remove"></i>
+              </div>
+            </div>
+
+            <div class="node-title" [title]="node.operationName">{{ node.operationName }}</div>
+
+            <div class="node-meta">
+              @if (getOperationById(node.operationId); as op) {
+                @for (entry of op.parameters | keyvalue; track entry.key) {
+                  @if (entry.value.required && !node.params[entry.key]) {
+                    <span class="param-missing" [pTooltip]="'Missing: ' + entry.key">
+                      <i class="pi pi-exclamation-circle"></i>
+                    </span>
+                  }
+                }
+              }
+              <span class="text-xs text-500">{{ node.id.substring(0, 8) }}</span>
+            </div>
+
+            <!-- Output Port -->
+            <div class="port output-port node-connector"
+                 (mousedown)="startEdgeDraw($event, node.id)">
+            </div>
           </div>
-          
-          @for (param of op.parameters; track param.name) {
-            <div class="field mb-3">
-              <span id="label-param-{{ param.name }}">{{ param.name }} @if (param.required) { <span class="text-red-500">*</span> }</span>
-              <input [id]="'param-' + param.name" type="text" pInputText [(ngModel)]="step.params[param.name]" [placeholder]="param.description || ''" [attr.aria-labelledby]="'label-param-' + param.name" />
+        }
+
+        <!-- Empty State -->
+        @if (nodes().length === 0) {
+          <div class="canvas-empty">
+            <i class="pi pi-inbox text-5xl text-300 mb-3"></i>
+            <h3>Drag operations here to build your pipeline</h3>
+            <p class="text-500">Start by adding a data source from the palette on the left</p>
+          </div>
+        }
+      </div>
+
+      <!-- Validation Errors Panel -->
+      @if (validationErrors().length > 0) {
+        <div class="validation-panel">
+          <div class="validation-header">
+            <i class="pi pi-exclamation-triangle text-orange-500"></i>
+            <span>Validation Issues ({{ validationErrors().length }})</span>
+          </div>
+          <ul class="validation-list">
+            @for (error of validationErrors(); track error) {
+              <li>{{ error }}</li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Configuration Dialog -->
+  <p-dialog [(visible)]="configDialogVisible"
+            [header]="'Configure: ' + (selectedNode()?.operationName || '')"
+            [modal]="true"
+            [style]="{width: '600px', maxHeight: '80vh'}"
+            [contentStyle]="{'overflow-y': 'auto'}">
+    @if (selectedNode(); as node) {
+      @if (selectedOperation(); as op) {
+        <div class="config-dialog">
+          <!-- Operation Info -->
+          <div class="op-description mb-4">
+            <p-tag [value]="op.type" [severity]="getTypeColor(op.type)"></p-tag>
+            <p class="mt-2 text-600">{{ op.description }}</p>
+          </div>
+
+          <p-divider></p-divider>
+
+          <!-- Parameters -->
+          <h4 class="mb-3">Parameters</h4>
+
+          @if ((op.parameters | keyvalue).length === 0) {
+            <p class="text-500">This operation has no configurable parameters.</p>
+          } @else {
+            <div class="params-form">
+              @for (entry of op.parameters | keyvalue; track entry.key) {
+                <div class="param-field">
+                  <label [for]="'param-' + entry.key" class="param-label">
+                    {{ entry.value.name }}
+                    @if (entry.value.required) {
+                      <span class="text-red-500">*</span>
+                    }
+                  </label>
+
+                  @if (entry.value.description) {
+                    <small class="param-help">{{ entry.value.description }}</small>
+                  }
+
+                  @switch (getParamType(entry.value.type)) {
+                    @case ('boolean') {
+                      <div class="flex align-items-center gap-2 mt-2">
+                        <p-checkbox
+                          [inputId]="'param-' + entry.key"
+                          [ngModel]="node.params[entry.key]"
+                          (ngModelChange)="updateNodeParam(entry.key, $event)"
+                          [binary]="true">
+                        </p-checkbox>
+                        <label [for]="'param-' + entry.key" class="text-sm">
+                          {{ node.params[entry.key] ? 'Yes' : 'No' }}
+                        </label>
+                      </div>
+                    }
+                    @case ('number') {
+                      <p-inputNumber
+                        [inputId]="'param-' + entry.key"
+                        [ngModel]="node.params[entry.key]"
+                        (ngModelChange)="updateNodeParam(entry.key, $event)"
+                        styleClass="w-full mt-2"
+                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''">
+                      </p-inputNumber>
+                    }
+                    @case ('char') {
+                      <input
+                        [id]="'param-' + entry.key"
+                        type="text"
+                        pInputText
+                        [ngModel]="node.params[entry.key]"
+                        (ngModelChange)="updateNodeParam(entry.key, $event)"
+                        [maxlength]="1"
+                        class="w-full mt-2"
+                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                    }
+                    @case ('map') {
+                      <textarea
+                        [id]="'param-' + entry.key"
+                        pInputTextarea
+                        [ngModel]="getMapValue(entry.key)"
+                        (ngModelChange)="updateMapParam(entry.key, $event)"
+                        [rows]="4"
+                        class="w-full mt-2 font-mono text-sm"
+                        placeholder='{"key": "value"}'>
+                      </textarea>
+                      <small class="text-500">Enter valid JSON object</small>
+                    }
+                    @default {
+                      <input
+                        [id]="'param-' + entry.key"
+                        type="text"
+                        pInputText
+                        [ngModel]="node.params[entry.key]"
+                        (ngModelChange)="updateNodeParam(entry.key, $event)"
+                        class="w-full mt-2"
+                        [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                    }
+                  }
+
+                  @if (entry.value.type) {
+                    <small class="param-type">Type: {{ entry.value.type }}</small>
+                  }
+                </div>
+              }
             </div>
           }
         </div>
@@ -115,7 +300,95 @@
     }
     <ng-template pTemplate="footer">
       <p-button label="Cancel" [text]="true" (click)="configDialogVisible.set(false)"></p-button>
-      <p-button label="Apply" (click)="saveStepConfig()"></p-button>
+      <p-button label="Apply" icon="pi pi-check" (click)="saveNodeConfig()"></p-button>
     </ng-template>
+  </p-dialog>
+
+  <!-- Run Dialog -->
+  <p-dialog [(visible)]="runDialogVisible"
+            header="Run Pipeline"
+            [modal]="true"
+            [style]="{width: '500px'}">
+    <div class="run-dialog">
+      <p class="mb-3">
+        <strong>Pipeline:</strong> {{ name() }}
+      </p>
+
+      @if (validationErrors().length > 0) {
+        <div class="p-3 bg-orange-50 border-round mb-3">
+          <div class="flex align-items-center gap-2 text-orange-700 mb-2">
+            <i class="pi pi-exclamation-triangle"></i>
+            <strong>Warning: Pipeline has validation issues</strong>
+          </div>
+          <ul class="text-sm text-orange-600 pl-4 m-0">
+            @for (err of validationErrors(); track err) {
+              <li>{{ err }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      <p-divider></p-divider>
+
+      <h4 class="mb-3">Runtime Variables (optional)</h4>
+      <p class="text-sm text-500 mb-3">Override pipeline variables for this run</p>
+
+      <div class="p-fluid">
+        <div class="field">
+          <label for="run-var-key">Variable Name</label>
+          <div class="flex gap-2">
+            <input id="run-var-key" type="text" pInputText placeholder="e.g. INPUT_FILE" #varKey />
+            <input type="text" pInputText placeholder="Value" #varValue />
+            <p-button icon="pi pi-plus" (click)="addRunVariable(varKey, varValue)"></p-button>
+          </div>
+        </div>
+
+        @if ((runVariables() | keyvalue).length > 0) {
+          <div class="mt-3">
+            @for (v of runVariables() | keyvalue; track v.key) {
+              <div class="flex align-items-center justify-content-between p-2 surface-100 border-round mb-1">
+                <span><strong>{{ v.key }}:</strong> {{ v.value }}</span>
+                <i class="pi pi-times cursor-pointer text-500 hover:text-red-500" (click)="removeRunVariable(v.key)"></i>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="runDialogVisible.set(false)"></p-button>
+      <p-button label="Run Pipeline" icon="pi pi-play" severity="success" (click)="run()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- JSON Dialog -->
+  <p-dialog [(visible)]="jsonDialogVisible"
+            header="Pipeline JSON Definition"
+            [modal]="true"
+            [style]="{width: '700px'}">
+    <div class="json-dialog">
+      <p-tabs>
+        <p-tabpanel header="Export">
+          <div class="mt-3">
+            <p class="text-sm text-500 mb-2">Copy this JSON to save or share the pipeline definition</p>
+            <textarea pInputTextarea [rows]="15" class="w-full font-mono text-sm" [ngModel]="pipelineJson()" readonly></textarea>
+            <div class="flex justify-content-end mt-2">
+              <p-button label="Copy to Clipboard" icon="pi pi-copy" [text]="true"
+                (click)="copyPipelineJson()"></p-button>
+            </div>
+          </div>
+        </p-tabpanel>
+        <p-tabpanel header="Import">
+          <div class="mt-3">
+            <p class="text-sm text-500 mb-2">Paste a pipeline JSON definition to import</p>
+            <textarea pInputTextarea [rows]="15" class="w-full font-mono text-sm" #importJsonText placeholder='{"steps": [...]}'>
+            </textarea>
+            <div class="flex justify-content-end mt-2">
+              <p-button label="Import" icon="pi pi-download" (click)="importPipelineJson(importJsonText.value)"></p-button>
+            </div>
+          </div>
+        </p-tabpanel>
+      </p-tabs>
+    </div>
   </p-dialog>
 </div>

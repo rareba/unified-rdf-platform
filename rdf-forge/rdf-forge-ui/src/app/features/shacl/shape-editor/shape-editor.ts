@@ -11,9 +11,28 @@ import { TabsModule } from 'primeng/tabs';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ToggleButtonModule } from 'primeng/togglebutton';
+import { PanelModule } from 'primeng/panel';
 import { MessageService } from 'primeng/api';
 import { ShaclService } from '../../../core/services';
 import { ShapeCreateRequest, ContentFormat, ValidationResult } from '../../../core/models';
+
+interface PropertyShape {
+  id: string;
+  path: string;
+  name: string;
+  description?: string;
+  minCount: number | null;
+  maxCount: number | null;
+  datatype: string;
+  kind: 'LITERAL' | 'RESOURCE';
+  pattern?: string;
+  minLength?: number;
+  maxLength?: number;
+  message?: string;
+  nodeKind?: string;
+}
 
 @Component({
   selector: 'app-shape-editor',
@@ -28,7 +47,10 @@ import { ShapeCreateRequest, ContentFormat, ValidationResult } from '../../../co
     TabsModule,
     TableModule,
     TagModule,
-    ToastModule
+    ToastModule,
+    CheckboxModule,
+    ToggleButtonModule,
+    PanelModule
   ],
   providers: [MessageService],
   templateUrl: './shape-editor.html',
@@ -46,10 +68,20 @@ export class ShapeEditor implements OnInit {
   isNew = signal(true);
   shapeId = signal<string | null>(null);
 
+  // Mode
+  visualMode = signal(true);
+
   // Shape Data
   name = signal('');
   uri = signal('');
   targetClass = signal('');
+  description = signal('');
+  
+  // Visual Editor Properties
+  properties = signal<PropertyShape[]>([]);
+  selectedProperty = signal<PropertyShape | null>(null);
+
+  // Raw Content (Synced or Manual)
   content = signal('');
   contentFormat = signal<ContentFormat>('turtle');
   
@@ -62,6 +94,30 @@ export class ShapeEditor implements OnInit {
     { label: 'Turtle', value: 'turtle' },
     { label: 'JSON-LD', value: 'jsonld' },
     { label: 'Trig', value: 'trig' }
+  ];
+
+  kindOptions = [
+    { label: 'Literal', value: 'LITERAL' },
+    { label: 'Resource', value: 'RESOURCE' }
+  ];
+
+  datatypeOptions = [
+    { label: 'String', value: 'xsd:string' },
+    { label: 'Integer', value: 'xsd:integer' },
+    { label: 'Decimal', value: 'xsd:decimal' },
+    { label: 'Date', value: 'xsd:date' },
+    { label: 'DateTime', value: 'xsd:dateTime' },
+    { label: 'Boolean', value: 'xsd:boolean' },
+    { label: 'Any URI', value: 'xsd:anyURI' }
+  ];
+  
+  nodeKindOptions = [
+    { label: 'IRI', value: 'sh:IRI' },
+    { label: 'Blank Node', value: 'sh:BlankNode' },
+    { label: 'Literal', value: 'sh:Literal' },
+    { label: 'Blank Node or IRI', value: 'sh:BlankNodeOrIRI' },
+    { label: 'Blank Node or Literal', value: 'sh:BlankNodeOrLiteral' },
+    { label: 'IRI or Literal', value: 'sh:IRIOrLiteral' }
   ];
 
   testFormatOptions = [
@@ -88,6 +144,11 @@ export class ShapeEditor implements OnInit {
         this.targetClass.set(shape.targetClass || '');
         this.content.set(shape.content);
         this.contentFormat.set(shape.contentFormat);
+        // Note: Parsing raw SHACL back to visual properties is complex. 
+        // For now, we keep visual mode empty if loaded, or switch to code mode.
+        if (shape.content) {
+            this.visualMode.set(false);
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -97,7 +158,88 @@ export class ShapeEditor implements OnInit {
     });
   }
 
+  addProperty(): void {
+    const newProp: PropertyShape = {
+        id: crypto.randomUUID(),
+        path: '',
+        name: 'New Property',
+        minCount: 0,
+        maxCount: 1,
+        datatype: 'xsd:string',
+        kind: 'LITERAL'
+    };
+    this.properties.update(props => [...props, newProp]);
+    this.selectProperty(newProp);
+  }
+
+  selectProperty(prop: PropertyShape): void {
+    this.selectedProperty.set(prop);
+  }
+
+  removeProperty(prop: PropertyShape): void {
+    this.properties.update(props => props.filter(p => p.id !== prop.id));
+    if (this.selectedProperty()?.id === prop.id) {
+      this.selectedProperty.set(null);
+    }
+  }
+  
+  getIconForKind(kind: string): string {
+    return kind === 'LITERAL' ? 'pi pi-pencil' : 'pi pi-link';
+  }
+
+  generateShacl(): void {
+    const shapeUri = this.uri() || 'http://example.org/shape';
+    const targetClass = this.targetClass() || 'http://example.org/Class';
+    
+    let ttl = `@prefix sh: <http://www.w3.org/ns/shacl#> .\n`;
+    ttl += `@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n`;
+    ttl += `@prefix ex: <http://example.org/> .\n\n`;
+    
+    ttl += `<${shapeUri}>\n`;
+    ttl += `  a sh:NodeShape ;\n`;
+    ttl += `  sh:targetClass <${targetClass}> ;\n`;
+    
+    if (this.properties().length > 0) {
+        this.properties().forEach(prop => {
+            ttl += `  sh:property [\n`;
+            ttl += `    sh:path <${prop.path || 'ex:property'}> ;\n`;
+            if (prop.name) ttl += `    sh:name "${prop.name}" ;\n`;
+            if (prop.description) ttl += `    sh:description "${prop.description}" ;\n`;
+            if (prop.minCount !== null) ttl += `    sh:minCount ${prop.minCount} ;\n`;
+            if (prop.maxCount !== null) ttl += `    sh:maxCount ${prop.maxCount} ;\n`;
+            
+            if (prop.kind === 'LITERAL') {
+                ttl += `    sh:datatype ${prop.datatype} ;\n`;
+                if (prop.minLength) ttl += `    sh:minLength ${prop.minLength} ;\n`;
+                if (prop.maxLength) ttl += `    sh:maxLength ${prop.maxLength} ;\n`;
+                if (prop.pattern) ttl += `    sh:pattern "${prop.pattern}" ;\n`;
+            } else {
+                // Resource link
+                if (prop.datatype) {
+                    // Check if it's a class or just a node kind
+                    ttl += `    sh:class <${prop.datatype}> ;\n`;
+                }
+                ttl += `    sh:nodeKind sh:IRI ;\n`;
+            }
+            
+            if (prop.nodeKind) ttl += `    sh:nodeKind ${prop.nodeKind} ;\n`;
+            if (prop.message) ttl += `    sh:message "${prop.message}" ;\n`;
+            
+            ttl += `  ] ;\n`;
+        });
+    }
+    
+    // Remove trailing semicolon and add dot
+    ttl = ttl.replace(/ ;\n$/, ' .\n');
+    
+    this.content.set(ttl);
+  }
+
   save(): void {
+    if (this.visualMode()) {
+        this.generateShacl();
+    }
+
     const data: ShapeCreateRequest = {
       name: this.name(),
       uri: this.uri(),
@@ -127,6 +269,9 @@ export class ShapeEditor implements OnInit {
   }
 
   validateSyntax(): void {
+    if (this.visualMode()) {
+        this.generateShacl();
+    }
     this.shaclService.validateSyntax(this.content(), this.contentFormat()).subscribe({
       next: (result) => {
         if (result.valid) {

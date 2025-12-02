@@ -46,7 +46,7 @@ export class PipelineService {
     return this.api.post<Pipeline>(`/pipelines/${id}/duplicate`, {});
   }
 
-  validate(definition: string, format: 'yaml' | 'turtle'): Observable<PipelineValidationResult> {
+  validate(definition: string, format: 'yaml' | 'turtle' | 'json'): Observable<PipelineValidationResult> {
     return this.api.post<PipelineValidationResult>('/pipelines/validate', { definition, format });
   }
 
@@ -62,8 +62,9 @@ export class PipelineService {
     return this.api.get<Pipeline>(`/pipelines/${id}/versions/${version}`);
   }
 
+  // Operations are fetched from the /operations endpoint
   getOperations(): Observable<Operation[]> {
-    return this.api.getArray<Operation>('/operations');
+    return this.api.get<Operation[]>('/operations');
   }
 
   getOperation(id: string): Observable<Operation> {

@@ -1,85 +1,827 @@
 <p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
 <div class="triplestore-browser">
+  <!-- Header -->
   <div class="header">
-    <h1>Triplestore Browser</h1>
+    <div class="header-left">
+      <h1>Triplestore Browser</h1>
+      @if (selectedConnection()) {
+        <p-tag
+          [value]="connectionStatus()"
+          [severity]="getStatusSeverity(connectionStatus())"
+          [icon]="getStatusIcon(connectionStatus())"></p-tag>
+      }
+    </div>
     <div class="actions">
-      <p-select
-        [options]="connections()"
-        [ngModel]="selectedConnection()"
-        (ngModelChange)="selectConnection($event)"
-        optionLabel="name"
-        placeholder="Select connection"
-        [style]="{ width: '250px' }"></p-select>
-      @if (graphs().length > 0) {
-        <p-select
-          [options]="graphs()"
-          [ngModel]="selectedGraph()"
-          (ngModelChange)="selectedGraph.set($event)"
-          optionLabel="uri"
-          placeholder="Select graph (optional)"
-          [showClear]="true"
-          [style]="{ width: '300px' }"></p-select>
+      <p-button
+        label="Add Connection"
+        icon="pi pi-plus"
+        (click)="openConnectionDialog()"></p-button>
+      @if (selectedConnection()) {
+        <p-button
+          label="Upload RDF"
+          icon="pi pi-upload"
+          severity="secondary"
+          (click)="openUploadDialog()"></p-button>
       }
     </div>
   </div>
 
-  @if (selectedConnection()) {
-    <div class="grid mt-3">
-      <div class="col-12 lg:col-4">
-        <p-card header="Graphs">
-          @if (graphs().length === 0) {
-            <div class="text-muted text-center py-4">No graphs found</div>
-          } @else {
-            <div class="graph-list">
-              @for (graph of graphs(); track graph.uri) {
-                <div class="graph-item" [class.selected]="selectedGraph()?.uri === graph.uri" (click)="selectedGraph.set(graph)" (keyup.enter)="selectedGraph.set(graph)" (keyup.space)="selectedGraph.set(graph)" tabindex="0" role="button">
-                  <span class="graph-uri">{{ graph.uri }}</span>
-                  <span class="graph-count">{{ formatNumber(graph.tripleCount) }} triples</span>
+  <!-- Stats Row -->
+  @if (connections().length > 0) {
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="pi pi-link"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ connections().length }}</span>
+          <span class="stat-label">Connections</span>
+        </div>
+      </div>
+      @if (selectedConnection()) {
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="pi pi-sitemap"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ graphs().length }}</span>
+            <span class="stat-label">Named Graphs</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="pi pi-database"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ formatNumber(totalTriples()) }}</span>
+            <span class="stat-label">Total Triples</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="loading-state">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
+      <p>Loading connections...</p>
+    </div>
+  } @else if (connections().length === 0) {
+    <div class="empty-state">
+      <i class="pi pi-database"></i>
+      <h3>No Connections Configured</h3>
+      <p>Add a triplestore connection to get started</p>
+      <p-button
+        label="Add Connection"
+        icon="pi pi-plus"
+        (click)="openConnectionDialog()"
+        class="mt-3"></p-button>
+    </div>
+  } @else {
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Left Sidebar - Connections & Graphs -->
+      <div class="sidebar">
+        <!-- Connections List -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <span>Connections</span>
+          </div>
+          <div class="connection-list">
+            @for (conn of connections(); track conn.id) {
+              <div
+                class="connection-item"
+                [class.selected]="selectedConnection()?.id === conn.id"
+                (click)="selectConnection(conn)">
+                <div class="connection-info">
+                  <div class="connection-name">
+                    <i [class]="getTypeIcon(conn.type)"></i>
+                    <span>{{ conn.name }}</span>
+                    @if (conn.isDefault) {
+                      <p-tag value="Default" severity="info" class="ml-2" [style]="{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }"></p-tag>
+                    }
+                  </div>
+                  <div class="connection-url">{{ conn.url }}</div>
                 </div>
+                <div class="connection-status">
+                  <p-tag
+                    [value]="conn.healthStatus"
+                    [severity]="getStatusSeverity(conn.healthStatus)"
+                    [style]="{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }"></p-tag>
+                </div>
+                <div class="connection-actions" (click)="$event.stopPropagation()">
+                  <p-button
+                    icon="pi pi-sync"
+                    [rounded]="true"
+                    [text]="true"
+                    severity="secondary"
+                    size="small"
+                    pTooltip="Test Connection"
+                    tooltipPosition="top"
+                    [loading]="testingConnection()"
+                    (click)="testConnection(conn)"></p-button>
+                  <p-button
+                    icon="pi pi-pencil"
+                    [rounded]="true"
+                    [text]="true"
+                    severity="secondary"
+                    size="small"
+                    pTooltip="Edit"
+                    tooltipPosition="top"
+                    (click)="openEditConnectionDialog(conn)"></p-button>
+                  <p-button
+                    icon="pi pi-trash"
+                    [rounded]="true"
+                    [text]="true"
+                    severity="danger"
+                    size="small"
+                    pTooltip="Delete"
+                    tooltipPosition="top"
+                    (click)="confirmDeleteConnection(conn)"></p-button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Graphs List -->
+        @if (selectedConnection()) {
+          <div class="sidebar-section">
+            <div class="section-header">
+              <span>Named Graphs</span>
+              @if (graphsLoading()) {
+                <i class="pi pi-spin pi-spinner"></i>
               }
             </div>
-          }
-        </p-card>
+            @if (graphs().length === 0) {
+              <div class="empty-hint">
+                <p>No graphs found</p>
+              </div>
+            } @else {
+              <div class="graph-list">
+                @for (graph of graphs(); track graph.uri) {
+                  <div
+                    class="graph-item"
+                    [class.selected]="selectedGraph()?.uri === graph.uri"
+                    (click)="selectGraph(graph)">
+                    <div class="graph-info">
+                      <span class="graph-uri" [pTooltip]="graph.uri" tooltipPosition="right">
+                        {{ shortenUri(graph.uri, 40) }}
+                      </span>
+                      <span class="graph-count">{{ formatNumber(graph.tripleCount) }} triples</span>
+                    </div>
+                    <div class="graph-actions" (click)="$event.stopPropagation()">
+                      <p-button
+                        icon="pi pi-info-circle"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="secondary"
+                        size="small"
+                        pTooltip="Details"
+                        tooltipPosition="top"
+                        (click)="viewGraphDetails(graph)"></p-button>
+                      <p-button
+                        icon="pi pi-download"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="secondary"
+                        size="small"
+                        pTooltip="Export"
+                        tooltipPosition="top"
+                        (click)="exportGraph(graph)"></p-button>
+                      <p-button
+                        icon="pi pi-trash"
+                        [rounded]="true"
+                        [text]="true"
+                        severity="danger"
+                        size="small"
+                        pTooltip="Delete"
+                        tooltipPosition="top"
+                        (click)="confirmDeleteGraph(graph)"></p-button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
 
-      <div class="col-12 lg:col-8">
-        <p-card header="SPARQL Query">
-          <textarea pInputTextarea [ngModel]="sparqlQuery()" (ngModelChange)="sparqlQuery.set($event)" [rows]="6" class="w-full" style="font-family: monospace;"></textarea>
-          <div class="mt-3">
-            <p-button label="Execute Query" icon="pi pi-play" (click)="executeQuery()" [loading]="queryLoading()"></p-button>
-          </div>
-        </p-card>
+      <!-- Main Area -->
+      <div class="main-area">
+        @if (selectedConnection()) {
+          <p-tabs>
+            <p-tabpanel header="SPARQL Query">
+              <div class="query-section">
+                <!-- Query Templates -->
+                <div class="templates-bar">
+                  <span class="templates-label">Templates:</span>
+                  @for (template of queryTemplates; track template.name) {
+                    <p-button
+                      [label]="template.name"
+                      [text]="true"
+                      size="small"
+                      [pTooltip]="template.description"
+                      tooltipPosition="bottom"
+                      (click)="applyTemplate(template)"></p-button>
+                  }
+                </div>
 
-        @if (queryResult()) {
-          <p-card header="Results" styleClass="mt-3">
-            <div class="result-info mb-3">
-              <span>{{ queryResult()!.bindings.length }} results in {{ queryResult()!.executionTime }}ms</span>
-            </div>
-            <p-table [value]="queryResult()!.bindings" [scrollable]="true" scrollHeight="400px" styleClass="p-datatable-sm">
-              <ng-template pTemplate="header">
-                <tr>
-                  @for (v of queryResult()!.variables; track v) {
-                    <th>{{ v }}</th>
+                <!-- Query Editor -->
+                <div class="query-editor">
+                  <textarea
+                    pInputTextarea
+                    [ngModel]="sparqlQuery()"
+                    (ngModelChange)="sparqlQuery.set($event)"
+                    [rows]="8"
+                    class="query-textarea"
+                    placeholder="Enter your SPARQL query..."></textarea>
+                </div>
+
+                <!-- Query Actions -->
+                <div class="query-actions">
+                  <div class="query-options">
+                    @if (graphs().length > 0) {
+                      <p-select
+                        [options]="graphs()"
+                        [ngModel]="selectedGraph()"
+                        (ngModelChange)="selectedGraph.set($event)"
+                        optionLabel="uri"
+                        placeholder="All graphs"
+                        [showClear]="true"
+                        [style]="{ width: '300px' }">
+                        <ng-template pTemplate="selectedItem" let-graph>
+                          {{ shortenUri(graph?.uri || '', 35) }}
+                        </ng-template>
+                        <ng-template pTemplate="item" let-graph>
+                          <div class="graph-option">
+                            <span>{{ shortenUri(graph.uri, 40) }}</span>
+                            <span class="graph-option-count">{{ formatNumber(graph.tripleCount) }}</span>
+                          </div>
+                        </ng-template>
+                      </p-select>
+                    }
+                  </div>
+                  <p-button
+                    label="Execute Query"
+                    icon="pi pi-play"
+                    (click)="executeQuery()"
+                    [loading]="queryLoading()"></p-button>
+                </div>
+
+                <!-- Query Results -->
+                @if (queryResult()) {
+                  <div class="query-results">
+                    <div class="results-header">
+                      <span class="results-info">
+                        {{ queryResult()!.bindings.length }} results in {{ queryResult()!.executionTime }}ms
+                      </span>
+                      <div class="results-actions">
+                        <p-button
+                          icon="pi pi-copy"
+                          label="Copy Results"
+                          [text]="true"
+                          size="small"
+                          (click)="copyToClipboard(getResultsJson(), 'Results')"></p-button>
+                      </div>
+                    </div>
+                    <p-table
+                      [value]="queryResult()!.bindings"
+                      [scrollable]="true"
+                      scrollHeight="400px"
+                      styleClass="p-datatable-sm p-datatable-striped">
+                      <ng-template pTemplate="header">
+                        <tr>
+                          @for (v of queryResult()!.variables; track v) {
+                            <th>{{ v }}</th>
+                          }
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-row>
+                        <tr>
+                          @for (v of queryResult()!.variables; track v) {
+                            <td class="result-cell" [pTooltip]="row[v]?.value" tooltipPosition="top">
+                              {{ row[v]?.value }}
+                            </td>
+                          }
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="emptymessage">
+                        <tr>
+                          <td [colSpan]="queryResult()!.variables.length" class="text-center text-muted py-4">
+                            No results found
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </div>
+                }
+              </div>
+            </p-tabpanel>
+
+            <p-tabpanel header="Browse Resources">
+              @if (selectedGraph()) {
+                <div class="resources-section">
+                  <!-- Search Bar -->
+                  <div class="resources-header">
+                    <div class="resources-search">
+                      <span class="p-input-icon-left w-full">
+                        <i class="pi pi-search"></i>
+                        <input
+                          type="text"
+                          pInputText
+                          [ngModel]="resourceSearchQuery()"
+                          (ngModelChange)="resourceSearchQuery.set($event)"
+                          (keyup.enter)="searchResources()"
+                          placeholder="Search resources..."
+                          class="w-full" />
+                      </span>
+                    </div>
+                    <p-button
+                      label="Search"
+                      icon="pi pi-search"
+                      (click)="searchResources()"
+                      [loading]="resourcesLoading()"></p-button>
+                    <p-button
+                      label="Refresh"
+                      icon="pi pi-refresh"
+                      severity="secondary"
+                      (click)="loadResources(selectedGraph()!.uri)"
+                      [loading]="resourcesLoading()"></p-button>
+                  </div>
+
+                  <!-- Resources Table -->
+                  @if (resourcesLoading()) {
+                    <div class="loading-hint">
+                      <i class="pi pi-spin pi-spinner"></i>
+                      <span>Loading resources...</span>
+                    </div>
+                  } @else if (resources().length === 0) {
+                    <div class="empty-hint">
+                      <i class="pi pi-inbox"></i>
+                      <p>No resources found</p>
+                    </div>
+                  } @else {
+                    <p-table
+                      [value]="resources()"
+                      [scrollable]="true"
+                      scrollHeight="500px"
+                      styleClass="p-datatable-sm">
+                      <ng-template pTemplate="header">
+                        <tr>
+                          <th>URI</th>
+                          <th>Type</th>
+                          <th>Label</th>
+                          <th style="width: 80px;"></th>
+                        </tr>
+                      </ng-template>
+                      <ng-template pTemplate="body" let-resource>
+                        <tr class="resource-row" (click)="viewResource(resource)">
+                          <td class="uri-cell">
+                            <span [pTooltip]="resource.uri" tooltipPosition="right">
+                              {{ shortenUri(resource.uri) }}
+                            </span>
+                          </td>
+                          <td>
+                            @if (resource.types?.length > 0) {
+                              <span class="type-badge">{{ shortenUri(resource.types[0], 30) }}</span>
+                            } @else {
+                              <span class="text-muted">-</span>
+                            }
+                          </td>
+                          <td>{{ resource.label || '-' }}</td>
+                          <td>
+                            <p-button
+                              icon="pi pi-external-link"
+                              [rounded]="true"
+                              [text]="true"
+                              severity="secondary"
+                              size="small"
+                              pTooltip="View Details"
+                              tooltipPosition="left"
+                              (click)="$event.stopPropagation(); viewResource(resource)"></p-button>
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
                   }
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-row>
-                <tr>
-                  @for (v of queryResult()!.variables; track v) {
-                    <td class="result-cell">{{ row[v]?.value }}</td>
-                  }
-                </tr>
-              </ng-template>
-            </p-table>
-          </p-card>
+                </div>
+              } @else {
+                <div class="select-graph-hint">
+                  <i class="pi pi-arrow-left"></i>
+                  <p>Select a graph from the sidebar to browse resources</p>
+                </div>
+              }
+            </p-tabpanel>
+          </p-tabs>
+        } @else {
+          <div class="select-connection-hint">
+            <i class="pi pi-arrow-left"></i>
+            <p>Select a connection from the sidebar to get started</p>
+          </div>
         }
       </div>
     </div>
-  } @else {
-    <div class="empty-state">
-      <i class="pi pi-database"></i>
-      <p>No triplestore connections configured</p>
-    </div>
   }
 </div>
+
+<!-- Add Connection Dialog -->
+<p-dialog
+  header="Add Connection"
+  [(visible)]="connectionDialogVisible"
+  [modal]="true"
+  [style]="{ width: '500px' }"
+  [closable]="true">
+  <div class="form-content">
+    <div class="form-field">
+      <label>Name <span class="required">*</span></label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="newConnection().name"
+        (ngModelChange)="updateNewConnectionName($event)"
+        placeholder="My Triplestore" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Type <span class="required">*</span></label>
+        <p-select
+          [options]="triplestoreTypes"
+          [ngModel]="newConnection().type"
+          (ngModelChange)="updateNewConnectionType($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select type"></p-select>
+      </div>
+      <div class="form-field">
+        <label>Authentication</label>
+        <p-select
+          [options]="authTypes"
+          [ngModel]="newConnection().authType"
+          (ngModelChange)="updateNewConnectionAuthType($event)"
+          optionLabel="label"
+          optionValue="value"></p-select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>Endpoint URL <span class="required">*</span></label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="newConnection().url"
+        (ngModelChange)="updateNewConnectionUrl($event)"
+        placeholder="http://localhost:3030/dataset" />
+      <span class="field-hint">The SPARQL endpoint URL</span>
+    </div>
+
+    @if (newConnection().authType === 'basic') {
+      <div class="form-row">
+        <div class="form-field">
+          <label>Username</label>
+          <input
+            type="text"
+            pInputText
+            [ngModel]="newConnection().authConfig?.username"
+            (ngModelChange)="updateNewConnectionAuthUsername($event)"
+            placeholder="Username" />
+        </div>
+        <div class="form-field">
+          <label>Password</label>
+          <input
+            type="password"
+            pInputText
+            [ngModel]="newConnection().authConfig?.password"
+            (ngModelChange)="updateNewConnectionAuthPassword($event)"
+            placeholder="Password" />
+        </div>
+      </div>
+    }
+
+    @if (newConnection().authType === 'apikey') {
+      <div class="form-field">
+        <label>API Key</label>
+        <input
+          type="password"
+          pInputText
+          [ngModel]="newConnection().authConfig?.apiKey"
+          (ngModelChange)="updateNewConnectionAuthApiKey($event)"
+          placeholder="API Key" />
+      </div>
+    }
+
+    <div class="form-field">
+      <label>Default Graph (optional)</label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="newConnection().defaultGraph"
+        (ngModelChange)="updateNewConnectionDefaultGraph($event)"
+        placeholder="http://example.org/graph" />
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      (click)="connectionDialogVisible.set(false)"></p-button>
+    <p-button
+      label="Create"
+      icon="pi pi-check"
+      (click)="createConnection()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Edit Connection Dialog -->
+<p-dialog
+  header="Edit Connection"
+  [(visible)]="editConnectionDialogVisible"
+  [modal]="true"
+  [style]="{ width: '500px' }"
+  [closable]="true">
+  <div class="form-content">
+    <div class="form-field">
+      <label>Name <span class="required">*</span></label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="editConnection().name"
+        (ngModelChange)="updateEditConnectionName($event)" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>Type</label>
+        <p-select
+          [options]="triplestoreTypes"
+          [ngModel]="editConnection().type"
+          (ngModelChange)="updateEditConnectionType($event)"
+          optionLabel="label"
+          optionValue="value"></p-select>
+      </div>
+      <div class="form-field">
+        <label>Authentication</label>
+        <p-select
+          [options]="authTypes"
+          [ngModel]="editConnection().authType"
+          (ngModelChange)="updateEditConnectionAuthType($event)"
+          optionLabel="label"
+          optionValue="value"></p-select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>Endpoint URL <span class="required">*</span></label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="editConnection().url"
+        (ngModelChange)="updateEditConnectionUrl($event)" />
+    </div>
+
+    <div class="form-field">
+      <label>Default Graph</label>
+      <input
+        type="text"
+        pInputText
+        [ngModel]="editConnection().defaultGraph"
+        (ngModelChange)="updateEditConnectionDefaultGraph($event)" />
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      (click)="editConnectionDialogVisible.set(false)"></p-button>
+    <p-button
+      label="Save"
+      icon="pi pi-check"
+      (click)="saveConnection()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Upload RDF Dialog -->
+<p-dialog
+  header="Upload RDF Data"
+  [(visible)]="uploadDialogVisible"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [closable]="true">
+  <div class="form-content">
+    <div class="form-row">
+      <div class="form-field" style="flex: 2;">
+        <label>Target Graph URI <span class="required">*</span></label>
+        <input
+          type="text"
+          pInputText
+          [ngModel]="uploadForm().graphUri"
+          (ngModelChange)="updateUploadGraphUri($event)"
+          placeholder="http://example.org/mygraph" />
+      </div>
+      <div class="form-field" style="flex: 1;">
+        <label>Format</label>
+        <p-select
+          [options]="rdfFormats"
+          [ngModel]="uploadForm().format"
+          (ngModelChange)="updateUploadFormat($event)"
+          optionLabel="label"
+          optionValue="value"></p-select>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label>RDF Content <span class="required">*</span></label>
+      <textarea
+        pInputTextarea
+        [ngModel]="uploadForm().content"
+        (ngModelChange)="updateUploadContent($event)"
+        [rows]="12"
+        class="rdf-content-area"
+        placeholder="@prefix ex: <http://example.org/> .
+
+ex:subject1 a ex:Class ;
+  rdfs:label &quot;Example&quot; ."></textarea>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      (click)="uploadDialogVisible.set(false)"></p-button>
+    <p-button
+      label="Upload"
+      icon="pi pi-upload"
+      [loading]="uploadingRdf()"
+      (click)="uploadRdf()"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Resource Details Dialog -->
+<p-dialog
+  header="Resource Details"
+  [(visible)]="resourceDialogVisible"
+  [modal]="true"
+  [style]="{ width: '700px' }"
+  [closable]="true">
+  @if (selectedResource()) {
+    <div class="resource-details">
+      <div class="resource-uri">
+        <label>URI</label>
+        <div class="uri-display">
+          <code>{{ selectedResource()!.uri }}</code>
+          <p-button
+            icon="pi pi-copy"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="copyToClipboard(selectedResource()!.uri, 'URI')"></p-button>
+        </div>
+      </div>
+
+      @if (selectedResource()?.types && selectedResource()!.types.length > 0) {
+        <div class="resource-types">
+          <label>Types</label>
+          <div class="types-list">
+            @for (type of selectedResource()!.types; track type) {
+              <p-tag [value]="shortenUri(type, 50)" severity="info"></p-tag>
+            }
+          </div>
+        </div>
+      }
+
+      @if (selectedResource()?.properties && selectedResource()!.properties.length > 0) {
+        <div class="resource-properties">
+          <label>Properties</label>
+          <p-table [value]="selectedResource()!.properties" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Predicate</th>
+                <th>Value</th>
+                <th>Type</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-prop>
+              <tr>
+                <td class="predicate-cell">
+                  <span [pTooltip]="prop.predicate" tooltipPosition="right">
+                    {{ shortenUri(prop.predicate, 40) }}
+                  </span>
+                </td>
+                <td class="object-cell">
+                  @if (prop.objectType === 'uri') {
+                    <a [href]="prop.object" target="_blank" class="uri-link">
+                      {{ shortenUri(prop.object, 50) }}
+                    </a>
+                  } @else {
+                    <span>{{ prop.object }}</span>
+                    @if (prop.language) {
+                      <span class="lang-tag">{{ prop.language }}</span>
+                    }
+                  }
+                </td>
+                <td>
+                  <p-tag
+                    [value]="prop.objectType"
+                    [severity]="prop.objectType === 'uri' ? 'info' : 'secondary'"
+                    [style]="{ fontSize: '0.65rem' }"></p-tag>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Close"
+      severity="secondary"
+      (click)="resourceDialogVisible.set(false)"></p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- Graph Details Dialog -->
+<p-dialog
+  header="Graph Details"
+  [(visible)]="graphDetailsDialogVisible"
+  [modal]="true"
+  [style]="{ width: '500px' }"
+  [closable]="true">
+  @if (selectedGraph()) {
+    <div class="graph-details">
+      <div class="detail-item">
+        <label>URI</label>
+        <div class="uri-display">
+          <code>{{ selectedGraph()!.uri }}</code>
+          <p-button
+            icon="pi pi-copy"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            (click)="copyToClipboard(selectedGraph()!.uri, 'Graph URI')"></p-button>
+        </div>
+      </div>
+      <div class="detail-item">
+        <label>Triple Count</label>
+        <span class="detail-value">{{ formatNumber(selectedGraph()!.tripleCount) }}</span>
+      </div>
+      @if (selectedGraph()!.lastModified) {
+        <div class="detail-item">
+          <label>Last Modified</label>
+          <span class="detail-value">{{ formatDate(selectedGraph()!.lastModified) }}</span>
+        </div>
+      }
+
+      <p-divider></p-divider>
+
+      <div class="export-options">
+        <label>Export As</label>
+        <div class="export-buttons">
+          <p-button
+            label="Turtle"
+            icon="pi pi-download"
+            severity="secondary"
+            size="small"
+            (click)="exportGraph(selectedGraph()!, 'turtle')"></p-button>
+          <p-button
+            label="RDF/XML"
+            icon="pi pi-download"
+            severity="secondary"
+            size="small"
+            (click)="exportGraph(selectedGraph()!, 'rdfxml')"></p-button>
+          <p-button
+            label="N-Triples"
+            icon="pi pi-download"
+            severity="secondary"
+            size="small"
+            (click)="exportGraph(selectedGraph()!, 'ntriples')"></p-button>
+          <p-button
+            label="JSON-LD"
+            icon="pi pi-download"
+            severity="secondary"
+            size="small"
+            (click)="exportGraph(selectedGraph()!, 'jsonld')"></p-button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Delete Graph"
+      icon="pi pi-trash"
+      severity="danger"
+      (click)="graphDetailsDialogVisible.set(false); confirmDeleteGraph(selectedGraph()!)"></p-button>
+    <p-button
+      label="Close"
+      severity="secondary"
+      (click)="graphDetailsDialogVisible.set(false)"></p-button>
+  </ng-template>
+</p-dialog>

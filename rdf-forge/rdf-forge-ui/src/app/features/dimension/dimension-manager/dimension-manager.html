@@ -1,25 +1,85 @@
 <p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 
 <div class="dimension-manager">
   <div class="header">
-    <h1>Dimensions</h1>
+    <div class="header-left">
+      <h1>Dimensions</h1>
+      <p-tag [value]="filteredDimensions().length + ' dimensions'" severity="secondary"></p-tag>
+    </div>
     <div class="actions">
       <span class="p-input-icon-left">
         <i class="pi pi-search"></i>
         <input type="text" pInputText placeholder="Search dimensions..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
       </span>
-      <p-button label="New Dimension" icon="pi pi-plus" (click)="createDialogVisible.set(true)"></p-button>
+      <p-select [options]="typeFilterOptions" [(ngModel)]="typeFilter" optionLabel="label" optionValue="value" placeholder="Filter by type" [style]="{ minWidth: '150px' }"></p-select>
+      <p-button label="New Dimension" icon="pi pi-plus" (click)="openCreateDialog()"></p-button>
     </div>
   </div>
 
-  <p-table [value]="dimensions()" [loading]="loading()" [paginator]="true" [rows]="10" dataKey="id" responsiveLayout="scroll" styleClass="p-datatable-sm">
+  <!-- Stats Cards -->
+  @if (dimensions().length > 0) {
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="pi pi-list"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ totalDimensions() }}</span>
+          <span class="stat-label">Total Dimensions</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="pi pi-database"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ totalValues() | number }}</span>
+          <span class="stat-label">Total Values</span>
+        </div>
+      </div>
+      @for (type of ['KEY', 'TEMPORAL', 'GEO', 'MEASURE']; track type) {
+        @if (byType()[type]) {
+          <div class="stat-card type-card">
+            <div class="stat-icon">
+              <i [class]="getTypeIcon(type)"></i>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value">{{ byType()[type] }}</span>
+              <span class="stat-label">{{ type }}</span>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <p-table
+    [value]="filteredDimensions()"
+    [loading]="loading()"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    dataKey="id"
+    responsiveLayout="scroll"
+    styleClass="p-datatable-sm p-datatable-striped"
+    [globalFilterFields]="['name', 'uri', 'description', 'type']">
+
+    <ng-template pTemplate="caption">
+      <div class="table-caption">
+        <span>Reusable dimensions for data cube construction</span>
+        <p-button icon="pi pi-refresh" [text]="true" [rounded]="true" (click)="loadDimensions()" pTooltip="Refresh" [loading]="loading()"></p-button>
+      </div>
+    </ng-template>
+
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="5">
+        <td colspan="6">
           <div class="empty-state">
             <i class="pi pi-list"></i>
-            <p>No dimensions defined</p>
-            <p-button label="Create your first dimension" icon="pi pi-plus" (click)="createDialogVisible.set(true)"></p-button>
+            <h3>No dimensions defined</h3>
+            <p>Create your first dimension to define reusable data categories</p>
+            <p-button label="Create Dimension" icon="pi pi-plus" (click)="openCreateDialog()"></p-button>
           </div>
         </td>
       </tr>
@@ -27,54 +87,350 @@
 
     <ng-template pTemplate="header">
       <tr>
-        <th style="min-width: 200px">Name</th>
-        <th style="width: 120px">Type</th>
-        <th style="width: 100px">Values</th>
+        <th style="min-width: 200px" pSortableColumn="name">Name <p-sortIcon field="name"></p-sortIcon></th>
+        <th style="width: 120px" pSortableColumn="type">Type <p-sortIcon field="type"></p-sortIcon></th>
+        <th style="width: 100px" pSortableColumn="valueCount">Values <p-sortIcon field="valueCount"></p-sortIcon></th>
         <th style="min-width: 200px">URI</th>
-        <th style="width: 100px">Actions</th>
+        <th style="width: 140px" pSortableColumn="updatedAt">Updated <p-sortIcon field="updatedAt"></p-sortIcon></th>
+        <th style="width: 180px">Actions</th>
       </tr>
     </ng-template>
 
     <ng-template pTemplate="body" let-dim>
-      <tr>
+      <tr class="dim-row">
         <td>
           <div class="dim-name">
-            <span class="name">{{ dim.name }}</span>
-            <span class="description">{{ dim.description }}</span>
+            <div class="name-row">
+              <i [class]="getTypeIcon(dim.type)" class="type-icon"></i>
+              <span class="name">{{ dim.name }}</span>
+            </div>
+            @if (dim.description) {
+              <span class="description">{{ dim.description }}</span>
+            }
           </div>
         </td>
         <td><p-tag [value]="dim.type" [severity]="getTypeSeverity(dim.type)"></p-tag></td>
-        <td>{{ dim.valueCount || 0 }}</td>
-        <td class="uri-cell">{{ dim.uri }}</td>
+        <td>
+          <span class="value-count" [class.has-values]="dim.valueCount > 0">{{ dim.valueCount || 0 }}</span>
+        </td>
+        <td>
+          <div class="uri-cell">
+            <span class="uri-text" pTooltip="{{ dim.uri }}" tooltipPosition="top">{{ dim.uri }}</span>
+            <button class="copy-btn" (click)="copyToClipboard(dim.uri, 'URI'); $event.stopPropagation()" pTooltip="Copy URI">
+              <i class="pi pi-copy"></i>
+            </button>
+          </div>
+        </td>
+        <td>{{ formatDate(dim.updatedAt) }}</td>
         <td>
           <div class="row-actions">
-            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="deleteDimension(dim, $event)"></p-button>
+            <p-button icon="pi pi-info-circle" severity="secondary" [text]="true" [rounded]="true" (click)="viewDetails(dim, $event)" pTooltip="Details"></p-button>
+            <p-button icon="pi pi-list" severity="info" [text]="true" [rounded]="true" (click)="openValuesDialog(dim, $event)" pTooltip="Manage Values"></p-button>
+            <p-button icon="pi pi-upload" severity="secondary" [text]="true" [rounded]="true" (click)="openImportDialog(dim, $event)" pTooltip="Import CSV"></p-button>
+            <p-button icon="pi pi-download" severity="secondary" [text]="true" [rounded]="true" (click)="exportTurtle(dim, $event)" pTooltip="Export Turtle"></p-button>
+            <p-button icon="pi pi-pencil" severity="secondary" [text]="true" [rounded]="true" (click)="openEditDialog(dim, $event)" pTooltip="Edit"></p-button>
+            <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" (click)="confirmDelete(dim, $event)" pTooltip="Delete"></p-button>
           </div>
         </td>
       </tr>
     </ng-template>
   </p-table>
 
-  <p-dialog [(visible)]="createDialogVisible" header="New Dimension" [modal]="true" [style]="{ width: '500px' }">
-    <div class="field">
-      <label for="dimName">Name</label>
-      <input id="dimName" type="text" pInputText class="w-full" [(ngModel)]="newDimension().name" placeholder="Dimension name" />
-    </div>
-    <div class="field">
-      <label for="dimUri">URI</label>
-      <input id="dimUri" type="text" pInputText class="w-full" [(ngModel)]="newDimension().uri" placeholder="https://example.org/dimension/name" />
-    </div>
-    <div class="field">
-      <label for="dimType">Type</label>
-      <p-select id="dimType" [options]="typeOptions" [(ngModel)]="newDimension().type" optionLabel="label" optionValue="value" class="w-full"></p-select>
-    </div>
-    <div class="field">
-      <label for="dimDesc">Description</label>
-      <input id="dimDesc" type="text" pInputText class="w-full" [(ngModel)]="newDimension().description" placeholder="Optional description" />
+  <!-- Create Dimension Dialog -->
+  <p-dialog [(visible)]="createDialogVisible" header="New Dimension" [modal]="true" [style]="{ width: '550px' }">
+    <div class="form-content">
+      <div class="form-field">
+        <label for="dimName">Name <span class="required">*</span></label>
+        <input id="dimName" type="text" pInputText class="w-full" [ngModel]="newDimension().name" (ngModelChange)="updateNewDimensionName($event)" placeholder="e.g., Time Period" />
+      </div>
+      <div class="form-field">
+        <label for="dimUri">URI <span class="required">*</span></label>
+        <input id="dimUri" type="text" pInputText class="w-full" [ngModel]="newDimension().uri" (ngModelChange)="updateNewDimensionUri($event)" placeholder="https://example.org/dimension/timePeriod" />
+        <small class="field-hint">Unique identifier for this dimension in RDF</small>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="dimType">Type</label>
+          <p-select id="dimType" [options]="typeOptions" [ngModel]="newDimension().type" (ngModelChange)="updateNewDimensionType($event)" optionLabel="label" optionValue="value" class="w-full"></p-select>
+        </div>
+        <div class="form-field">
+          <label for="dimBaseUri">Base URI for Values</label>
+          <input id="dimBaseUri" type="text" pInputText class="w-full" [ngModel]="newDimension().baseUri" (ngModelChange)="updateNewDimensionBaseUri($event)" placeholder="https://example.org/code/" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="dimDesc">Description</label>
+        <textarea id="dimDesc" pInputTextarea class="w-full" rows="3" [ngModel]="newDimension().description" (ngModelChange)="updateNewDimensionDescription($event)" placeholder="Optional description of this dimension"></textarea>
+      </div>
     </div>
     <ng-template pTemplate="footer">
       <p-button label="Cancel" [text]="true" (click)="createDialogVisible.set(false)"></p-button>
       <p-button label="Create" icon="pi pi-check" (click)="createDimension()"></p-button>
     </ng-template>
+  </p-dialog>
+
+  <!-- Edit Dimension Dialog -->
+  <p-dialog [(visible)]="editDialogVisible" header="Edit Dimension" [modal]="true" [style]="{ width: '550px' }">
+    <div class="form-content">
+      <div class="form-field">
+        <label for="editDimName">Name <span class="required">*</span></label>
+        <input id="editDimName" type="text" pInputText class="w-full" [ngModel]="editDimension().name" (ngModelChange)="updateEditDimensionName($event)" />
+      </div>
+      <div class="form-field">
+        <label for="editDimUri">URI <span class="required">*</span></label>
+        <input id="editDimUri" type="text" pInputText class="w-full" [ngModel]="editDimension().uri" (ngModelChange)="updateEditDimensionUri($event)" />
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="editDimType">Type</label>
+          <p-select id="editDimType" [options]="typeOptions" [ngModel]="editDimension().type" (ngModelChange)="updateEditDimensionType($event)" optionLabel="label" optionValue="value" class="w-full"></p-select>
+        </div>
+        <div class="form-field">
+          <label for="editDimBaseUri">Base URI for Values</label>
+          <input id="editDimBaseUri" type="text" pInputText class="w-full" [ngModel]="editDimension().baseUri" (ngModelChange)="updateEditDimensionBaseUri($event)" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="editDimDesc">Description</label>
+        <textarea id="editDimDesc" pInputTextarea class="w-full" rows="3" [ngModel]="editDimension().description" (ngModelChange)="updateEditDimensionDescription($event)"></textarea>
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="editDialogVisible.set(false)"></p-button>
+      <p-button label="Save" icon="pi pi-check" (click)="saveDimension()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Details Dialog -->
+  <p-dialog [(visible)]="detailsDialogVisible" [header]="'Details: ' + (selectedDimension()?.name || '')" [modal]="true" [style]="{ width: '600px' }">
+    @if (selectedDimension(); as dim) {
+      <div class="details-content">
+        <div class="details-grid">
+          <div class="detail-item">
+            <label>Name</label>
+            <span class="detail-value">{{ dim.name }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Type</label>
+            <p-tag [value]="dim.type" [severity]="getTypeSeverity(dim.type)"></p-tag>
+          </div>
+          <div class="detail-item full-width">
+            <label>URI</label>
+            <div class="uri-display">
+              <code>{{ dim.uri }}</code>
+              <p-button icon="pi pi-copy" [text]="true" [rounded]="true" size="small" (click)="copyToClipboard(dim.uri, 'URI')"></p-button>
+            </div>
+          </div>
+          @if (dim.baseUri) {
+            <div class="detail-item full-width">
+              <label>Base URI for Values</label>
+              <code>{{ dim.baseUri }}</code>
+            </div>
+          }
+          @if (dim.description) {
+            <div class="detail-item full-width">
+              <label>Description</label>
+              <span class="detail-value">{{ dim.description }}</span>
+            </div>
+          }
+          <div class="detail-item">
+            <label>Value Count</label>
+            <span class="detail-value">{{ dim.valueCount || 0 }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Version</label>
+            <span class="detail-value">{{ dim.version || 1 }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Created</label>
+            <span class="detail-value">{{ formatDate(dim.createdAt) }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Updated</label>
+            <span class="detail-value">{{ formatDate(dim.updatedAt) }}</span>
+          </div>
+          <div class="detail-item full-width">
+            <label>ID</label>
+            <code class="id-code">{{ dim.id }}</code>
+          </div>
+        </div>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="Manage Values" icon="pi pi-list" (click)="openValuesDialog(selectedDimension()!, $event); detailsDialogVisible.set(false)"></p-button>
+      <p-button label="Close" [text]="true" (click)="detailsDialogVisible.set(false)"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Values Management Dialog -->
+  <p-dialog [(visible)]="valuesDialogVisible" [header]="'Values: ' + (selectedDimension()?.name || '')" [modal]="true" [style]="{ width: '900px' }" [contentStyle]="{ 'max-height': '70vh', 'overflow': 'auto' }">
+    <div class="values-header">
+      <div class="values-search">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input type="text" pInputText placeholder="Search values..." [ngModel]="valuesSearchQuery()" (ngModelChange)="valuesSearchQuery.set($event)" />
+        </span>
+      </div>
+      <div class="values-actions">
+        <p-button label="Add Value" icon="pi pi-plus" size="small" (click)="openAddValueDialog()"></p-button>
+      </div>
+    </div>
+
+    @if (valuesLoading()) {
+      <div class="values-loading">
+        <i class="pi pi-spin pi-spinner text-4xl"></i>
+        <p>Loading values...</p>
+      </div>
+    } @else if (filteredValues().length === 0) {
+      <div class="values-empty">
+        <i class="pi pi-inbox"></i>
+        <h4>No values defined</h4>
+        <p>Add values manually or import from CSV</p>
+        <div class="empty-actions">
+          <p-button label="Add Value" icon="pi pi-plus" (click)="openAddValueDialog()"></p-button>
+          <p-button label="Import CSV" icon="pi pi-upload" severity="secondary" (click)="importDialogVisible.set(true)"></p-button>
+        </div>
+      </div>
+    } @else {
+      <p-table [value]="filteredValues()" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-gridlines">
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="code" style="width: 120px">Code <p-sortIcon field="code"></p-sortIcon></th>
+            <th pSortableColumn="label">Label <p-sortIcon field="label"></p-sortIcon></th>
+            <th>URI</th>
+            <th style="width: 100px">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-value>
+          <tr>
+            <td><code class="value-code">{{ value.code }}</code></td>
+            <td>
+              <div class="value-label">
+                <span>{{ value.label }}</span>
+                @if (value.description) {
+                  <small class="value-desc">{{ value.description }}</small>
+                }
+              </div>
+            </td>
+            <td class="uri-cell-small">
+              <span pTooltip="{{ value.uri }}" tooltipPosition="top">{{ value.uri }}</span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <p-button icon="pi pi-pencil" severity="secondary" [text]="true" [rounded]="true" size="small" (click)="openEditValueDialog(value, $event)" pTooltip="Edit"></p-button>
+                <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" size="small" (click)="confirmDeleteValue(value, $event)" pTooltip="Delete"></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="values-footer">
+        <span class="values-count">{{ filteredValues().length }} values</span>
+        <p-button label="Close" [text]="true" (click)="valuesDialogVisible.set(false)"></p-button>
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Add Value Dialog -->
+  <p-dialog [(visible)]="addValueDialogVisible" header="Add Value" [modal]="true" [style]="{ width: '500px' }">
+    <div class="form-content">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="valCode">Code <span class="required">*</span></label>
+          <input id="valCode" type="text" pInputText class="w-full" [ngModel]="newValue().code" (ngModelChange)="updateNewValueCode($event)" placeholder="e.g., 2024-Q1" />
+        </div>
+        <div class="form-field">
+          <label for="valLabel">Label <span class="required">*</span></label>
+          <input id="valLabel" type="text" pInputText class="w-full" [ngModel]="newValue().label" (ngModelChange)="updateNewValueLabel($event)" placeholder="e.g., First Quarter 2024" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="valUri">URI</label>
+        <input id="valUri" type="text" pInputText class="w-full" [ngModel]="newValue().uri" (ngModelChange)="updateNewValueUri($event)" placeholder="Auto-generated from base URI if empty" />
+      </div>
+      <div class="form-field">
+        <label for="valDesc">Description</label>
+        <input id="valDesc" type="text" pInputText class="w-full" [ngModel]="newValue().description" (ngModelChange)="updateNewValueDescription($event)" placeholder="Optional description" />
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="addValueDialogVisible.set(false)"></p-button>
+      <p-button label="Add" icon="pi pi-plus" (click)="addValue()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Edit Value Dialog -->
+  <p-dialog [(visible)]="editValueDialogVisible" header="Edit Value" [modal]="true" [style]="{ width: '500px' }">
+    <div class="form-content">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="editValCode">Code <span class="required">*</span></label>
+          <input id="editValCode" type="text" pInputText class="w-full" [ngModel]="editValue().code" (ngModelChange)="updateEditValueCode($event)" />
+        </div>
+        <div class="form-field">
+          <label for="editValLabel">Label <span class="required">*</span></label>
+          <input id="editValLabel" type="text" pInputText class="w-full" [ngModel]="editValue().label" (ngModelChange)="updateEditValueLabel($event)" />
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="editValUri">URI</label>
+        <input id="editValUri" type="text" pInputText class="w-full" [ngModel]="editValue().uri" (ngModelChange)="updateEditValueUri($event)" />
+      </div>
+      <div class="form-field">
+        <label for="editValDesc">Description</label>
+        <input id="editValDesc" type="text" pInputText class="w-full" [ngModel]="editValue().description" (ngModelChange)="updateEditValueDescription($event)" />
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancel" [text]="true" (click)="editValueDialogVisible.set(false)"></p-button>
+      <p-button label="Save" icon="pi pi-check" (click)="saveValue()"></p-button>
+    </ng-template>
+  </p-dialog>
+
+  <!-- Import CSV Dialog -->
+  <p-dialog [(visible)]="importDialogVisible" [header]="'Import Values: ' + (selectedDimension()?.name || '')" [modal]="true" [style]="{ width: '550px' }" [closable]="!importing()">
+    <div class="import-content">
+      <p-fileUpload
+        mode="advanced"
+        [auto]="false"
+        [customUpload]="true"
+        accept=".csv"
+        [maxFileSize]="10485760"
+        (onSelect)="onFileSelect($event)"
+        [disabled]="importing()">
+        <ng-template pTemplate="toolbar">
+          <div class="import-toolbar">Select a CSV file to import</div>
+        </ng-template>
+        <ng-template pTemplate="content">
+          <div class="import-dropzone" [class.importing]="importing()">
+            @if (importing()) {
+              <i class="pi pi-spin pi-spinner"></i>
+              <p>Importing values...</p>
+              <p-progressBar mode="indeterminate" styleClass="w-full"></p-progressBar>
+            } @else {
+              <i class="pi pi-file-excel"></i>
+              <p>Drag and drop a CSV file here</p>
+              <p>or click to browse</p>
+            }
+          </div>
+        </ng-template>
+      </p-fileUpload>
+
+      <p-divider></p-divider>
+
+      <div class="import-info">
+        <h4>CSV Format Requirements</h4>
+        <ul>
+          <li><strong>code</strong> - Unique identifier for the value (required)</li>
+          <li><strong>label</strong> - Display label (required)</li>
+          <li><strong>uri</strong> - Full URI (optional, auto-generated if empty)</li>
+          <li><strong>description</strong> - Optional description</li>
+        </ul>
+        <p class="text-sm text-500">First row should contain column headers</p>
+      </div>
+    </div>
   </p-dialog>
 </div>
