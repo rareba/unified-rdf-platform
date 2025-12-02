@@ -2,16 +2,20 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { SelectModule } from 'primeng/select';
-import { TagModule } from 'primeng/tag';
-import { DialogModule } from 'primeng/dialog';
-import { SkeletonModule } from 'primeng/skeleton';
-import { TooltipModule } from 'primeng/tooltip';
-import { MessageService } from 'primeng/api';
-import { ToastModule } from 'primeng/toast';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatCardModule } from '@angular/material/card';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { PipelineService } from '../../../core/services';
 import { Pipeline } from '../../../core/models';
 
@@ -20,32 +24,42 @@ import { Pipeline } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    SelectModule,
-    TagModule,
-    DialogModule,
-    SkeletonModule,
-    TooltipModule,
-    ToastModule
+    MatTableModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    MatPaginatorModule,
+    MatSortModule,
+    MatChipsModule,
+    MatCardModule,
+    MatDialogModule
   ],
-  providers: [MessageService],
   templateUrl: './pipeline-list.html',
   styleUrl: './pipeline-list.scss',
 })
 export class PipelineList implements OnInit {
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
-  private readonly messageService = inject(MessageService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   loading = signal(true);
   searchQuery = signal('');
   statusFilter = signal<string | null>(null);
   pipelines = signal<Pipeline[]>([]);
-  deleteDialogVisible = signal(false);
   selectedPipeline = signal<Pipeline | null>(null);
   deleting = signal(false);
+
+  displayedColumns: string[] = ['name', 'status', 'stepsCount', 'lastRun', 'tags', 'actions'];
+  pageSize = signal(10);
+  pageIndex = signal(0);
+  sortField = signal<string>('name');
+  sortDirection = signal<'asc' | 'desc'>('asc');
 
   statusOptions = [
     { label: 'All', value: null },
@@ -71,6 +85,33 @@ export class PipelineList implements OnInit {
     return result;
   });
 
+  sortedPipelines = computed(() => {
+    const data = [...this.filteredPipelines()];
+    const field = this.sortField();
+    const direction = this.sortDirection();
+
+    data.sort((a: any, b: any) => {
+      const aValue = a[field];
+      const bValue = b[field];
+
+      if (aValue === bValue) return 0;
+      if (aValue == null) return 1;
+      if (bValue == null) return -1;
+
+      const comparison = aValue < bValue ? -1 : 1;
+      return direction === 'asc' ? comparison : -comparison;
+    });
+
+    return data;
+  });
+
+  paginatedPipelines = computed(() => {
+    const data = this.sortedPipelines();
+    const start = this.pageIndex() * this.pageSize();
+    const end = start + this.pageSize();
+    return data.slice(start, end);
+  });
+
   ngOnInit(): void {
     this.loadPipelines();
   }
@@ -83,7 +124,7 @@ export class PipelineList implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load pipelines' });
+        this.snackBar.open('Failed to load pipelines', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
@@ -101,11 +142,11 @@ export class PipelineList implements OnInit {
     event.stopPropagation();
     this.pipelineService.run(pipeline.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Started', detail: `Pipeline "${pipeline.name}" started` });
+        this.snackBar.open(`Pipeline "${pipeline.name}" started`, 'Close', { duration: 3000 });
         this.router.navigate(['/jobs']);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to run pipeline' });
+        this.snackBar.open('Failed to run pipeline', 'Close', { duration: 3000 });
       }
     });
   }
@@ -114,11 +155,11 @@ export class PipelineList implements OnInit {
     event.stopPropagation();
     this.pipelineService.duplicate(pipeline.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Duplicated', detail: `Pipeline "${pipeline.name}" duplicated` });
+        this.snackBar.open(`Pipeline "${pipeline.name}" duplicated`, 'Close', { duration: 3000 });
         this.loadPipelines();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to duplicate pipeline' });
+        this.snackBar.open('Failed to duplicate pipeline', 'Close', { duration: 3000 });
       }
     });
   }
@@ -126,34 +167,44 @@ export class PipelineList implements OnInit {
   confirmDelete(pipeline: Pipeline, event: Event): void {
     event.stopPropagation();
     this.selectedPipeline.set(pipeline);
-    this.deleteDialogVisible.set(true);
+
+    const confirmed = window.confirm(`Are you sure you want to delete "${pipeline.name}"?`);
+    if (confirmed) {
+      this.deletePipeline(pipeline);
+    }
   }
 
-  deletePipeline(): void {
-    const pipeline = this.selectedPipeline();
-    if (!pipeline) return;
-
+  deletePipeline(pipeline: Pipeline): void {
     this.deleting.set(true);
     this.pipelineService.delete(pipeline.id).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Deleted', detail: `Pipeline "${pipeline.name}" deleted` });
+        this.snackBar.open(`Pipeline "${pipeline.name}" deleted`, 'Close', { duration: 3000 });
         this.loadPipelines();
-        this.deleteDialogVisible.set(false);
         this.deleting.set(false);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete pipeline' });
+        this.snackBar.open('Failed to delete pipeline', 'Close', { duration: 3000 });
         this.deleting.set(false);
       }
     });
   }
 
-  getStatusSeverity(status: string): 'success' | 'warn' | 'secondary' | 'info' {
+  onPageChange(event: PageEvent): void {
+    this.pageSize.set(event.pageSize);
+    this.pageIndex.set(event.pageIndex);
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortField.set(sort.active || 'name');
+    this.sortDirection.set(sort.direction || 'asc');
+  }
+
+  getStatusClass(status: string): string {
     switch (status) {
-      case 'active': return 'success';
-      case 'draft': return 'warn';
-      case 'archived': return 'secondary';
-      default: return 'info';
+      case 'active': return 'status-active';
+      case 'draft': return 'status-draft';
+      case 'archived': return 'status-archived';
+      default: return 'status-info';
     }
   }
 
