@@ -18,7 +18,7 @@ export class DataService {
   private readonly http = inject(HttpClient);
 
   list(params?: DataSourceListParams): Observable<DataSource[]> {
-    return this.api.get<DataSource[]>('/data', params as Record<string, unknown>);
+    return this.api.getArray<DataSource>('/data', params as Record<string, unknown>);
   }
 
   get(id: string): Observable<DataSource> {

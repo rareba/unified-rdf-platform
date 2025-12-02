@@ -1,7 +1,18 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+
+interface PagedResponse<T> {
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+  };
+  totalPages: number;
+  totalElements: number;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +23,17 @@ export class ApiService {
 
   get<T>(url: string, params?: Record<string, unknown>): Observable<T> {
     return this.http.get<T>(`${this.baseUrl}${url}`, { params: this.toHttpParams(params) });
+  }
+
+  getArray<T>(url: string, params?: Record<string, unknown>): Observable<T[]> {
+    return this.http.get<PagedResponse<T> | T[]>(`${this.baseUrl}${url}`, { params: this.toHttpParams(params) }).pipe(
+      map(response => {
+        if (response && typeof response === 'object' && 'content' in response) {
+          return (response as PagedResponse<T>).content;
+        }
+        return response as T[];
+      })
+    );
   }
 
   post<T>(url: string, data: unknown): Observable<T> {

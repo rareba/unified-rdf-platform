@@ -23,7 +23,7 @@ export class ShaclService {
   private readonly api = inject(ApiService);
 
   list(params?: ShapeListParams): Observable<Shape[]> {
-    return this.api.get<Shape[]>('/shapes', params as Record<string, unknown>);
+    return this.api.getArray<Shape>('/shapes', params as Record<string, unknown>);
   }
 
   get(id: string): Observable<Shape> {
@@ -63,10 +63,10 @@ export class ShaclService {
   }
 
   getVersions(id: string): Observable<ShapeVersion[]> {
-    return this.api.get<ShapeVersion[]>(`/shapes/${id}/versions`);
+    return this.api.getArray<ShapeVersion>(`/shapes/${id}/versions`);
   }
 
   getTemplates(): Observable<Shape[]> {
-    return this.api.get<Shape[]>('/templates/shapes');
+    return this.api.getArray<Shape>('/templates/shapes');
   }
 }

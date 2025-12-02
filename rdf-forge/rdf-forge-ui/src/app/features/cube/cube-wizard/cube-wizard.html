@@ -34,17 +34,26 @@
       <p-step-panel [value]="1">
         <div class="flex flex-column gap-3 p-3">
           <span class="font-bold">Select Data Source</span>
-          <p-listbox [options]="dataSources()" [ngModel]="selectedDataSource()" (ngModelChange)="onDataSourceSelect($event)" optionLabel="name" [filter]="true" [style]="{'width':'100%'}">
-            <ng-template let-source pTemplate="item">
-              <div class="flex align-items-center gap-2">
-                <i class="pi pi-file"></i>
-                <div>
-                  <div class="font-bold">{{ source.name }}</div>
-                  <div class="text-sm text-500">{{ source.format }}</div>
+          
+          <div class="mb-3">
+            <p-selectButton [options]="sourceTypeOptions" [ngModel]="sourceType()" (ngModelChange)="sourceType.set($event)" optionLabel="label" optionValue="value"></p-selectButton>
+          </div>
+
+          @if (sourceType() === 'existing') {
+            <p-listbox [options]="dataSources()" [ngModel]="selectedDataSource()" (ngModelChange)="onDataSourceSelect($event)" optionLabel="name" [filter]="true" [style]="{'width':'100%'}">
+              <ng-template let-source pTemplate="item">
+                <div class="flex align-items-center gap-2">
+                  <i class="pi pi-file"></i>
+                  <div>
+                    <div class="font-bold">{{ source.name }}</div>
+                    <div class="text-sm text-500">{{ source.format }}</div>
+                  </div>
                 </div>
-              </div>
-            </ng-template>
-          </p-listbox>
+              </ng-template>
+            </p-listbox>
+          } @else {
+            <p-fileUpload mode="advanced" [customUpload]="true" (uploadHandler)="onUpload($event)" accept=".csv,.xls,.xlsx" [maxFileSize]="10000000" chooseLabel="Select File" uploadLabel="Upload"></p-fileUpload>
+          }
           
           @if (selectedDataSource()) {
             <div class="mt-3">

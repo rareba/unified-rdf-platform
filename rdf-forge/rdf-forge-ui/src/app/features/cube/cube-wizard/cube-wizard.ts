@@ -9,9 +9,12 @@ import { TextareaModule } from 'primeng/textarea';
 import { SelectModule } from 'primeng/select';
 import { ListboxModule } from 'primeng/listbox';
 import { ToastModule } from 'primeng/toast';
+import { FileUploadModule } from 'primeng/fileupload';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { DataService, DimensionService, PipelineService } from '../../../core/services';
-import { DataSource, Dimension, ColumnInfo } from '../../../core/models';
+import { DataSource, Dimension, ColumnInfo, DimensionType } from '../../../core/models';
 
 @Component({
   selector: 'app-cube-wizard',
@@ -25,7 +28,10 @@ import { DataSource, Dimension, ColumnInfo } from '../../../core/models';
     TextareaModule,
     SelectModule,
     ListboxModule,
-    ToastModule
+    ToastModule,
+    FileUploadModule,
+    SelectButtonModule,
+    DialogModule
   ],
   providers: [MessageService],
   templateUrl: './cube-wizard.html',
@@ -45,6 +51,8 @@ export class CubeWizard implements OnInit {
   baseUri = signal('https://example.org/cube/');
   
   // Step 2: Data Source
+  sourceTypeOptions = [{label: 'Existing Data Source', value: 'existing'}, {label: 'Upload New File', value: 'upload'}];
+  sourceType = signal<'existing' | 'upload'>('existing');
   dataSources = signal<DataSource[]>([]);
   selectedDataSource = signal<DataSource | null>(null);
   sourceColumns = signal<ColumnInfo[]>([]);
@@ -53,6 +61,18 @@ export class CubeWizard implements OnInit {
   availableDimensions = signal<Dimension[]>([]);
   selectedDimensions = signal<Dimension[]>([]);
   dimensionMappings = signal<Record<string, string>>({});
+  
+  // New Dimension Dialog
+  showNewDimensionDialog = signal(false);
+  newDimension: Partial<Dimension> = {};
+  dimensionTypes: { label: string, value: DimensionType }[] = [
+    { label: 'Key', value: 'KEY' },
+    { label: 'Measure', value: 'MEASURE' },
+    { label: 'Attribute', value: 'ATTRIBUTE' },
+    { label: 'Temporal', value: 'TEMPORAL' },
+    { label: 'Geospatial', value: 'GEO' },
+    { label: 'Coded', value: 'CODED' }
+  ];
   
   // Step 4: Review
   creating = signal(false);
@@ -75,6 +95,54 @@ export class CubeWizard implements OnInit {
     this.dataService.analyze(dataSource.id).subscribe(result => {
       this.sourceColumns.set(result.columns);
     });
+  }
+
+  onUpload(event: { files: File[] }): void {
+    const file = event.files[0];
+    if (file) {
+      this.dataService.upload(file).subscribe({
+        next: (dataSource) => {
+          this.loadDataSources();
+          this.selectedDataSource.set(dataSource);
+          this.onDataSourceSelect(dataSource);
+          this.messageService.add({ severity: 'success', summary: 'Success', detail: 'File uploaded successfully' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to upload file' });
+        }
+      });
+    }
+  }
+
+  openNewDimensionDialog(): void {
+    this.newDimension = {
+      name: '',
+      uri: '',
+      type: 'KEY'
+    };
+    this.showNewDimensionDialog.set(true);
+  }
+
+  saveNewDimension(): void {
+    if (this.newDimension.name && this.newDimension.type) {
+      // Generate URI if not provided
+      if (!this.newDimension.uri) {
+        this.newDimension.uri = `https://example.org/dimension/${this.newDimension.name.toLowerCase().replace(/\s+/g, '-')}`;
+      }
+
+      this.dimensionService.create(this.newDimension as Dimension).subscribe({
+        next: (dim) => {
+          this.loadDimensions();
+          // Auto-select the new dimension
+          this.selectedDimensions.update(dims => [...dims, dim]);
+          this.showNewDimensionDialog.set(false);
+          this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Dimension created' });
+        },
+        error: () => {
+          this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create dimension' });
+        }
+      });
+    }
   }
 
   updateDimensionMapping(dimensionId: string, columnName: string): void {

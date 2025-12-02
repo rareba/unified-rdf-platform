@@ -18,7 +18,7 @@ export class TriplestoreService {
   private readonly api = inject(ApiService);
 
   list(): Observable<TriplestoreConnection[]> {
-    return this.api.get<TriplestoreConnection[]>('/triplestores');
+    return this.api.getArray<TriplestoreConnection>('/triplestores');
   }
 
   get(id: string): Observable<TriplestoreConnection> {
@@ -46,15 +46,15 @@ export class TriplestoreService {
   }
 
   getGraphs(connectionId: string): Observable<Graph[]> {
-    return this.api.get<Graph[]>(`/triplestores/${connectionId}/graphs`);
+    return this.api.getArray<Graph>(`/triplestores/${connectionId}/graphs`);
   }
 
   getGraphResources(connectionId: string, graphUri: string, params?: { limit?: number; offset?: number }): Observable<Resource[]> {
-    return this.api.get<Resource[]>(`/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/resources`, params);
+    return this.api.getArray<Resource>(`/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/resources`, params);
   }
 
   searchResources(connectionId: string, graphUri: string, query: string): Observable<Resource[]> {
-    return this.api.get<Resource[]>(`/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/search`, { q: query });
+    return this.api.getArray<Resource>(`/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/search`, { q: query });
   }
 
   getResource(connectionId: string, graphUri: string, resourceUri: string): Observable<Resource> {

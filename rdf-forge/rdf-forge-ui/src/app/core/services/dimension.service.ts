@@ -26,7 +26,7 @@ export class DimensionService {
   private readonly http = inject(HttpClient);
 
   list(params?: DimensionListParams): Observable<Dimension[]> {
-    return this.api.get<Dimension[]>('/dimensions', params as Record<string, unknown>);
+    return this.api.getArray<Dimension>('/dimensions', params as Record<string, unknown>);
   }
 
   get(id: string): Observable<Dimension> {
@@ -46,7 +46,7 @@ export class DimensionService {
   }
 
   getValues(id: string, params?: DimensionValueParams): Observable<DimensionValue[]> {
-    return this.api.get<DimensionValue[]>(`/dimensions/${id}/values`, params as Record<string, unknown>);
+    return this.api.getArray<DimensionValue>(`/dimensions/${id}/values`, params as Record<string, unknown>);
   }
 
   addValue(id: string, data: DimensionValue): Observable<DimensionValue> {
@@ -72,7 +72,7 @@ export class DimensionService {
   }
 
   getTree(id: string): Observable<DimensionValue[]> {
-    return this.api.get<DimensionValue[]>(`/dimensions/${id}/tree`);
+    return this.api.getArray<DimensionValue>(`/dimensions/${id}/tree`);
   }
 
   getStats(projectId: string): Observable<DimensionStats> {
@@ -81,7 +81,7 @@ export class DimensionService {
 
   // Hierarchy endpoints
   listHierarchies(dimensionId: string): Observable<Hierarchy[]> {
-    return this.api.get<Hierarchy[]>('/hierarchies', { dimensionId });
+    return this.api.getArray<Hierarchy>('/hierarchies', { dimensionId });
   }
 
   createHierarchy(data: Hierarchy): Observable<Hierarchy> {

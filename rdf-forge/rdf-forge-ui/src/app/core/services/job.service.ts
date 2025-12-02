@@ -23,7 +23,7 @@ export class JobService {
   private readonly api = inject(ApiService);
 
   list(params?: JobListParams): Observable<Job[]> {
-    return this.api.get<Job[]>('/jobs', params as Record<string, unknown>);
+    return this.api.getArray<Job>('/jobs', params as Record<string, unknown>);
   }
 
   get(id: string): Observable<Job> {
@@ -43,7 +43,7 @@ export class JobService {
   }
 
   getLogs(id: string, params?: JobLogParams): Observable<JobLog[]> {
-    return this.api.get<JobLog[]>(`/jobs/${id}/logs`, params as Record<string, unknown>);
+    return this.api.getArray<JobLog>(`/jobs/${id}/logs`, params as Record<string, unknown>);
   }
 
   getMetrics(id: string): Observable<JobMetrics> {
@@ -52,7 +52,7 @@ export class JobService {
 
   // Schedule endpoints
   getSchedules(): Observable<JobSchedule[]> {
-    return this.api.get<JobSchedule[]>('/schedules');
+    return this.api.getArray<JobSchedule>('/schedules');
   }
 
   createSchedule(pipelineId: string, cronExpression: string, variables?: Record<string, unknown>): Observable<JobSchedule> {

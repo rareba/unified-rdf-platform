@@ -23,7 +23,7 @@ export class PipelineService {
   private readonly api = inject(ApiService);
 
   list(params?: PipelineListParams): Observable<Pipeline[]> {
-    return this.api.get<Pipeline[]>('/pipelines', params as Record<string, unknown>);
+    return this.api.getArray<Pipeline>('/pipelines', params as Record<string, unknown>);
   }
 
   get(id: string): Observable<Pipeline> {
@@ -55,7 +55,7 @@ export class PipelineService {
   }
 
   getVersions(id: string): Observable<PipelineVersion[]> {
-    return this.api.get<PipelineVersion[]>(`/pipelines/${id}/versions`);
+    return this.api.getArray<PipelineVersion>(`/pipelines/${id}/versions`);
   }
 
   getVersion(id: string, version: number): Observable<Pipeline> {
@@ -63,7 +63,7 @@ export class PipelineService {
   }
 
   getOperations(): Observable<Operation[]> {
-    return this.api.get<Operation[]>('/operations');
+    return this.api.getArray<Operation>('/operations');
   }
 
   getOperation(id: string): Observable<Operation> {
