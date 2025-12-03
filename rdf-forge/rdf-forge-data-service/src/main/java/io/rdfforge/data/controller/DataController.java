@@ -2,7 +2,11 @@ package io.rdfforge.data.controller;
 
 import io.rdfforge.data.entity.DataSourceEntity;
 import io.rdfforge.data.entity.DataSourceEntity.DataFormat;
+import io.rdfforge.data.format.DataFormatInfo;
+import io.rdfforge.data.format.DataFormatRegistry;
 import io.rdfforge.data.service.DataService;
+import io.rdfforge.data.service.FileStorageService;
+import io.rdfforge.data.storage.StorageProviderInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.core.io.InputStreamResource;
@@ -15,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,11 +28,15 @@ import java.util.UUID;
 @Tag(name = "Data", description = "Data source management API")
 @CrossOrigin(origins = "*")
 public class DataController {
-    
+
     private final DataService dataService;
-    
-    public DataController(DataService dataService) {
+    private final DataFormatRegistry formatRegistry;
+    private final FileStorageService fileStorageService;
+
+    public DataController(DataService dataService, DataFormatRegistry formatRegistry, FileStorageService fileStorageService) {
         this.dataService = dataService;
+        this.formatRegistry = formatRegistry;
+        this.fileStorageService = fileStorageService;
     }
     
     @GetMapping
@@ -103,20 +112,68 @@ public class DataController {
     @Operation(summary = "Detect format", description = "Detect file format from upload")
     public ResponseEntity<Map<String, Object>> detectFormat(@RequestParam("file") MultipartFile file) {
         String filename = file.getOriginalFilename();
-        String format = "csv";
-        if (filename != null) {
-            String lower = filename.toLowerCase();
-            if (lower.endsWith(".json")) format = "json";
-            else if (lower.endsWith(".xlsx")) format = "xlsx";
-            else if (lower.endsWith(".parquet")) format = "parquet";
-            else if (lower.endsWith(".xml")) format = "xml";
-            else if (lower.endsWith(".tsv")) format = "tsv";
+
+        // Use registry to detect format
+        String format = formatRegistry.detectFormat(filename).orElse("csv");
+
+        // Get format info for additional options
+        DataFormatInfo formatInfo = formatRegistry.getFormatInfo(format).orElse(null);
+
+        String delimiter = ",";
+        if (filename != null && filename.toLowerCase().endsWith(".tsv")) {
+            delimiter = "\t";
         }
-        
+
         return ResponseEntity.ok(Map.of(
             "format", format,
             "encoding", "UTF-8",
-            "delimiter", format.equals("tsv") ? "\t" : ","
+            "delimiter", delimiter,
+            "formatInfo", formatInfo != null ? formatInfo : Map.of()
+        ));
+    }
+
+    // ==================== Format Discovery API ====================
+
+    @GetMapping("/formats")
+    @Operation(summary = "List available formats", description = "Get all available data format handlers")
+    public ResponseEntity<List<DataFormatInfo>> getAvailableFormats() {
+        return ResponseEntity.ok(formatRegistry.getAvailableFormats());
+    }
+
+    @GetMapping("/formats/{format}")
+    @Operation(summary = "Get format info", description = "Get details about a specific format handler")
+    public ResponseEntity<DataFormatInfo> getFormatInfo(@PathVariable String format) {
+        return formatRegistry.getFormatInfo(format)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/formats/by-extension/{extension}")
+    @Operation(summary = "Get format by extension", description = "Get format handler for a file extension")
+    public ResponseEntity<DataFormatInfo> getFormatByExtension(@PathVariable String extension) {
+        return formatRegistry.getHandlerByExtension(extension)
+            .map(h -> ResponseEntity.ok(h.getFormatInfo()))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ==================== Storage Provider Discovery API ====================
+
+    @GetMapping("/storage/providers")
+    @Operation(summary = "List storage providers", description = "Get all available storage providers")
+    public ResponseEntity<List<StorageProviderInfo>> getStorageProviders() {
+        return ResponseEntity.ok(fileStorageService.getAvailableProviders());
+    }
+
+    @GetMapping("/storage/providers/active")
+    @Operation(summary = "Get active storage provider", description = "Get the currently active storage provider")
+    public ResponseEntity<Map<String, Object>> getActiveStorageProvider() {
+        StorageProviderInfo info = fileStorageService.getActiveProviderInfo();
+        if (info == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of(
+            "type", fileStorageService.getActiveProviderType(),
+            "provider", info
         ));
     }
 }

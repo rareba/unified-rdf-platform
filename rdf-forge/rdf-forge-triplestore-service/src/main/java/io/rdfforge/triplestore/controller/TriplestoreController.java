@@ -1,6 +1,7 @@
 package io.rdfforge.triplestore.controller;
 
 import io.rdfforge.triplestore.connector.TriplestoreConnector.*;
+import io.rdfforge.triplestore.connector.TriplestoreProviderInfo;
 import io.rdfforge.triplestore.entity.TriplestoreConnectionEntity;
 import io.rdfforge.triplestore.service.TriplestoreService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,13 +20,31 @@ import java.util.UUID;
 @Tag(name = "Triplestores", description = "Triplestore connection and management API")
 @CrossOrigin(origins = "*")
 public class TriplestoreController {
-    
+
     private final TriplestoreService triplestoreService;
-    
+
     public TriplestoreController(TriplestoreService triplestoreService) {
         this.triplestoreService = triplestoreService;
     }
-    
+
+    // ==================== Provider Discovery ====================
+
+    @GetMapping("/providers")
+    @Operation(summary = "List providers", description = "Get all available triplestore providers and their capabilities")
+    public ResponseEntity<List<TriplestoreProviderInfo>> getProviders() {
+        return ResponseEntity.ok(triplestoreService.getAvailableProviders());
+    }
+
+    @GetMapping("/providers/{type}")
+    @Operation(summary = "Get provider", description = "Get details about a specific triplestore provider")
+    public ResponseEntity<TriplestoreProviderInfo> getProvider(@PathVariable String type) {
+        return triplestoreService.getProviderInfo(type)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ==================== Connection Management ====================
+
     @GetMapping
     @Operation(summary = "List connections", description = "List configured triplestore connections")
     public ResponseEntity<List<TriplestoreConnectionEntity>> getConnections(

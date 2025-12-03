@@ -24,11 +24,50 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
 
+# Storage provider configuration
+# Set storage.provider to select the active provider: minio, aws-s3, azure-blob, gcs, local
+storage:
+  provider: minio
+
+# MinIO / S3-compatible storage (default)
 minio:
   endpoint: http://localhost:9000
   access-key: minioadmin
   secret-key: minioadmin
   bucket-name: rdf-forge-data
+  region: us-east-1
+  secure: false
+
+# Local filesystem storage (for development)
+#storage:
+#  provider: local
+#  local:
+#    base-path: ./data/storage
+#    create-dirs: true
+
+# AWS S3 (uncomment and configure to use)
+#aws:
+#  s3:
+#    access-key-id: YOUR_ACCESS_KEY
+#    secret-access-key: YOUR_SECRET_KEY
+#    region: us-east-1
+#    bucket: your-bucket-name
+#    storage-class: STANDARD
+
+# Azure Blob Storage (uncomment and configure to use)
+#azure:
+#  storage:
+#    connection-string: YOUR_CONNECTION_STRING
+#    container-name: rdf-forge
+#    access-tier: Hot
+
+# Google Cloud Storage (uncomment and configure to use)
+#gcs:
+#  project-id: your-project-id
+#  bucket-name: your-bucket-name
+#  credentials-path: /path/to/service-account.json
+#  location: US
+#  storage-class: STANDARD
 
 management:
   endpoints:

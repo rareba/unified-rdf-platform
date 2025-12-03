@@ -1,8 +1,9 @@
 package io.rdfforge.triplestore.service;
 
-import io.rdfforge.triplestore.connector.FusekiConnector;
 import io.rdfforge.triplestore.connector.TriplestoreConnector;
 import io.rdfforge.triplestore.connector.TriplestoreConnector.*;
+import io.rdfforge.triplestore.connector.TriplestoreProviderInfo;
+import io.rdfforge.triplestore.connector.TriplestoreProviderRegistry;
 import io.rdfforge.triplestore.entity.TriplestoreConnectionEntity;
 import io.rdfforge.triplestore.entity.TriplestoreConnectionEntity.*;
 import io.rdfforge.triplestore.repository.TriplestoreConnectionRepository;
@@ -16,12 +17,32 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Transactional
 public class TriplestoreService {
-    
+
     private final TriplestoreConnectionRepository repository;
+    private final TriplestoreProviderRegistry providerRegistry;
     private final Map<UUID, TriplestoreConnector> connectorCache = new ConcurrentHashMap<>();
-    
-    public TriplestoreService(TriplestoreConnectionRepository repository) {
+
+    public TriplestoreService(TriplestoreConnectionRepository repository,
+                              TriplestoreProviderRegistry providerRegistry) {
         this.repository = repository;
+        this.providerRegistry = providerRegistry;
+    }
+
+    /**
+     * Get all available triplestore providers.
+     * @return List of provider information
+     */
+    public List<TriplestoreProviderInfo> getAvailableProviders() {
+        return providerRegistry.getAvailableProviders();
+    }
+
+    /**
+     * Get provider info for a specific type.
+     * @param type The provider type
+     * @return Provider information if found
+     */
+    public Optional<TriplestoreProviderInfo> getProviderInfo(String type) {
+        return providerRegistry.getProviderInfo(type);
     }
     
     public List<TriplestoreConnectionEntity> getConnections(UUID projectId) {
@@ -182,19 +203,8 @@ public class TriplestoreService {
     }
     
     private TriplestoreConnector createConnector(TriplestoreConnectionEntity connection) {
-        String username = null;
-        String password = null;
-        
-        if (connection.getAuthType() == AuthType.BASIC && connection.getAuthConfig() != null) {
-            username = (String) connection.getAuthConfig().get("username");
-            password = (String) connection.getAuthConfig().get("password");
-        }
-        
-        return switch (connection.getType()) {
-            case FUSEKI -> new FusekiConnector(connection.getUrl(), username, password);
-            default -> throw new UnsupportedOperationException(
-                "Connector not implemented for type: " + connection.getType()
-            );
-        };
+        // Use the provider registry to create the connector
+        // This allows new providers to be added simply by implementing TriplestoreProvider
+        return providerRegistry.createConnector(connection);
     }
 }
