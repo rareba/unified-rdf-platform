@@ -6,3 +6,4 @@ export * from './data.service';
 export * from './shacl.service';
 export * from './dimension.service';
 export * from './triplestore.service';
+export * from './provider.service';

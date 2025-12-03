@@ -17,7 +17,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { OverlayModule } from '@angular/cdk/overlay';
-import { TriplestoreService } from '../../../core/services';
+import { TriplestoreService, ProviderService } from '../../../core/services';
 import {
   TriplestoreConnection,
   ConnectionCreateRequest,
@@ -26,7 +26,8 @@ import {
   QueryResult,
   TriplestoreType,
   AuthType,
-  RdfFormat
+  RdfFormat,
+  TriplestoreProviderInfo
 } from '../../../core/models';
 
 interface QueryTemplate {
@@ -61,6 +62,7 @@ interface QueryTemplate {
 })
 export class TriplestoreBrowser implements OnInit {
   private readonly triplestoreService = inject(TriplestoreService);
+  private readonly providerService = inject(ProviderService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
@@ -113,14 +115,16 @@ export class TriplestoreBrowser implements OnInit {
     format: 'turtle'
   });
 
-  // Options
-  triplestoreTypes: { label: string; value: TriplestoreType }[] = [
+  // Options - loaded dynamically from provider registry
+  triplestoreProviders = signal<TriplestoreProviderInfo[]>([]);
+  triplestoreTypes = signal<{ label: string; value: TriplestoreType }[]>([
+    // Fallback defaults in case API is unavailable
     { label: 'Apache Jena Fuseki', value: 'fuseki' },
     { label: 'Stardog', value: 'stardog' },
     { label: 'GraphDB', value: 'graphdb' },
     { label: 'Amazon Neptune', value: 'neptune' },
     { label: 'Virtuoso', value: 'virtuoso' }
-  ];
+  ]);
 
   authTypes: { label: string; value: AuthType }[] = [
     { label: 'None', value: 'none' },
@@ -187,7 +191,28 @@ export class TriplestoreBrowser implements OnInit {
   });
 
   ngOnInit(): void {
+    this.loadTriplestoreProviders();
     this.loadConnections();
+  }
+
+  loadTriplestoreProviders(): void {
+    this.providerService.getTriplestoreProviders().subscribe({
+      next: (providers) => {
+        this.triplestoreProviders.set(providers);
+        // Update the type options from the API
+        const types = providers.map(p => ({
+          label: p.displayName,
+          value: p.type.toLowerCase() as TriplestoreType
+        }));
+        if (types.length > 0) {
+          this.triplestoreTypes.set(types);
+        }
+      },
+      error: () => {
+        // Keep fallback defaults if API is unavailable
+        console.warn('Failed to load triplestore providers, using defaults');
+      }
+    });
   }
 
   loadConnections(): void {

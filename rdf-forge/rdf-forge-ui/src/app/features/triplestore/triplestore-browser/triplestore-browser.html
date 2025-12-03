@@ -422,7 +422,7 @@
             <mat-select
               [ngModel]="newConnection().type"
               (ngModelChange)="updateNewConnectionType($event)">
-              @for (type of triplestoreTypes; track type.value) {
+              @for (type of triplestoreTypes(); track type.value) {
                 <mat-option [value]="type.value">{{ type.label }}</mat-option>
               }
             </mat-select>
@@ -527,7 +527,7 @@
             <mat-select
               [ngModel]="editConnection().type"
               (ngModelChange)="updateEditConnectionType($event)">
-              @for (type of triplestoreTypes; track type.value) {
+              @for (type of triplestoreTypes(); track type.value) {
                 <mat-option [value]="type.value">{{ type.label }}</mat-option>
               }
             </mat-select>
