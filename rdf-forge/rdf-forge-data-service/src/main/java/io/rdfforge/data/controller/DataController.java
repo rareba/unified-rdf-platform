@@ -96,8 +96,7 @@ public class DataController {
     @PostMapping("/{id}/analyze")
     @Operation(summary = "Analyze data", description = "Analyze data source structure and stats")
     public ResponseEntity<Map<String, Object>> analyzeDataSource(@PathVariable UUID id) throws IOException {
-        Map<String, Object> preview = dataService.previewDataSource(id, 1000, 0);
-        return ResponseEntity.ok(preview);
+        return ResponseEntity.ok(dataService.analyzeDataSource(id));
     }
     
     @PostMapping("/detect-format")

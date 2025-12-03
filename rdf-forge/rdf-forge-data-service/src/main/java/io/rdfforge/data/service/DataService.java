@@ -82,8 +82,55 @@ public class DataService {
     public InputStream downloadDataSource(UUID id) throws IOException {
         DataSourceEntity entity = repository.findById(id)
             .orElseThrow(() -> new RuntimeException("Data source not found: " + id));
-        
+
         return storageService.downloadFile(entity.getStoragePath());
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> analyzeDataSource(UUID id) throws IOException {
+        DataSourceEntity entity = repository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Data source not found: " + id));
+
+        // If metadata already contains column info from upload analysis, use it
+        Map<String, Object> metadata = entity.getMetadata();
+        if (metadata != null && metadata.containsKey("columns")) {
+            List<Map<String, Object>> columns = (List<Map<String, Object>>) metadata.get("columns");
+            Long rowCount = entity.getRowCount();
+            return Map.of(
+                "columns", columns,
+                "rowCount", rowCount != null ? rowCount : 0L
+            );
+        }
+
+        // Otherwise, re-analyze the file
+        InputStream inputStream = storageService.downloadFile(entity.getStoragePath());
+        Map<String, Object> analysis = switch (entity.getFormat()) {
+            case CSV, TSV -> analyzeCsv(inputStream, entity.getFormat() == DataFormat.TSV ? "\t" : ",", "UTF-8");
+            case JSON -> analyzeJson(inputStream);
+            default -> Map.of("columnCount", 0, "rowCount", 0L, "columns", List.of());
+        };
+
+        // Update entity with analysis results
+        entity.setMetadata(analysis);
+        if (analysis.containsKey("rowCount")) {
+            entity.setRowCount(((Number) analysis.get("rowCount")).longValue());
+        }
+        if (analysis.containsKey("columnCount")) {
+            entity.setColumnCount((Integer) analysis.get("columnCount"));
+        }
+        repository.save(entity);
+
+        List<Map<String, Object>> columns = analysis.containsKey("columns")
+            ? (List<Map<String, Object>>) analysis.get("columns")
+            : List.of();
+        Long rowCount = analysis.containsKey("rowCount")
+            ? ((Number) analysis.get("rowCount")).longValue()
+            : 0L;
+
+        return Map.of(
+            "columns", columns,
+            "rowCount", rowCount
+        );
     }
     
     private DataFormat detectFormat(String filename) {

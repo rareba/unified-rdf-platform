@@ -418,13 +418,18 @@ export class CubeWizard implements OnInit {
   }
 
   initializeColumnMappings(columns: ColumnInfo[]): void {
+    if (!columns || columns.length === 0) {
+      this.columnMappings.set([]);
+      return;
+    }
+
     const mappings: ColumnMapping[] = columns.map(col => {
       // Smart type detection
       let role: 'dimension' | 'measure' | 'attribute' | 'ignore' = 'dimension';
       let datatype = 'xsd:string';
 
-      const lowerName = col.name.toLowerCase();
-      const colType = col.type?.toLowerCase() || 'string';
+      const lowerName = (col.name || '').toLowerCase();
+      const colType = (col.type || 'string').toLowerCase();
 
       // Guess role based on type and name
       if (['integer', 'decimal', 'float', 'double', 'number', 'numeric'].includes(colType)) {
