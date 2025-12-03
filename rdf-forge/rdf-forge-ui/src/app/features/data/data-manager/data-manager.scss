@@ -294,6 +294,7 @@
   background: var(--surface-50, #f9fafb);
   transition: all 0.3s;
   min-height: 200px;
+  cursor: pointer;
 
   &:hover {
     border-color: var(--primary-color, #3b82f6);
@@ -308,6 +309,17 @@
   &.has-file {
     border-color: var(--primary-color, #3b82f6);
     background: rgba(59, 130, 246, 0.05);
+  }
+
+  &.drag-over {
+    border-color: var(--primary-color, #3b82f6);
+    border-style: solid;
+    background: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+
+    mat-icon {
+      transform: scale(1.1);
+    }
   }
 
   mat-icon {

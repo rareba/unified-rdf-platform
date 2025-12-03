@@ -1,0 +1,31 @@
+year,sector,subsector,gdp_millions_chf,growth_rate_pct,employment_share_pct
+2021,Primary,Agriculture,8500,1.2,2.5
+2021,Primary,Forestry,1200,0.8,0.3
+2021,Secondary,Manufacturing,125000,3.5,15.2
+2021,Secondary,Construction,42000,2.8,6.1
+2021,Secondary,Energy,18500,4.2,1.2
+2021,Tertiary,Financial Services,85000,2.1,5.8
+2021,Tertiary,Healthcare,72000,5.5,13.2
+2021,Tertiary,Education,45000,2.2,8.1
+2021,Tertiary,Retail Trade,65000,1.8,11.5
+2021,Tertiary,Information Technology,52000,8.5,4.2
+2022,Primary,Agriculture,8800,3.5,2.4
+2022,Primary,Forestry,1250,4.2,0.3
+2022,Secondary,Manufacturing,132000,5.6,15.0
+2022,Secondary,Construction,44500,6.0,6.2
+2022,Secondary,Energy,19800,7.0,1.2
+2022,Tertiary,Financial Services,88000,3.5,5.7
+2022,Tertiary,Healthcare,76500,6.3,13.5
+2022,Tertiary,Education,46500,3.3,8.0
+2022,Tertiary,Retail Trade,67000,3.1,11.3
+2022,Tertiary,Information Technology,58000,11.5,4.5
+2023,Primary,Agriculture,9100,3.4,2.3
+2023,Primary,Forestry,1300,4.0,0.3
+2023,Secondary,Manufacturing,138000,4.5,14.8
+2023,Secondary,Construction,46000,3.4,6.3
+2023,Secondary,Energy,21000,6.1,1.3
+2023,Tertiary,Financial Services,91000,3.4,5.6
+2023,Tertiary,Healthcare,81000,5.9,13.8
+2023,Tertiary,Education,48000,3.2,7.9
+2023,Tertiary,Retail Trade,69000,3.0,11.1
+2023,Tertiary,Information Technology,65000,12.1,4.8

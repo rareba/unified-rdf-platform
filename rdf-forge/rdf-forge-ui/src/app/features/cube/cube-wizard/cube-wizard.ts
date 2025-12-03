@@ -143,6 +143,7 @@ export class CubeWizard implements OnInit {
   ];
 
   uploading = signal(false);
+  isDragOver = signal(false);
 
   // Step 3: Column Mapping
   columnMappings = signal<ColumnMapping[]>([]);
@@ -528,6 +529,44 @@ export class CubeWizard implements OnInit {
           this.snackBar.open(err.error?.message || 'Failed to upload file', 'Close', { duration: 3000 });
         }
       });
+    }
+  }
+
+  onFileInputChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.onFileSelect({ files: [input.files[0]] });
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(false);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(false);
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const validExtensions = ['.csv', '.xls', '.xlsx', '.tsv'];
+      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+
+      if (validExtensions.includes(fileExt)) {
+        this.onFileSelect({ files: [file] });
+      } else {
+        this.snackBar.open('Invalid file format. Supported: CSV, XLS, XLSX, TSV', 'Close', { duration: 3000 });
+      }
     }
   }
 

@@ -208,9 +208,14 @@
                 </div>
               </mat-expansion-panel>
 
-              <div class="upload-dropzone" [class.uploading]="uploading()">
+              <div class="upload-dropzone"
+                   [class.uploading]="uploading()"
+                   [class.drag-over]="isDragOver()"
+                   (dragover)="onDragOver($event)"
+                   (dragleave)="onDragLeave($event)"
+                   (drop)="onDrop($event)">
                 <input type="file" #fileInput hidden accept=".csv,.xls,.xlsx,.tsv"
-                       (change)="onFileSelect({files: [$event.target.files[0]]})">
+                       (change)="onFileInputChange($event)">
                 <div class="upload-content" (click)="fileInput.click()">
                   @if (uploading()) {
                     <mat-spinner diameter="40"></mat-spinner>

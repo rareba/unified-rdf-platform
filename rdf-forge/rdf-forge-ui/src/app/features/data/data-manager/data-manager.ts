@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -41,6 +41,8 @@ export class DataManager implements OnInit {
   private readonly dataService = inject(DataService);
   private readonly snackBar = inject(MatSnackBar);
 
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+
   loading = signal(true);
   searchQuery = signal('');
   dataSources = signal<DataSource[]>([]);
@@ -53,6 +55,7 @@ export class DataManager implements OnInit {
   uploading = signal(false);
   uploadProgress = signal(0);
   selectedFile = signal<File | null>(null);
+  isDragOver = signal(false);
 
   // Table
   displayedColumns = ['name', 'format', 'size', 'rows', 'uploadedAt', 'actions'];
@@ -111,6 +114,43 @@ export class DataManager implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       this.selectedFile.set(input.files[0]);
+    }
+  }
+
+  triggerFileInput(): void {
+    if (!this.selectedFile() && !this.uploading() && this.fileInput) {
+      this.fileInput.nativeElement.click();
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(false);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDragOver.set(false);
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const validExtensions = ['.csv', '.json', '.xlsx', '.xml', '.parquet', '.tsv'];
+      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+
+      if (validExtensions.includes(fileExt)) {
+        this.selectedFile.set(file);
+      } else {
+        this.snackBar.open('Invalid file format. Supported: CSV, JSON, XLSX, XML, Parquet, TSV', 'Close', { duration: 3000 });
+      }
     }
   }
 

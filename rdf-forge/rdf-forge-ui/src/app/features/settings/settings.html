@@ -469,6 +469,225 @@
           </div>
       </mat-tab>
 
+        <!-- Users & Permissions Tab -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">group</mat-icon>
+          Users & Permissions
+        </ng-template>
+          <div class="tab-content" (click)="loadUsers()">
+            <!-- Keycloak Status -->
+            <div class="settings-section">
+              <div class="section-header">
+                <mat-icon>security</mat-icon>
+                <h3>Authentication Provider</h3>
+              </div>
+              <div class="section-content">
+                <div class="auth-status-card">
+                  <div class="auth-info">
+                    <span class="auth-label">Provider</span>
+                    <span class="auth-value">
+                      @if (env.auth.enabled) {
+                        <span class="auth-chip auth-keycloak">
+                          <mat-icon>verified_user</mat-icon>
+                          Keycloak SSO
+                        </span>
+                      } @else {
+                        <span class="auth-chip auth-standalone">
+                          <mat-icon>lock_open</mat-icon>
+                          Standalone Mode (No Auth)
+                        </span>
+                      }
+                    </span>
+                  </div>
+                  @if (env.auth.enabled && env.auth.keycloak) {
+                    <div class="auth-details">
+                      <div class="auth-detail-item">
+                        <span class="detail-label">Realm:</span>
+                        <code>{{ env.auth.keycloak.realm }}</code>
+                      </div>
+                      <div class="auth-detail-item">
+                        <span class="detail-label">Client ID:</span>
+                        <code>{{ env.auth.keycloak.clientId }}</code>
+                      </div>
+                    </div>
+                    <a
+                      mat-stroked-button
+                      [href]="getKeycloakAdminUrl()"
+                      target="_blank"
+                      class="keycloak-link"
+                    >
+                      <mat-icon>open_in_new</mat-icon>
+                      Open Keycloak Admin Console
+                    </a>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- Users Section -->
+            <div class="settings-section">
+              <div class="section-header">
+                <mat-icon>people</mat-icon>
+                <h3>Users</h3>
+                <button
+                  mat-stroked-button
+                  (click)="loadUsers()"
+                  [disabled]="loadingUsers()"
+                >
+                  <mat-icon>refresh</mat-icon>
+                  Refresh
+                </button>
+              </div>
+              <div class="section-content">
+                @if (loadingUsers()) {
+                  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                }
+                @if (users().length === 0 && !loadingUsers()) {
+                  <div class="empty-hint">
+                    <mat-icon>info</mat-icon>
+                    <p>Click "Refresh" to load users</p>
+                  </div>
+                } @else {
+                  <div class="table-container">
+                    <table mat-table [dataSource]="users()" class="users-table">
+                      <ng-container matColumnDef="user">
+                        <th mat-header-cell *matHeaderCellDef>User</th>
+                        <td mat-cell *matCellDef="let user">
+                          <div class="user-cell">
+                            <div class="user-avatar">
+                              <mat-icon>person</mat-icon>
+                            </div>
+                            <div class="user-info">
+                              <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
+                              <span class="user-email">{{ user.email }}</span>
+                            </div>
+                          </div>
+                        </td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="username">
+                        <th mat-header-cell *matHeaderCellDef>Username</th>
+                        <td mat-cell *matCellDef="let user">
+                          <code>{{ user.username }}</code>
+                        </td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="roles">
+                        <th mat-header-cell *matHeaderCellDef>Roles</th>
+                        <td mat-cell *matCellDef="let user">
+                          <div class="role-chips">
+                            @for (role of user.roles; track role) {
+                              <span class="role-chip" [class.role-admin]="role === 'admin'" [class.role-editor]="role === 'editor'" [class.role-viewer]="role === 'viewer'">
+                                {{ role }}
+                              </span>
+                            }
+                          </div>
+                        </td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef>Status</th>
+                        <td mat-cell *matCellDef="let user">
+                          <span class="status-chip" [class.status-enabled]="user.enabled" [class.status-disabled]="!user.enabled">
+                            {{ user.enabled ? 'Active' : 'Disabled' }}
+                          </span>
+                        </td>
+                      </ng-container>
+
+                      <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef style="width: 100px">Actions</th>
+                        <td mat-cell *matCellDef="let user">
+                          <div class="action-buttons">
+                            <button
+                              mat-icon-button
+                              (click)="openUserDialog(user)"
+                              matTooltip="Edit user"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              (click)="toggleUserEnabled(user)"
+                              [matTooltip]="user.enabled ? 'Disable user' : 'Enable user'"
+                            >
+                              <mat-icon>{{ user.enabled ? 'block' : 'check_circle' }}</mat-icon>
+                            </button>
+                          </div>
+                        </td>
+                      </ng-container>
+
+                      <tr mat-header-row *matHeaderRowDef="['user', 'username', 'roles', 'status', 'actions']"></tr>
+                      <tr mat-row *matRowDef="let row; columns: ['user', 'username', 'roles', 'status', 'actions']"></tr>
+                    </table>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Roles Section -->
+            <div class="settings-section">
+              <div class="section-header">
+                <mat-icon>admin_panel_settings</mat-icon>
+                <h3>Roles & Permissions</h3>
+                <button
+                  mat-stroked-button
+                  (click)="openRoleDialog()"
+                >
+                  <mat-icon>add</mat-icon>
+                  Add Role
+                </button>
+              </div>
+              <div class="section-content">
+                <div class="roles-grid">
+                  @for (role of roles(); track role.name) {
+                    <div class="role-card">
+                      <div class="role-header">
+                        <div class="role-title">
+                          <mat-icon class="role-icon">
+                            @if (role.name === 'admin') { admin_panel_settings }
+                            @else if (role.name === 'editor') { edit }
+                            @else { visibility }
+                          </mat-icon>
+                          <span class="role-name">{{ role.name }}</span>
+                          @if (role.isDefault) {
+                            <span class="default-badge">Default</span>
+                          }
+                        </div>
+                        <div class="role-actions">
+                          @if (!role.isDefault) {
+                            <button
+                              mat-icon-button
+                              color="warn"
+                              (click)="deleteRole(role)"
+                              matTooltip="Delete role"
+                              [disabled]="role.userCount > 0"
+                            >
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      <p class="role-description">{{ role.description }}</p>
+                      <div class="role-meta">
+                        <span class="user-count">
+                          <mat-icon>people</mat-icon>
+                          {{ role.userCount }} user(s)
+                        </span>
+                      </div>
+                      <div class="permissions-list">
+                        @for (perm of role.permissions; track perm) {
+                          <span class="permission-tag">{{ perm }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+      </mat-tab>
+
         <!-- System Tab -->
       <mat-tab>
         <ng-template mat-tab-label>
@@ -728,6 +947,123 @@
         <button mat-raised-button color="primary" (click)="importSettings()" [disabled]="!importData()">
           <mat-icon>upload</mat-icon>
           Import
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- User Edit Dialog -->
+@if (userDialogVisible()) {
+  <div class="dialog-overlay" (click)="userDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 500px">
+      <mat-card-header>
+        <mat-card-title>Edit User</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          @if (selectedUser(); as user) {
+            <div class="user-edit-form">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Username</mat-label>
+                  <input matInput [value]="user.username" disabled />
+                </mat-form-field>
+              </div>
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>Email</mat-label>
+                  <input matInput [value]="user.email" disabled />
+                </mat-form-field>
+              </div>
+              <div class="form-row">
+                <label class="form-label">Assigned Roles</label>
+                <div class="role-checkboxes">
+                  @for (role of roles(); track role.name) {
+                    <mat-checkbox
+                      [checked]="user.roles.includes(role.name)"
+                      (change)="updateUserRole(user, role.name, $event.checked)"
+                    >
+                      {{ role.name }}
+                    </mat-checkbox>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="userDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="saveUser()">
+          <mat-icon>save</mat-icon>
+          Save Changes
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Add Role Dialog -->
+@if (roleDialogVisible()) {
+  <div class="dialog-overlay" (click)="roleDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 500px">
+      <mat-card-header>
+        <mat-card-title>Create New Role</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <div class="form-field">
+            <label for="roleName">Role Name <span class="required">*</span></label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                id="roleName"
+                type="text"
+                [ngModel]="newRole().name"
+                (ngModelChange)="updateNewRoleName($event)"
+                placeholder="e.g., data_analyst"
+              />
+            </mat-form-field>
+          </div>
+
+          <div class="form-field">
+            <label for="roleDesc">Description</label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea
+                matInput
+                id="roleDesc"
+                [ngModel]="newRole().description"
+                (ngModelChange)="updateNewRoleDescription($event)"
+                placeholder="Describe what this role can do..."
+                rows="2"
+              ></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="form-field">
+            <label>Permissions</label>
+            <div class="permissions-grid">
+              @for (perm of availablePermissions; track perm.key) {
+                <div class="permission-item">
+                  <mat-checkbox
+                    [checked]="hasPermission(perm.key)"
+                    (change)="togglePermission(perm.key)"
+                  >
+                    <span class="perm-label">{{ perm.label }}</span>
+                  </mat-checkbox>
+                  <small class="perm-desc">{{ perm.description }}</small>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="roleDialogVisible.set(false)">Cancel</button>
+        <button mat-raised-button color="primary" (click)="addRole()" [disabled]="!newRole().name">
+          <mat-icon>add</mat-icon>
+          Create Role
         </button>
       </mat-card-actions>
     </mat-card>

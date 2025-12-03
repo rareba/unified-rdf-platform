@@ -43,6 +43,29 @@ services:
     networks:
       - rdf-forge-network
 
+  # GraphDB repository initialization
+  graphdb-init:
+    image: curlimages/curl:latest
+    container_name: rdf-forge-graphdb-init
+    depends_on:
+      graphdb:
+        condition: service_healthy
+    volumes:
+      - ./docker/graphdb-config:/config:ro
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for GraphDB...';
+      sleep 5;
+      echo 'Creating rdf-forge repository...';
+      curl -X POST -H 'Content-Type: multipart/form-data' -F 'config=@/config/rdf-forge-repo-config.ttl' http://graphdb:7200/rest/repositories || true;
+      sleep 2;
+      echo 'Loading demo RDF data...';
+      curl -X POST -H 'Content-Type: application/x-turtle' --data-binary '@/config/demo-data.ttl' 'http://graphdb:7200/repositories/rdf-forge/statements?context=<https://example.org/graph/demo>' || true;
+      echo 'GraphDB initialization complete!';
+      "
+    networks:
+      - rdf-forge-network
+
   # Redis for caching and job queues
   redis:
     image: redis:7-alpine
@@ -72,6 +95,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./docker/demo-data.sql:/docker-entrypoint-initdb.d/02-demo-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdfforge}"]
       interval: 10s
@@ -101,13 +125,15 @@ services:
     networks:
       - rdf-forge-network
 
-  # MinIO bucket initialization
+  # MinIO bucket initialization and demo data upload
   minio-init:
     image: minio/mc:latest
     container_name: rdf-forge-minio-init
     depends_on:
       minio:
         condition: service_started
+    volumes:
+      - ./docker/demo-data:/demo-data:ro
     entrypoint: >
       /bin/sh -c "
       sleep 5;
@@ -115,6 +141,11 @@ services:
       mc mb minio/rdf-forge-data --ignore-existing;
       mc mb minio/rdf-forge-shapes --ignore-existing;
       mc mb minio/rdf-forge-pipelines --ignore-existing;
+      echo 'Uploading demo data files...';
+      mc cp /demo-data/swiss-population-by-canton.csv minio/rdf-forge-data/demo/;
+      mc cp /demo-data/swiss-employment-statistics.csv minio/rdf-forge-data/demo/;
+      mc cp /demo-data/swiss-gdp-by-sector.csv minio/rdf-forge-data/demo/;
+      echo 'Demo data uploaded successfully';
       exit 0;
       "
     networks:

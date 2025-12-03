@@ -1,0 +1,131 @@
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex: <https://example.org/swiss-stats/> .
+@prefix dim: <https://example.org/dimension/> .
+@prefix canton: <https://example.org/canton/> .
+
+# =============================================================================
+# Swiss Canton Concept Scheme
+# =============================================================================
+
+dim:cantonScheme a skos:ConceptScheme ;
+    rdfs:label "Swiss Cantons"@en ;
+    rdfs:label "Schweizer Kantone"@de ;
+    dct:description "Code list of Swiss cantons"@en .
+
+canton:ZH a skos:Concept ;
+    skos:inScheme dim:cantonScheme ;
+    skos:notation "ZH" ;
+    skos:prefLabel "Zurich"@en ;
+    skos:prefLabel "Zuerich"@de .
+
+canton:BE a skos:Concept ;
+    skos:inScheme dim:cantonScheme ;
+    skos:notation "BE" ;
+    skos:prefLabel "Bern"@en ;
+    skos:prefLabel "Bern"@de .
+
+canton:GE a skos:Concept ;
+    skos:inScheme dim:cantonScheme ;
+    skos:notation "GE" ;
+    skos:prefLabel "Geneva"@en ;
+    skos:prefLabel "Genf"@de .
+
+canton:VD a skos:Concept ;
+    skos:inScheme dim:cantonScheme ;
+    skos:notation "VD" ;
+    skos:prefLabel "Vaud"@en ;
+    skos:prefLabel "Waadt"@de .
+
+# =============================================================================
+# Data Structure Definition
+# =============================================================================
+
+ex:populationDSD a qb:DataStructureDefinition ;
+    rdfs:label "Swiss Population Data Structure"@en ;
+    rdfs:comment "Data structure definition for Swiss population statistics by canton"@en ;
+    qb:component [
+        qb:dimension dim:canton ;
+        qb:order 1
+    ] ;
+    qb:component [
+        qb:dimension dim:year ;
+        qb:order 2
+    ] ;
+    qb:component [
+        qb:measure dim:population ;
+    ] ;
+    qb:component [
+        qb:attribute dim:unit ;
+        qb:componentAttachment qb:DataSet
+    ] .
+
+# =============================================================================
+# Component Definitions
+# =============================================================================
+
+dim:canton a qb:DimensionProperty , rdf:Property ;
+    rdfs:label "Canton"@en ;
+    rdfs:subPropertyOf <http://purl.org/linked-data/sdmx/2009/dimension#refArea> ;
+    qb:codeList dim:cantonScheme ;
+    rdfs:range skos:Concept .
+
+dim:year a qb:DimensionProperty , rdf:Property ;
+    rdfs:label "Reference Year"@en ;
+    rdfs:subPropertyOf <http://purl.org/linked-data/sdmx/2009/dimension#refPeriod> ;
+    rdfs:range xsd:gYear .
+
+dim:population a qb:MeasureProperty , rdf:Property ;
+    rdfs:label "Population"@en ;
+    rdfs:subPropertyOf <http://purl.org/linked-data/sdmx/2009/measure#obsValue> ;
+    rdfs:range xsd:integer .
+
+dim:unit a qb:AttributeProperty , rdf:Property ;
+    rdfs:label "Unit of Measure"@en ;
+    rdfs:range xsd:string .
+
+# =============================================================================
+# Sample Data Cube Dataset
+# =============================================================================
+
+ex:swissPopulation2023 a qb:DataSet ;
+    rdfs:label "Swiss Population by Canton 2023"@en ;
+    rdfs:comment "Population statistics for Swiss cantons in 2023"@en ;
+    dct:title "Swiss Population Statistics 2023"@en ;
+    dct:description "Resident population by canton for Switzerland in 2023"@en ;
+    dct:publisher "Demo Publisher" ;
+    dct:license <https://creativecommons.org/publicdomain/zero/1.0/> ;
+    dct:issued "2024-01-15"^^xsd:date ;
+    qb:structure ex:populationDSD ;
+    dim:unit "persons" .
+
+# =============================================================================
+# Sample Observations
+# =============================================================================
+
+ex:obs-ZH-2023 a qb:Observation ;
+    qb:dataSet ex:swissPopulation2023 ;
+    dim:canton canton:ZH ;
+    dim:year "2023"^^xsd:gYear ;
+    dim:population 1579967 .
+
+ex:obs-BE-2023 a qb:Observation ;
+    qb:dataSet ex:swissPopulation2023 ;
+    dim:canton canton:BE ;
+    dim:year "2023"^^xsd:gYear ;
+    dim:population 1051437 .
+
+ex:obs-GE-2023 a qb:Observation ;
+    qb:dataSet ex:swissPopulation2023 ;
+    dim:canton canton:GE ;
+    dim:year "2023"^^xsd:gYear ;
+    dim:population 516356 .
+
+ex:obs-VD-2023 a qb:Observation ;
+    qb:dataSet ex:swissPopulation2023 ;
+    dim:canton canton:VD ;
+    dim:year "2023"^^xsd:gYear ;
+    dim:population 822968 .

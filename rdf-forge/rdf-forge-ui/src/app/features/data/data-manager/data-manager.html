@@ -146,7 +146,14 @@
           </button>
         </div>
         <div class="dialog-body">
-          <div class="upload-content" [class.uploading]="uploading()" [class.has-file]="selectedFile()">
+          <div class="upload-content"
+               [class.uploading]="uploading()"
+               [class.has-file]="selectedFile()"
+               [class.drag-over]="isDragOver()"
+               (click)="triggerFileInput()"
+               (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave($event)"
+               (drop)="onDrop($event)">
             @if (uploading()) {
               <mat-spinner diameter="48"></mat-spinner>
               <p>Uploading file...</p>
@@ -163,9 +170,9 @@
               <p class="upload-hint">Click "Upload" to upload the file</p>
             } @else {
               <mat-icon>cloud_upload</mat-icon>
-              <p>Click the button below to select a file</p>
+              <p>Drag and drop a file here, or click to browse</p>
               <input type="file" #fileInput (change)="onFileSelect($event)" accept=".csv,.json,.xlsx,.xml,.parquet,.tsv" style="display: none" />
-              <button mat-raised-button color="primary" (click)="fileInput.click()">
+              <button mat-raised-button color="primary" (click)="fileInput.click(); $event.stopPropagation()">
                 <mat-icon>folder_open</mat-icon>
                 Browse Files
               </button>

@@ -270,6 +270,39 @@
   }
 }
 
+.upload-dropzone {
+  border: 2px dashed var(--surface-border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  background: var(--surface-50);
+  cursor: pointer;
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: var(--primary-color);
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  &.uploading {
+    border-color: var(--primary-color);
+    background: rgba(59, 130, 246, 0.05);
+    cursor: wait;
+  }
+
+  &.drag-over {
+    border-color: var(--primary-color);
+    border-style: solid;
+    background: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+
+    mat-icon {
+      transform: scale(1.1);
+      color: var(--primary-color);
+    }
+  }
+}
+
 .upload-content {
   display: flex;
   flex-direction: column;

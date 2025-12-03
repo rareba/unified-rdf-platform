@@ -58,6 +58,60 @@ interface KeyboardShortcut {
   description: string;
 }
 
+interface UserInfo {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  enabled: boolean;
+  roles: string[];
+  createdAt: string;
+  lastLogin?: string;
+}
+
+interface RoleInfo {
+  name: string;
+  description: string;
+  permissions: string[];
+  userCount: number;
+  isDefault: boolean;
+}
+
+const DEFAULT_ROLES: RoleInfo[] = [
+  {
+    name: 'admin',
+    description: 'Full system administrator with all permissions',
+    permissions: ['read', 'write', 'delete', 'admin', 'manage_users'],
+    userCount: 0,
+    isDefault: false
+  },
+  {
+    name: 'editor',
+    description: 'Can create and edit pipelines, shapes, and data',
+    permissions: ['read', 'write', 'delete'],
+    userCount: 0,
+    isDefault: false
+  },
+  {
+    name: 'viewer',
+    description: 'Read-only access to all resources',
+    permissions: ['read'],
+    userCount: 0,
+    isDefault: true
+  }
+];
+
+const AVAILABLE_PERMISSIONS = [
+  { key: 'read', label: 'Read', description: 'View resources and data' },
+  { key: 'write', label: 'Write', description: 'Create and modify resources' },
+  { key: 'delete', label: 'Delete', description: 'Remove resources' },
+  { key: 'admin', label: 'Admin', description: 'System configuration' },
+  { key: 'manage_users', label: 'Manage Users', description: 'User and role management' },
+  { key: 'run_pipelines', label: 'Run Pipelines', description: 'Execute pipeline jobs' },
+  { key: 'manage_triplestore', label: 'Manage Triplestore', description: 'Triplestore connections' }
+];
+
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   language: 'en',
@@ -154,6 +208,16 @@ export class Settings implements OnInit {
 
   // Service health
   services = signal<ServiceHealth[]>([]);
+
+  // User management
+  users = signal<UserInfo[]>([]);
+  roles = signal<RoleInfo[]>([...DEFAULT_ROLES]);
+  loadingUsers = signal(false);
+  selectedUser = signal<UserInfo | null>(null);
+  userDialogVisible = signal(false);
+  roleDialogVisible = signal(false);
+  newRole = signal<RoleInfo>({ name: '', description: '', permissions: [], userCount: 0, isDefault: false });
+  availablePermissions = AVAILABLE_PERMISSIONS;
 
   // Options
   themeOptions = [
@@ -490,5 +554,227 @@ export class Settings implements OnInit {
 
   updateNewPrefixUri(value: string): void {
     this.newPrefix.update(p => ({ ...p, uri: value }));
+  }
+
+  // User Management Methods
+  loadUsers(): void {
+    if (!this.env.auth.enabled) {
+      // In standalone mode, show demo users
+      this.users.set([
+        {
+          id: '1',
+          username: 'admin',
+          email: 'admin@example.org',
+          firstName: 'Admin',
+          lastName: 'User',
+          enabled: true,
+          roles: ['admin'],
+          createdAt: '2024-01-01T00:00:00Z',
+          lastLogin: new Date().toISOString()
+        },
+        {
+          id: '2',
+          username: 'editor',
+          email: 'editor@example.org',
+          firstName: 'Editor',
+          lastName: 'User',
+          enabled: true,
+          roles: ['editor'],
+          createdAt: '2024-01-15T00:00:00Z',
+          lastLogin: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+          id: '3',
+          username: 'viewer',
+          email: 'viewer@example.org',
+          firstName: 'Viewer',
+          lastName: 'User',
+          enabled: true,
+          roles: ['viewer'],
+          createdAt: '2024-02-01T00:00:00Z'
+        }
+      ]);
+      this.updateRoleCounts();
+      return;
+    }
+
+    // When Keycloak is enabled, fetch from API
+    this.loadingUsers.set(true);
+    this.http.get<UserInfo[]>(`${this.env.apiBaseUrl}/admin/users`).subscribe({
+      next: (users) => {
+        this.users.set(users);
+        this.updateRoleCounts();
+        this.loadingUsers.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to load users from Keycloak', 'Close', { duration: 3000 });
+        this.loadingUsers.set(false);
+      }
+    });
+  }
+
+  updateRoleCounts(): void {
+    const users = this.users();
+    this.roles.update(roles => roles.map(role => ({
+      ...role,
+      userCount: users.filter(u => u.roles.includes(role.name)).length
+    })));
+  }
+
+  openUserDialog(user: UserInfo): void {
+    this.selectedUser.set({ ...user });
+    this.userDialogVisible.set(true);
+  }
+
+  saveUser(): void {
+    const user = this.selectedUser();
+    if (!user) return;
+
+    if (this.env.auth.enabled) {
+      // Save to Keycloak via API
+      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}`, user).subscribe({
+        next: () => {
+          this.users.update(users => users.map(u => u.id === user.id ? user : u));
+          this.updateRoleCounts();
+          this.userDialogVisible.set(false);
+          this.snackBar.open('User updated successfully', 'Close', { duration: 3000 });
+        },
+        error: () => {
+          this.snackBar.open('Failed to update user', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      // Update locally for demo
+      this.users.update(users => users.map(u => u.id === user.id ? user : u));
+      this.updateRoleCounts();
+      this.userDialogVisible.set(false);
+      this.snackBar.open('User updated (demo mode)', 'Close', { duration: 3000 });
+    }
+  }
+
+  toggleUserEnabled(user: UserInfo): void {
+    const updatedUser = { ...user, enabled: !user.enabled };
+    if (this.env.auth.enabled) {
+      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}/enabled`, { enabled: updatedUser.enabled }).subscribe({
+        next: () => {
+          this.users.update(users => users.map(u => u.id === user.id ? updatedUser : u));
+          this.snackBar.open(`User ${updatedUser.enabled ? 'enabled' : 'disabled'}`, 'Close', { duration: 3000 });
+        },
+        error: () => {
+          this.snackBar.open('Failed to update user status', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      this.users.update(users => users.map(u => u.id === user.id ? updatedUser : u));
+      this.snackBar.open(`User ${updatedUser.enabled ? 'enabled' : 'disabled'} (demo mode)`, 'Close', { duration: 3000 });
+    }
+  }
+
+  // Role Management Methods
+  openRoleDialog(): void {
+    this.newRole.set({ name: '', description: '', permissions: [], userCount: 0, isDefault: false });
+    this.roleDialogVisible.set(true);
+  }
+
+  addRole(): void {
+    const role = this.newRole();
+    if (!role.name) {
+      this.snackBar.open('Role name is required', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (this.roles().some(r => r.name === role.name)) {
+      this.snackBar.open('Role already exists', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (this.env.auth.enabled) {
+      this.http.post(`${this.env.apiBaseUrl}/admin/roles`, role).subscribe({
+        next: () => {
+          this.roles.update(roles => [...roles, { ...role, userCount: 0 }]);
+          this.roleDialogVisible.set(false);
+          this.snackBar.open('Role created successfully', 'Close', { duration: 3000 });
+        },
+        error: () => {
+          this.snackBar.open('Failed to create role', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      this.roles.update(roles => [...roles, { ...role, userCount: 0 }]);
+      this.roleDialogVisible.set(false);
+      this.snackBar.open('Role created (demo mode)', 'Close', { duration: 3000 });
+    }
+  }
+
+  deleteRole(role: RoleInfo): void {
+    if (role.isDefault) {
+      this.snackBar.open('Cannot delete default role', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (role.userCount > 0) {
+      this.snackBar.open('Cannot delete role with assigned users', 'Close', { duration: 3000 });
+      return;
+    }
+
+    if (confirm(`Delete role "${role.name}"?`)) {
+      if (this.env.auth.enabled) {
+        this.http.delete(`${this.env.apiBaseUrl}/admin/roles/${role.name}`).subscribe({
+          next: () => {
+            this.roles.update(roles => roles.filter(r => r.name !== role.name));
+            this.snackBar.open('Role deleted', 'Close', { duration: 3000 });
+          },
+          error: () => {
+            this.snackBar.open('Failed to delete role', 'Close', { duration: 3000 });
+          }
+        });
+      } else {
+        this.roles.update(roles => roles.filter(r => r.name !== role.name));
+        this.snackBar.open('Role deleted (demo mode)', 'Close', { duration: 3000 });
+      }
+    }
+  }
+
+  togglePermission(permission: string): void {
+    this.newRole.update(role => {
+      const permissions = role.permissions.includes(permission)
+        ? role.permissions.filter(p => p !== permission)
+        : [...role.permissions, permission];
+      return { ...role, permissions };
+    });
+  }
+
+  hasPermission(permission: string): boolean {
+    return this.newRole().permissions.includes(permission);
+  }
+
+  updateNewRoleName(name: string): void {
+    this.newRole.update(role => ({ ...role, name }));
+  }
+
+  updateNewRoleDescription(description: string): void {
+    this.newRole.update(role => ({ ...role, description }));
+  }
+
+  updateUserRole(user: UserInfo, roleName: string, add: boolean): void {
+    const updatedRoles = add
+      ? [...user.roles, roleName]
+      : user.roles.filter(r => r !== roleName);
+
+    const selectedUser = this.selectedUser();
+    if (selectedUser && selectedUser.id === user.id) {
+      this.selectedUser.update(u => u ? { ...u, roles: updatedRoles } : null);
+    }
+  }
+
+  getUserRoleNames(user: UserInfo): string {
+    return user.roles.join(', ') || 'No roles';
+  }
+
+  getKeycloakAdminUrl(): string {
+    if (this.env.auth.enabled && this.env.auth.keycloak) {
+      return `${this.env.auth.keycloak.url}/admin/${this.env.auth.keycloak.realm}/console`;
+    }
+    return '';
   }
 }
