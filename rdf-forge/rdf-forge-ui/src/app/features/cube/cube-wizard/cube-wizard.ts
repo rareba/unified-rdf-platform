@@ -899,20 +899,37 @@ export class CubeWizard implements OnInit {
       tags: ['cube-generation', 'auto-generated']
     }).subscribe({
       next: (pipeline) => {
-        clearInterval(progressInterval);
-        this.publishProgress.set(100);
+        // If runImmediately is checked, execute the pipeline
+        if (this.publishOptions().runImmediately) {
+          this.pipelineService.run(pipeline.id).subscribe({
+            next: (result) => {
+              clearInterval(progressInterval);
+              this.publishProgress.set(100);
 
-        setTimeout(() => {
-          this.publishing.set(false);
-          this.snackBar.open(`Cube "${this.cubeName()}" pipeline created successfully`, 'Close', { duration: 5000 });
+              setTimeout(() => {
+                this.publishing.set(false);
+                this.snackBar.open(`Pipeline started! Job ID: ${result.jobId}`, 'Close', { duration: 5000 });
+                this.router.navigate(['/jobs']);
+              }, 500);
+            },
+            error: (err) => {
+              clearInterval(progressInterval);
+              this.publishing.set(false);
+              this.publishProgress.set(0);
+              this.snackBar.open(err.error?.message || 'Pipeline created but failed to start execution', 'Close', { duration: 5000 });
+              this.router.navigate(['/pipelines']);
+            }
+          });
+        } else {
+          clearInterval(progressInterval);
+          this.publishProgress.set(100);
 
-          // Navigate to pipeline or jobs
-          if (this.publishOptions().runImmediately) {
-            this.router.navigate(['/jobs']);
-          } else {
+          setTimeout(() => {
+            this.publishing.set(false);
+            this.snackBar.open(`Cube "${this.cubeName()}" pipeline created successfully`, 'Close', { duration: 5000 });
             this.router.navigate(['/pipelines']);
-          }
-        }, 500);
+          }, 500);
+        }
       },
       error: (err) => {
         clearInterval(progressInterval);

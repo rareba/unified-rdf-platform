@@ -368,6 +368,38 @@
   }
 }
 
+.data-preview-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+
+  mat-icon {
+    color: var(--primary-color);
+  }
+
+  mat-chip {
+    margin-left: 0.5rem;
+  }
+
+  .analyzing-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
+    font-weight: normal;
+  }
+}
+
 .preview-info {
   font-size: 0.75rem;
   font-weight: normal;

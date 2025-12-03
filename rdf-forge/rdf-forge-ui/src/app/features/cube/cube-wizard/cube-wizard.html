@@ -237,15 +237,14 @@
                 <mat-icon>visibility</mat-icon>
                 <span>Data Preview</span>
                 <mat-chip>{{ selectedDataSource()?.name || '' }}</mat-chip>
+                @if (loadingColumns()) {
+                  <span class="analyzing-hint">
+                    <mat-spinner diameter="16"></mat-spinner>
+                    Analyzing columns...
+                  </span>
+                }
               </div>
-              @if (loadingColumns()) {
-                <div class="loading-state small">
-                  <mat-spinner diameter="30"></mat-spinner>
-                  <span>Analyzing data...</span>
-                </div>
-              } @else {
-                <app-data-preview [dataSourceId]="selectedDataSource()?.id || null"></app-data-preview>
-              }
+              <app-data-preview [dataSourceId]="selectedDataSource()?.id || null"></app-data-preview>
             </div>
           }
         </div>
