@@ -352,12 +352,84 @@
     <div class="test-lab-section">
       <mat-expansion-panel>
         <mat-expansion-panel-header>
-          <mat-panel-title>Test Lab</mat-panel-title>
+          <mat-panel-title>
+            <mat-icon>science</mat-icon>
+            Test Lab
+          </mat-panel-title>
         </mat-expansion-panel-header>
         <div class="test-lab-content">
           <div class="test-data-panel">
+            <!-- Data Source Selector -->
+            <div class="data-source-selector">
+              <label class="panel-label">Data Source</label>
+              <mat-button-toggle-group [value]="testDataSource()" (change)="onDataSourceChange($event.value)">
+                <mat-button-toggle value="manual">
+                  <mat-icon>edit</mat-icon>
+                  Manual Input
+                </mat-button-toggle>
+                <mat-button-toggle value="triplestore">
+                  <mat-icon>storage</mat-icon>
+                  From Triplestore
+                </mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
+
+            @if (testDataSource() === 'triplestore') {
+              <!-- Triplestore Selection -->
+              <div class="triplestore-selector">
+                <div class="selector-row">
+                  <mat-form-field appearance="outline" class="flex-1">
+                    <mat-label>Triplestore Connection</mat-label>
+                    <mat-select [value]="selectedConnection()" (selectionChange)="onConnectionSelect($event.value)">
+                      @if (loadingConnections()) {
+                        <mat-option disabled>Loading connections...</mat-option>
+                      } @else {
+                        <mat-option [value]="null">Select a connection...</mat-option>
+                        @for (conn of triplestoreConnections(); track conn.id) {
+                          <mat-option [value]="conn">{{ conn.name }}</mat-option>
+                        }
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="flex-1">
+                    <mat-label>Graph</mat-label>
+                    <mat-select [value]="selectedGraph()" (selectionChange)="onGraphSelect($event.value)" [disabled]="!selectedConnection()">
+                      @if (loadingGraphs()) {
+                        <mat-option disabled>Loading graphs...</mat-option>
+                      } @else {
+                        <mat-option [value]="null">Select a graph...</mat-option>
+                        @for (graph of connectionGraphs(); track graph.uri) {
+                          <mat-option [value]="graph">{{ graph.name || graph.uri }}</mat-option>
+                        }
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <button mat-raised-button color="accent"
+                    [disabled]="!selectedConnection() || !selectedGraph() || loadingGraphData()"
+                    (click)="loadDataFromGraph()">
+                    @if (loadingGraphData()) {
+                      <mat-spinner diameter="20"></mat-spinner>
+                    } @else {
+                      <mat-icon>download</mat-icon>
+                    }
+                    Load Data
+                  </button>
+                </div>
+
+                @if (triplestoreConnections().length === 0 && !loadingConnections()) {
+                  <div class="no-connections-hint">
+                    <mat-icon>info</mat-icon>
+                    <span>No triplestore connections configured. <a routerLink="/triplestore">Add one</a> to load test data from your RDF store.</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Data Format & Editor -->
             <div class="panel-header">
-              <label class="panel-label">Test Data</label>
+              <label class="panel-label">Test Data {{ testDataSource() === 'triplestore' ? '(Loaded)' : '' }}</label>
               <mat-form-field appearance="outline" class="format-select">
                 <mat-select [ngModel]="testDataFormat()" (ngModelChange)="testDataFormat.set($event)">
                   @for (option of testFormatOptions; track option.value) {
@@ -367,11 +439,16 @@
               </mat-form-field>
             </div>
             <mat-form-field appearance="outline" class="full-width">
-              <textarea matInput [ngModel]="testData()" (ngModelChange)="testData.set($event)" rows="10" placeholder="Enter RDF data to validate against this shape..."></textarea>
+              <textarea matInput [ngModel]="testData()" (ngModelChange)="testData.set($event)" rows="10"
+                [placeholder]="testDataSource() === 'triplestore' ? 'Select a connection and graph above, then click Load Data' : 'Enter RDF data to validate against this shape...'"></textarea>
             </mat-form-field>
             <div class="test-actions">
-              <button mat-raised-button color="primary" (click)="runValidation()" [disabled]="validating()">
-                <mat-icon>play_arrow</mat-icon>
+              <button mat-raised-button color="primary" (click)="runValidation()" [disabled]="validating() || !testData()">
+                @if (validating()) {
+                  <mat-spinner diameter="20"></mat-spinner>
+                } @else {
+                  <mat-icon>play_arrow</mat-icon>
+                }
                 Run Validation
               </button>
             </div>

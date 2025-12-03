@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,8 +16,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDividerModule } from '@angular/material/divider';
-import { ShaclService } from '../../../core/services';
-import { ShapeCreateRequest, ContentFormat, ValidationResult } from '../../../core/models';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ShaclService, TriplestoreService } from '../../../core/services';
+import { ShapeCreateRequest, ContentFormat, ValidationResult, TriplestoreConnection, Graph } from '../../../core/models';
 
 interface PropertyShape {
   id: string;
@@ -180,7 +181,9 @@ const CONSTRAINT_PRESETS: ConstraintPreset[] = [
     MatIconModule,
     MatChipsModule,
     MatButtonToggleModule,
-    MatDividerModule
+    MatDividerModule,
+    MatProgressSpinnerModule,
+    RouterLink
   ],
   templateUrl: './shape-editor.html',
   styleUrl: './shape-editor.scss',
@@ -189,6 +192,7 @@ export class ShapeEditor implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly shaclService = inject(ShaclService);
+  private readonly triplestoreService = inject(TriplestoreService);
   private readonly snackBar = inject(MatSnackBar);
 
   loading = signal(false);
@@ -196,6 +200,16 @@ export class ShapeEditor implements OnInit {
   validating = signal(false);
   isNew = signal(true);
   shapeId = signal<string | null>(null);
+
+  // Triplestore integration for test data
+  triplestoreConnections = signal<TriplestoreConnection[]>([]);
+  selectedConnection = signal<TriplestoreConnection | null>(null);
+  connectionGraphs = signal<Graph[]>([]);
+  selectedGraph = signal<Graph | null>(null);
+  loadingConnections = signal(false);
+  loadingGraphs = signal(false);
+  loadingGraphData = signal(false);
+  testDataSource = signal<'manual' | 'triplestore'>('manual');
 
   // Mode
   visualMode = signal(true);
@@ -558,5 +572,79 @@ export class ShapeEditor implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/shacl']);
+  }
+
+  // Triplestore Integration Methods
+  loadTriplestoreConnections(): void {
+    this.loadingConnections.set(true);
+    this.triplestoreService.list().subscribe({
+      next: (connections) => {
+        this.triplestoreConnections.set(connections);
+        this.loadingConnections.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to load triplestore connections', 'Close', { duration: 3000 });
+        this.loadingConnections.set(false);
+      }
+    });
+  }
+
+  onConnectionSelect(connection: TriplestoreConnection | null): void {
+    this.selectedConnection.set(connection);
+    this.connectionGraphs.set([]);
+    this.selectedGraph.set(null);
+
+    if (connection) {
+      this.loadGraphsForConnection(connection.id);
+    }
+  }
+
+  loadGraphsForConnection(connectionId: string): void {
+    this.loadingGraphs.set(true);
+    this.triplestoreService.getGraphs(connectionId).subscribe({
+      next: (graphs) => {
+        this.connectionGraphs.set(graphs);
+        this.loadingGraphs.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Failed to load graphs', 'Close', { duration: 3000 });
+        this.loadingGraphs.set(false);
+      }
+    });
+  }
+
+  onGraphSelect(graph: Graph | null): void {
+    this.selectedGraph.set(graph);
+  }
+
+  loadDataFromGraph(): void {
+    const connection = this.selectedConnection();
+    const graph = this.selectedGraph();
+
+    if (!connection || !graph) {
+      this.snackBar.open('Please select a connection and graph', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.loadingGraphData.set(true);
+    this.triplestoreService.exportGraph(connection.id, graph.uri, 'turtle').subscribe({
+      next: (data) => {
+        this.testData.set(data);
+        this.testDataFormat.set('turtle');
+        this.loadingGraphData.set(false);
+        this.snackBar.open('Data loaded from triplestore', 'Close', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Failed to load data from graph', 'Close', { duration: 3000 });
+        this.loadingGraphData.set(false);
+      }
+    });
+  }
+
+  onDataSourceChange(source: 'manual' | 'triplestore'): void {
+    this.testDataSource.set(source);
+    if (source === 'triplestore' && this.triplestoreConnections().length === 0) {
+      this.loadTriplestoreConnections();
+    }
   }
 }
