@@ -138,146 +138,180 @@
           @if (selectedProperty(); as prop) {
             <mat-card>
               <mat-card-header>
-                <mat-card-title>{{ prop.name || 'Property Details' }}</mat-card-title>
+                <mat-card-title>
+                  <mat-icon>{{ getIconForKind(prop.kind) }}</mat-icon>
+                  {{ prop.name || 'New Property' }}
+                </mat-card-title>
               </mat-card-header>
               <mat-card-content>
-                <mat-tab-group>
-                  <!-- General Tab -->
-                  <mat-tab label="General">
-                    <div class="tab-content">
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Property Name (Label)</mat-label>
+                <!-- Simplified Single-Page Property Editor -->
+                <div class="simplified-property-editor">
+                  <!-- Basic Info Section -->
+                  <div class="editor-section">
+                    <h4 class="section-title">
+                      <mat-icon>info</mat-icon>
+                      Basic Information
+                    </h4>
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="flex-1">
+                        <mat-label>Property Name</mat-label>
                         <input matInput [(ngModel)]="prop.name" placeholder="e.g., Email Address" />
+                        <mat-hint>Human-readable label</mat-hint>
                       </mat-form-field>
 
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Path (URI)</mat-label>
-                        <input matInput [(ngModel)]="prop.path" placeholder="e.g., schema:email" />
-                        <mat-hint>The RDF predicate this property constrains.</mat-hint>
-                      </mat-form-field>
-
-                      <div class="two-column">
-                        <mat-form-field appearance="outline">
-                          <mat-label>Kind</mat-label>
-                          <mat-select [(ngModel)]="prop.kind">
-                            @for (option of kindOptions; track option.value) {
-                              <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                            }
-                          </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field appearance="outline">
-                          <mat-label>{{ prop.kind === 'LITERAL' ? 'Datatype' : 'Target Class' }}</mat-label>
-                          @if (prop.kind === 'LITERAL') {
-                            <mat-select [(ngModel)]="prop.datatype">
-                              @for (option of datatypeOptions; track option.value) {
-                                <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                              }
-                            </mat-select>
-                          } @else {
-                            <input matInput [(ngModel)]="prop.datatype" placeholder="e.g., schema:Person" />
-                          }
-                        </mat-form-field>
-                      </div>
-
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Description</mat-label>
-                        <textarea matInput [(ngModel)]="prop.description" rows="3"></textarea>
+                      <mat-form-field appearance="outline" class="flex-1">
+                        <mat-label>Value Type</mat-label>
+                        <mat-select [(ngModel)]="prop.kind">
+                          <mat-option value="LITERAL">
+                            <mat-icon>text_fields</mat-icon>
+                            Text/Number (Literal)
+                          </mat-option>
+                          <mat-option value="RESOURCE">
+                            <mat-icon>link</mat-icon>
+                            Link to Resource
+                          </mat-option>
+                        </mat-select>
                       </mat-form-field>
                     </div>
-                  </mat-tab>
 
-                  <!-- Constraints Tab -->
-                  <mat-tab label="Constraints">
-                    <div class="tab-content">
-                      <!-- Quick Presets for Non-Experts -->
-                      <div class="constraint-presets">
-                        <label class="preset-label">Quick Presets</label>
-                        <div class="preset-buttons">
-                          @for (preset of constraintPresets; track preset.id) {
-                            <button
-                              mat-stroked-button
-                              [matTooltip]="preset.description"
-                              (click)="applyConstraintPreset(preset)">
-                              <mat-icon>{{ preset.icon }}</mat-icon>
-                              {{ preset.label }}
-                            </button>
-                          }
-                        </div>
-                      </div>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Property Path (URI)</mat-label>
+                      <input matInput [(ngModel)]="prop.path" placeholder="e.g., http://schema.org/email or schema:email" />
+                      <mat-hint>The RDF predicate this property validates</mat-hint>
+                    </mat-form-field>
 
-                      <mat-divider></mat-divider>
-
-                      <div class="constraint-fields">
-                        <div class="constraint-section">
-                          <label class="section-label">Is this field required?</label>
-                          <mat-checkbox
-                            [checked]="prop.minCount !== null && prop.minCount > 0"
-                            (change)="$event.checked ? prop.minCount = 1 : prop.minCount = 0">
-                            Required (must have a value)
-                          </mat-checkbox>
-                          <div class="hint">Minimum occurrences: {{ prop.minCount ?? 0 }}</div>
-                        </div>
-
-                        <div class="constraint-section">
-                          <label class="section-label">How many values allowed?</label>
-                          <mat-checkbox
-                            [checked]="prop.maxCount === 1"
-                            (change)="prop.maxCount = $event.checked ? 1 : null">
-                            Single value only
-                          </mat-checkbox>
-                          <div class="hint">Maximum: {{ prop.maxCount ?? 'Unlimited' }}</div>
-                        </div>
-
-                        @if (prop.kind === 'LITERAL') {
-                          <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>Must match a pattern?</mat-label>
-                            <input matInput [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
-                            <mat-hint>Regular expression pattern the value must match</mat-hint>
-                          </mat-form-field>
-
-                          <div class="two-column">
-                            <mat-form-field appearance="outline">
-                              <mat-label>Minimum text length</mat-label>
-                              <input matInput type="number" [(ngModel)]="prop.minLength" min="0" placeholder="No minimum" />
-                            </mat-form-field>
-
-                            <mat-form-field appearance="outline">
-                              <mat-label>Maximum text length</mat-label>
-                              <input matInput type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="No maximum" />
-                            </mat-form-field>
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  </mat-tab>
-
-                  <!-- Advanced Tab -->
-                  <mat-tab label="Advanced">
-                    <div class="tab-content">
+                    @if (prop.kind === 'LITERAL') {
                       <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Custom Validation Message</mat-label>
-                        <input matInput [(ngModel)]="prop.message" placeholder="e.g., Value must be a valid email" />
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Node Kind</mat-label>
-                        <mat-select [(ngModel)]="prop.nodeKind" placeholder="Default">
-                          @for (option of nodeKindOptions; track option.value) {
+                        <mat-label>Data Type</mat-label>
+                        <mat-select [(ngModel)]="prop.datatype">
+                          @for (option of datatypeOptions; track option.value) {
                             <mat-option [value]="option.value">{{ option.label }}</mat-option>
                           }
                         </mat-select>
                       </mat-form-field>
+                    } @else {
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Target Class (optional)</mat-label>
+                        <input matInput [(ngModel)]="prop.datatype" placeholder="e.g., http://schema.org/Person" />
+                        <mat-hint>The type of resource this should link to</mat-hint>
+                      </mat-form-field>
+                    }
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <!-- Requirements Section -->
+                  <div class="editor-section">
+                    <h4 class="section-title">
+                      <mat-icon>rule</mat-icon>
+                      Requirements
+                    </h4>
+
+                    <!-- Quick Presets -->
+                    <div class="quick-presets">
+                      @for (preset of constraintPresets; track preset.id) {
+                        <button mat-stroked-button class="preset-btn"
+                          [matTooltip]="preset.description"
+                          (click)="applyConstraintPreset(preset)">
+                          <mat-icon>{{ preset.icon }}</mat-icon>
+                          {{ preset.label }}
+                        </button>
+                      }
                     </div>
-                  </mat-tab>
-                </mat-tab-group>
+
+                    <div class="requirements-grid">
+                      <div class="requirement-option">
+                        <mat-checkbox
+                          [checked]="prop.minCount !== null && prop.minCount > 0"
+                          (change)="$event.checked ? prop.minCount = 1 : prop.minCount = 0">
+                          <span class="option-label">Required field</span>
+                        </mat-checkbox>
+                        <span class="option-hint">Must have at least one value</span>
+                      </div>
+
+                      <div class="requirement-option">
+                        <mat-checkbox
+                          [checked]="prop.maxCount === 1"
+                          (change)="prop.maxCount = $event.checked ? 1 : null">
+                          <span class="option-label">Single value only</span>
+                        </mat-checkbox>
+                        <span class="option-hint">Can have at most one value</span>
+                      </div>
+                    </div>
+
+                    @if (prop.kind === 'LITERAL') {
+                      <!-- Pattern Matching -->
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Pattern (optional)</mat-label>
+                        <input matInput [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
+                        <mat-icon matSuffix matTooltip="Regular expression that values must match">help_outline</mat-icon>
+                      </mat-form-field>
+
+                      <!-- Length Constraints -->
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="flex-1">
+                          <mat-label>Min Length</mat-label>
+                          <input matInput type="number" [(ngModel)]="prop.minLength" min="0" placeholder="None" />
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="flex-1">
+                          <mat-label>Max Length</mat-label>
+                          <input matInput type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="None" />
+                        </mat-form-field>
+                      </div>
+                    }
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <!-- Optional Settings (Collapsed by Default) -->
+                  <mat-expansion-panel class="optional-settings">
+                    <mat-expansion-panel-header>
+                      <mat-panel-title>
+                        <mat-icon>settings</mat-icon>
+                        Optional Settings
+                      </mat-panel-title>
+                    </mat-expansion-panel-header>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Description</mat-label>
+                      <textarea matInput [(ngModel)]="prop.description" rows="2" placeholder="Explain what this property is for"></textarea>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Custom Error Message</mat-label>
+                      <input matInput [(ngModel)]="prop.message" placeholder="e.g., Please provide a valid email address" />
+                      <mat-hint>Shown when validation fails</mat-hint>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Node Kind</mat-label>
+                      <mat-select [(ngModel)]="prop.nodeKind" placeholder="Auto-detect">
+                        <mat-option [value]="null">Auto-detect</mat-option>
+                        @for (option of nodeKindOptions; track option.value) {
+                          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </mat-expansion-panel>
+
+                  <!-- Summary -->
+                  <div class="constraint-summary">
+                    <mat-icon>summarize</mat-icon>
+                    <span>{{ getConstraintSummary(prop) }}</span>
+                  </div>
+                </div>
               </mat-card-content>
             </mat-card>
           } @else {
             <div class="empty-property-state">
-              <mat-icon class="empty-icon">arrow_back</mat-icon>
-              <div class="empty-title">Select a property</div>
-              <div class="empty-message">Select a property from the list or create a new one to edit its details.</div>
+              <mat-icon class="empty-icon">touch_app</mat-icon>
+              <div class="empty-title">Select a Property</div>
+              <div class="empty-message">Click on a property from the list to edit it, or click "Add Property" to create a new one.</div>
+              <button mat-raised-button color="primary" (click)="addProperty()">
+                <mat-icon>add</mat-icon>
+                Add First Property
+              </button>
             </div>
           }
         </div>
