@@ -475,7 +475,103 @@
           <mat-icon class="tab-icon">group</mat-icon>
           Users & Permissions
         </ng-template>
-          <div class="tab-content" (click)="loadUsers()">
+          <div class="tab-content">
+            <!-- Personal Access Tokens Section -->
+            <div class="settings-section" (mouseenter)="loadPersonalAccessTokens()">
+              <div class="section-header">
+                <mat-icon>key</mat-icon>
+                <h3>Personal Access Tokens</h3>
+                <button
+                  mat-stroked-button
+                  (click)="openNewTokenDialog()"
+                >
+                  <mat-icon>add</mat-icon>
+                  Generate New Token
+                </button>
+              </div>
+              <div class="section-content">
+                <div class="pat-info-box">
+                  <mat-icon>info</mat-icon>
+                  <p>
+                    Personal Access Tokens (PATs) are used for API authentication when you can't use Keycloak SSO.
+                    Use them for CI/CD pipelines, scripts, or any automated process that needs to access the API.
+                  </p>
+                </div>
+
+                @if (loadingTokens()) {
+                  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                }
+
+                @if (personalAccessTokens().length === 0 && !loadingTokens()) {
+                  <div class="empty-hint">
+                    <mat-icon>vpn_key</mat-icon>
+                    <p>No Personal Access Tokens created yet</p>
+                    <button mat-stroked-button (click)="openNewTokenDialog()">
+                      <mat-icon>add</mat-icon>
+                      Create your first token
+                    </button>
+                  </div>
+                } @else if (personalAccessTokens().length > 0) {
+                  <div class="tokens-list">
+                    @for (token of personalAccessTokens(); track token.id) {
+                      <div class="token-card" [class.token-revoked]="token.revoked">
+                        <div class="token-header">
+                          <div class="token-name">
+                            <mat-icon>key</mat-icon>
+                            <span>{{ token.name }}</span>
+                            @if (token.revoked) {
+                              <span class="token-badge revoked">Revoked</span>
+                            }
+                          </div>
+                          <div class="token-actions">
+                            @if (!token.revoked) {
+                              <button
+                                mat-icon-button
+                                color="warn"
+                                (click)="revokeToken(token)"
+                                matTooltip="Revoke token"
+                              >
+                                <mat-icon>block</mat-icon>
+                              </button>
+                            }
+                          </div>
+                        </div>
+                        @if (token.description) {
+                          <p class="token-description">{{ token.description }}</p>
+                        }
+                        <div class="token-details">
+                          <div class="token-detail">
+                            <span class="detail-label">Token</span>
+                            <code class="token-prefix">{{ token.tokenPrefix }}...</code>
+                          </div>
+                          <div class="token-detail">
+                            <span class="detail-label">Created</span>
+                            <span>{{ token.createdAt | date:'mediumDate' }}</span>
+                          </div>
+                          <div class="token-detail">
+                            <span class="detail-label">Expires</span>
+                            <span [class.expiring-soon]="token.expiresAt && formatTokenExpiration(token.expiresAt).includes('in')">
+                              {{ formatTokenExpiration(token.expiresAt) }}
+                            </span>
+                          </div>
+                          <div class="token-detail">
+                            <span class="detail-label">Last used</span>
+                            <span>{{ formatLastUsed(token.lastUsedAt) }}</span>
+                            @if (token.lastUsedIp) {
+                              <span class="ip-address">({{ token.lastUsedIp }})</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <div class="tokens-summary">
+                    <span>{{ getActiveTokenCount() }} active token(s) / {{ personalAccessTokens().length }} total</span>
+                  </div>
+                }
+              </div>
+            </div>
+
             <!-- Keycloak Status -->
             <div class="settings-section">
               <div class="section-header">
@@ -1064,6 +1160,135 @@
         <button mat-raised-button color="primary" (click)="addRole()" [disabled]="!newRole().name">
           <mat-icon>add</mat-icon>
           Create Role
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Create New Token Dialog -->
+@if (newTokenDialogVisible()) {
+  <div class="dialog-overlay" (click)="newTokenDialogVisible.set(false)">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 500px">
+      <mat-card-header>
+        <mat-card-title>Generate Personal Access Token</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <div class="form-field">
+            <label for="tokenName">Token Name <span class="required">*</span></label>
+            <mat-form-field appearance="outline" class="w-full">
+              <input
+                matInput
+                id="tokenName"
+                type="text"
+                [ngModel]="newToken().name"
+                (ngModelChange)="updateNewTokenName($event)"
+                placeholder="e.g., CI/CD Pipeline Token"
+              />
+            </mat-form-field>
+            <small>A descriptive name to identify this token</small>
+          </div>
+
+          <div class="form-field">
+            <label for="tokenDesc">Description (optional)</label>
+            <mat-form-field appearance="outline" class="w-full">
+              <textarea
+                matInput
+                id="tokenDesc"
+                [ngModel]="newToken().description"
+                (ngModelChange)="updateNewTokenDescription($event)"
+                placeholder="What will this token be used for?"
+                rows="2"
+              ></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="form-field">
+            <label for="tokenExpiration">Expiration</label>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-select
+                id="tokenExpiration"
+                [ngModel]="newToken().expiration"
+                (ngModelChange)="updateNewTokenExpiration($event)"
+              >
+                @for (option of tokenExpirationOptions; track option.value) {
+                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <small>Choose how long this token should be valid</small>
+          </div>
+
+          <div class="token-warning">
+            <mat-icon>warning</mat-icon>
+            <p>
+              Make sure to copy your personal access token now. You won't be able to see it again!
+            </p>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-button (click)="newTokenDialogVisible.set(false)">Cancel</button>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="createPersonalAccessToken()"
+          [disabled]="!newToken().name || loadingTokens()"
+        >
+          <mat-icon>key</mat-icon>
+          Generate Token
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Token Created Dialog -->
+@if (tokenCreatedDialogVisible()) {
+  <div class="dialog-overlay">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()" style="width: 550px">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon class="success-icon">check_circle</mat-icon>
+          Token Created Successfully
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="dialog-content">
+          <div class="token-created-warning">
+            <mat-icon>warning</mat-icon>
+            <p>
+              <strong>Important:</strong> Copy your token now. This is the only time you will see it!
+            </p>
+          </div>
+
+          <div class="token-display">
+            <label>Your Personal Access Token</label>
+            <div class="token-value-container">
+              <code class="token-value">{{ createdToken() }}</code>
+              <button
+                mat-icon-button
+                (click)="copyToken()"
+                matTooltip="Copy to clipboard"
+              >
+                <mat-icon>content_copy</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="token-usage-hint">
+            <p><strong>Usage:</strong></p>
+            <code class="usage-example">
+              curl -H "Authorization: Bearer {{ createdToken() }}" \<br/>
+              &nbsp;&nbsp;{{ env.apiBaseUrl }}/pipelines
+            </code>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button mat-raised-button color="primary" (click)="closeTokenCreatedDialog()">
+          Done
         </button>
       </mat-card-actions>
     </mat-card>

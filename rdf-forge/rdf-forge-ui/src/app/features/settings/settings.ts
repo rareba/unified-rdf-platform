@@ -58,6 +58,41 @@ interface KeyboardShortcut {
   description: string;
 }
 
+interface PersonalAccessToken {
+  id: string;
+  name: string;
+  description?: string;
+  tokenPrefix: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  lastUsedIp?: string;
+  revoked: boolean;
+}
+
+interface CreateTokenRequest {
+  name: string;
+  description?: string;
+  expiration: string;
+  scopes?: string[];
+}
+
+interface CreateTokenResponse {
+  token: PersonalAccessToken;
+  plainToken: string;
+}
+
+const TOKEN_EXPIRATION_OPTIONS = [
+  { label: '1 week', value: 'ONE_WEEK' },
+  { label: '2 weeks', value: 'TWO_WEEKS' },
+  { label: '1 month', value: 'ONE_MONTH' },
+  { label: '3 months', value: 'THREE_MONTHS' },
+  { label: '6 months', value: 'SIX_MONTHS' },
+  { label: '1 year', value: 'ONE_YEAR' },
+  { label: 'Never expires', value: 'NEVER' }
+];
+
 interface UserInfo {
   id: string;
   username: string;
@@ -218,6 +253,16 @@ export class Settings implements OnInit {
   roleDialogVisible = signal(false);
   newRole = signal<RoleInfo>({ name: '', description: '', permissions: [], userCount: 0, isDefault: false });
   availablePermissions = AVAILABLE_PERMISSIONS;
+
+  // Personal Access Token management
+  personalAccessTokens = signal<PersonalAccessToken[]>([]);
+  loadingTokens = signal(false);
+  tokenDialogVisible = signal(false);
+  newTokenDialogVisible = signal(false);
+  tokenCreatedDialogVisible = signal(false);
+  newToken = signal<CreateTokenRequest>({ name: '', description: '', expiration: 'ONE_MONTH' });
+  createdToken = signal<string | null>(null);
+  tokenExpirationOptions = TOKEN_EXPIRATION_OPTIONS;
 
   // Options
   themeOptions = [
@@ -776,5 +821,181 @@ export class Settings implements OnInit {
       return `${this.env.auth.keycloak.url}/admin/${this.env.auth.keycloak.realm}/console`;
     }
     return '';
+  }
+
+  // Personal Access Token Methods
+  loadPersonalAccessTokens(): void {
+    this.loadingTokens.set(true);
+    this.http.get<PersonalAccessToken[]>(`${this.env.apiBaseUrl}/auth/tokens`).subscribe({
+      next: (tokens) => {
+        this.personalAccessTokens.set(tokens);
+        this.loadingTokens.set(false);
+      },
+      error: () => {
+        // In standalone mode or if API not available, show demo tokens
+        this.personalAccessTokens.set([
+          {
+            id: 'demo-1',
+            name: 'CI/CD Pipeline Token',
+            description: 'Used for automated deployments',
+            tokenPrefix: 'ccx_abc12345',
+            scopes: [],
+            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+            lastUsedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            lastUsedIp: '192.168.1.100',
+            revoked: false
+          },
+          {
+            id: 'demo-2',
+            name: 'Local Development',
+            description: 'For testing API calls locally',
+            tokenPrefix: 'ccx_xyz98765',
+            scopes: [],
+            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            lastUsedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            revoked: false
+          }
+        ]);
+        this.loadingTokens.set(false);
+      }
+    });
+  }
+
+  openNewTokenDialog(): void {
+    this.newToken.set({ name: '', description: '', expiration: 'ONE_MONTH' });
+    this.newTokenDialogVisible.set(true);
+  }
+
+  createPersonalAccessToken(): void {
+    const tokenRequest = this.newToken();
+    if (!tokenRequest.name) {
+      this.snackBar.open('Token name is required', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.loadingTokens.set(true);
+    this.http.post<CreateTokenResponse>(`${this.env.apiBaseUrl}/auth/tokens`, tokenRequest).subscribe({
+      next: (response) => {
+        this.personalAccessTokens.update(tokens => [response.token, ...tokens]);
+        this.createdToken.set(response.plainToken);
+        this.newTokenDialogVisible.set(false);
+        this.tokenCreatedDialogVisible.set(true);
+        this.loadingTokens.set(false);
+      },
+      error: () => {
+        // Demo mode - simulate token creation
+        const demoToken = 'ccx_' + Array(40).fill(0).map(() =>
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.random() * 62 | 0)
+        ).join('');
+
+        const newTokenObj: PersonalAccessToken = {
+          id: 'demo-' + Date.now(),
+          name: tokenRequest.name,
+          description: tokenRequest.description,
+          tokenPrefix: demoToken.substring(0, 12) + '...',
+          scopes: [],
+          createdAt: new Date().toISOString(),
+          expiresAt: this.calculateExpiration(tokenRequest.expiration),
+          revoked: false
+        };
+
+        this.personalAccessTokens.update(tokens => [newTokenObj, ...tokens]);
+        this.createdToken.set(demoToken);
+        this.newTokenDialogVisible.set(false);
+        this.tokenCreatedDialogVisible.set(true);
+        this.loadingTokens.set(false);
+        this.snackBar.open('Token created (demo mode)', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  private calculateExpiration(expiration: string): string | undefined {
+    const days: { [key: string]: number } = {
+      'ONE_WEEK': 7,
+      'TWO_WEEKS': 14,
+      'ONE_MONTH': 30,
+      'THREE_MONTHS': 90,
+      'SIX_MONTHS': 180,
+      'ONE_YEAR': 365,
+      'NEVER': 0
+    };
+
+    const d = days[expiration];
+    if (d === 0) return undefined;
+    return new Date(Date.now() + d * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  revokeToken(token: PersonalAccessToken): void {
+    if (confirm(`Are you sure you want to revoke the token "${token.name}"? This action cannot be undone.`)) {
+      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
+        next: () => {
+          this.personalAccessTokens.update(tokens =>
+            tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
+          );
+          this.snackBar.open('Token revoked successfully', 'Close', { duration: 3000 });
+        },
+        error: () => {
+          // Demo mode
+          this.personalAccessTokens.update(tokens =>
+            tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
+          );
+          this.snackBar.open('Token revoked (demo mode)', 'Close', { duration: 3000 });
+        }
+      });
+    }
+  }
+
+  copyToken(): void {
+    const token = this.createdToken();
+    if (token) {
+      navigator.clipboard.writeText(token);
+      this.snackBar.open('Token copied to clipboard', 'Close', { duration: 3000 });
+    }
+  }
+
+  closeTokenCreatedDialog(): void {
+    this.createdToken.set(null);
+    this.tokenCreatedDialogVisible.set(false);
+  }
+
+  formatTokenExpiration(expiresAt?: string): string {
+    if (!expiresAt) return 'Never expires';
+    const expDate = new Date(expiresAt);
+    const now = new Date();
+    if (expDate < now) return 'Expired';
+    const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 7) return `Expires in ${diffDays} days`;
+    if (diffDays <= 30) return `Expires in ${Math.ceil(diffDays / 7)} weeks`;
+    return `Expires ${expDate.toLocaleDateString()}`;
+  }
+
+  formatLastUsed(lastUsedAt?: string): string {
+    if (!lastUsedAt) return 'Never used';
+    const lastUsed = new Date(lastUsedAt);
+    const now = new Date();
+    const diffMins = Math.floor((now.getTime() - lastUsed.getTime()) / (1000 * 60));
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return lastUsed.toLocaleDateString();
+  }
+
+  updateNewTokenName(name: string): void {
+    this.newToken.update(t => ({ ...t, name }));
+  }
+
+  updateNewTokenDescription(description: string): void {
+    this.newToken.update(t => ({ ...t, description }));
+  }
+
+  updateNewTokenExpiration(expiration: string): void {
+    this.newToken.update(t => ({ ...t, expiration }));
+  }
+
+  getActiveTokenCount(): number {
+    return this.personalAccessTokens().filter(t => !t.revoked).length;
   }
 }

@@ -21,6 +21,7 @@
         <module>rdf-forge-data-service</module>
         <module>rdf-forge-dimension-service</module>
         <module>rdf-forge-triplestore-service</module>
+        <module>rdf-forge-auth-service</module>
         <module>rdf-forge-gateway</module>
         <module>rdf-forge-cli</module>
     </modules>

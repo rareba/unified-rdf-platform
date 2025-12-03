@@ -26,7 +26,10 @@ public class RouteConfig {
     
     @Value("${TRIPLESTORE_SERVICE_URL:http://triplestore-service:8080}")
     private String triplestoreServiceUrl;
-    
+
+    @Value("${AUTH_SERVICE_URL:http://auth-service:8086}")
+    private String authServiceUrl;
+
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
@@ -77,6 +80,14 @@ public class RouteConfig {
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
                 )
                 .uri(triplestoreServiceUrl)
+            )
+            .route("auth-service", r -> r
+                .path("/api/v1/auth/**")
+                .filters(f -> f
+                    .stripPrefix(0)
+                    .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))
+                )
+                .uri(authServiceUrl)
             )
             .build();
     }
