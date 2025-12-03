@@ -1,6 +1,8 @@
 package io.rdfforge.dimension.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -12,44 +14,44 @@ import java.util.UUID;
     @Index(name = "idx_dim_values_uri", columnList = "uri")
 })
 public class DimensionValueEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
     @Column(name = "dimension_id", nullable = false)
     private UUID dimensionId;
-    
+
     @Column(nullable = false, length = 500)
     private String uri;
-    
+
     @Column(nullable = false, length = 100)
     private String code;
-    
+
     @Column(nullable = false)
     private String label;
-    
+
     @Column(name = "label_lang", length = 10)
     private String labelLang = "en";
-    
+
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     @Column(name = "parent_id")
     private UUID parentId;
-    
+
     @Column(name = "hierarchy_level")
     private Integer hierarchyLevel = 0;
-    
+
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> metadata;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "alt_labels", columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, String> altLabels;
     
     @Column(name = "skos_notation", length = 100)

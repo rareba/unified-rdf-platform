@@ -1,6 +1,8 @@
 package io.rdfforge.data.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -8,42 +10,42 @@ import java.util.UUID;
 @Entity
 @Table(name = "data_sources")
 public class DataSourceEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
     @Column(name = "project_id")
     private UUID projectId;
-    
+
     @Column(nullable = false)
     private String name;
-    
+
     @Column(name = "original_filename")
     private String originalFilename;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DataFormat format;
-    
+
     @Column(name = "size_bytes")
     private Long sizeBytes;
-    
+
     @Column(name = "row_count")
     private Long rowCount;
-    
+
     @Column(name = "column_count")
     private Integer columnCount;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "storage_type")
     private StorageType storageType = StorageType.S3;
-    
+
     @Column(name = "storage_path")
     private String storagePath;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> metadata;
     
     @Column(name = "uploaded_by")

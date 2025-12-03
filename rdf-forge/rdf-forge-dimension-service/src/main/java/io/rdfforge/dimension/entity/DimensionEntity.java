@@ -1,6 +1,8 @@
 package io.rdfforge.dimension.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -10,39 +12,39 @@ import java.util.UUID;
     @UniqueConstraint(columnNames = {"project_id", "uri"})
 })
 public class DimensionEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
     @Column(name = "project_id")
     private UUID projectId;
-    
+
     @Column(nullable = false, length = 500)
     private String uri;
-    
+
     @Column(nullable = false)
     private String name;
-    
+
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type")
     private DimensionType type = DimensionType.KEY;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "hierarchy_type")
     private HierarchyType hierarchyType = HierarchyType.FLAT;
-    
+
     @Column(columnDefinition = "TEXT")
     private String content;
-    
+
     @Column(name = "base_uri", length = 500)
     private String baseUri;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> metadata;
     
     @Column(nullable = false)

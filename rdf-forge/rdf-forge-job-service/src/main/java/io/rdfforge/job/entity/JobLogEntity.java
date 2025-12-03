@@ -1,36 +1,39 @@
 package io.rdfforge.job.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.Map;
 
 @Entity
 @Table(name = "job_logs")
 public class JobLogEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id", nullable = false)
     private JobEntity job;
-    
+
     @Column(nullable = false)
     private Instant timestamp = Instant.now();
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LogLevel level = LogLevel.INFO;
-    
+
     @Column
     private String step;
-    
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
-    private java.util.Map<String, Object> details;
+    private Map<String, Object> details;
     
     public enum LogLevel {
         DEBUG, INFO, WARN, ERROR
@@ -54,6 +57,6 @@ public class JobLogEntity {
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
     
-    public java.util.Map<String, Object> getDetails() { return details; }
-    public void setDetails(java.util.Map<String, Object> details) { this.details = details; }
+    public Map<String, Object> getDetails() { return details; }
+    public void setDetails(Map<String, Object> details) { this.details = details; }
 }

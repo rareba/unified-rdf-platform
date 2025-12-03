@@ -1,6 +1,8 @@
 package io.rdfforge.job.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -8,50 +10,50 @@ import java.util.UUID;
 @Entity
 @Table(name = "jobs")
 public class JobEntity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    
+
     @Column(name = "pipeline_id", nullable = false)
     private UUID pipelineId;
-    
+
     @Column(name = "pipeline_version")
     private Integer pipelineVersion;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobStatus status = JobStatus.PENDING;
-    
+
     @Column
     private Integer priority = 5;
 
     @Column(name = "is_dry_run")
     private boolean dryRun = false;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> variables;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "triggered_by")
     private TriggerType triggeredBy = TriggerType.MANUAL;
-    
+
     @Column(name = "started_at")
     private Instant startedAt;
-    
+
     @Column(name = "completed_at")
     private Instant completedAt;
-    
+
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "error_details", columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> errorDetails;
-    
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    @Convert(converter = JsonMapConverter.class)
     private Map<String, Object> metrics;
     
     @Column(name = "output_graph")
