@@ -1,9 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
-// Angular Material theming
-@use '@angular/material' as mat;
-
 // Swiss Government Oblique Framework
 // Note: Oblique styles are imported via angular.json for proper SCSS preprocessing
 
@@ -278,4 +275,385 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+// Swiss Federal Design System - Global Layout Styles
+$swiss-red: #dc0018;
+$swiss-red-dark: #b2000f;
+$swiss-blue: #006699;
+$swiss-dark: #1c2834;
+$swiss-gray: #454545;
+$swiss-light-gray: #f5f5f5;
+$swiss-border: #d5d5d5;
+
+.ob-master-layout {
+  display: grid;
+  grid-template-areas:
+    "header header"
+    "nav main"
+    "footer footer";
+  grid-template-columns: 260px 1fr;
+  grid-template-rows: 60px 1fr auto;
+  min-height: 100vh;
+  transition: grid-template-columns 0.3s ease;
+
+  &.ob-nav-collapsed {
+    grid-template-columns: 70px 1fr;
+  }
+}
+
+// Header - Swiss Federal red band
+.ob-header {
+  grid-area: header;
+  background-color: $swiss-red;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+
+  .ob-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .ob-nav-toggle {
+    color: white;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  .ob-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .ob-logo-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+
+    .ob-logo-text {
+      font-size: 1.25rem;
+      letter-spacing: 0.5px;
+
+      strong {
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// Navigation - Swiss Federal sidebar style
+.ob-nav {
+  grid-area: nav;
+  background-color: $swiss-dark;
+  overflow-y: auto;
+  padding: 16px 0;
+  transition: width 0.3s ease;
+
+  &.collapsed {
+    .ob-nav-item {
+      justify-content: center;
+      padding: 12px;
+
+      span {
+        display: none;
+      }
+    }
+  }
+
+  .ob-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ob-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+    font-size: 0.95rem;
+
+    mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+      color: white;
+    }
+
+    &.ob-active {
+      background-color: rgba($swiss-red, 0.15);
+      color: white;
+      border-left-color: $swiss-red;
+
+      mat-icon {
+        color: $swiss-red;
+      }
+    }
+  }
+}
+
+// Main content area
+.ob-main {
+  grid-area: main;
+  background-color: $swiss-light-gray;
+  overflow: auto;
+  padding: 24px;
+}
+
+// Footer - Swiss Federal style
+.ob-footer {
+  grid-area: footer;
+  background-color: $swiss-dark;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 16px 24px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .ob-master-layout {
+    grid-template-columns: 70px 1fr;
+
+    &.ob-nav-collapsed {
+      grid-template-columns: 0 1fr;
+
+      .ob-nav {
+        display: none;
+      }
+    }
+  }
+}
+
+// Dark Theme Support
+.dark-theme {
+  // Root CSS variables for dark mode
+  --text-color: #e5e7eb;
+  --bg-color: #111827;
+  --surface-card: #1f2937;
+  --surface-border: #374151;
+  --surface-hover: #374151;
+
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+  }
+
+  .app-container {
+    background: var(--bg-color);
+  }
+
+  // Cards and surfaces
+  .card,
+  .mat-mdc-card,
+  mat-card {
+    background-color: var(--surface-card) !important;
+    color: var(--text-color) !important;
+  }
+
+  // Topbar
+  .topbar {
+    background: rgba(31, 41, 55, 0.95);
+    border-bottom-color: #374151;
+  }
+
+  .breadcrumb {
+    color: #e5e7eb;
+  }
+
+  // Page content
+  .page-content {
+    background: var(--bg-color);
+  }
+
+  // Feature titles
+  .feature-title {
+    color: #f3f4f6;
+  }
+
+  .feature-subtitle {
+    color: #9ca3af;
+  }
+
+  // Text
+  .text-muted {
+    color: #9ca3af;
+  }
+
+  // Main content area
+  .ob-main {
+    background-color: #111827;
+  }
+
+  // Tables
+  .mat-mdc-table {
+    background: var(--surface-card) !important;
+  }
+
+  .mat-mdc-header-cell,
+  .mat-mdc-cell {
+    color: var(--text-color) !important;
+    border-bottom-color: var(--surface-border) !important;
+  }
+
+  .mat-mdc-row:hover {
+    background-color: var(--surface-hover) !important;
+  }
+
+  // Form fields
+  .mat-mdc-form-field {
+    .mat-mdc-text-field-wrapper {
+      background-color: var(--surface-card);
+    }
+
+    .mdc-text-field--filled:not(.mdc-text-field--disabled) {
+      background-color: var(--surface-card);
+    }
+
+    .mat-mdc-input-element {
+      color: var(--text-color) !important;
+    }
+
+    .mat-mdc-floating-label {
+      color: #9ca3af !important;
+    }
+  }
+
+  // Buttons
+  .mat-mdc-raised-button:not([disabled]) {
+    &.mat-primary {
+      background-color: #2563eb;
+    }
+  }
+
+  .mat-mdc-outlined-button {
+    color: var(--text-color) !important;
+    border-color: var(--surface-border) !important;
+  }
+
+  // Dialogs
+  .mat-mdc-dialog-container {
+    --mdc-dialog-container-color: var(--surface-card);
+
+    .mat-mdc-dialog-surface {
+      background-color: var(--surface-card) !important;
+      color: var(--text-color) !important;
+    }
+  }
+
+  // Select dropdowns
+  .mat-mdc-select-panel {
+    background-color: var(--surface-card) !important;
+  }
+
+  .mat-mdc-option {
+    color: var(--text-color) !important;
+
+    &:hover:not(.mdc-list-item--disabled) {
+      background-color: var(--surface-hover) !important;
+    }
+  }
+
+  // Chips
+  .mat-mdc-chip {
+    background-color: #374151 !important;
+    color: var(--text-color) !important;
+  }
+
+  // Expansion panels
+  .mat-expansion-panel {
+    background-color: var(--surface-card) !important;
+    color: var(--text-color) !important;
+  }
+
+  .mat-expansion-panel-header-title,
+  .mat-expansion-panel-header-description {
+    color: var(--text-color) !important;
+  }
+
+  // Tabs
+  .mat-mdc-tab:not(.mat-mdc-tab-disabled) {
+    .mdc-tab__text-label {
+      color: #9ca3af !important;
+    }
+
+    &.mdc-tab--active .mdc-tab__text-label {
+      color: var(--text-color) !important;
+    }
+  }
+
+  // Snackbar
+  .mat-mdc-snack-bar-container {
+    --mdc-snackbar-container-color: #374151;
+    --mdc-snackbar-supporting-text-color: var(--text-color);
+  }
+
+  // Scrollbar
+  ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+
+  // Progress bar
+  .mat-mdc-progress-bar {
+    --mdc-linear-progress-track-color: #374151;
+  }
+
+  // Dividers
+  .mat-divider {
+    border-top-color: var(--surface-border) !important;
+  }
+
+  // Checkboxes
+  .mat-mdc-checkbox .mdc-form-field label {
+    color: var(--text-color) !important;
+  }
+
+  // Menu
+  .mat-mdc-menu-panel {
+    background-color: var(--surface-card) !important;
+  }
+
+  .mat-mdc-menu-item {
+    color: var(--text-color) !important;
+
+    &:hover:not([disabled]) {
+      background-color: var(--surface-hover) !important;
+    }
+  }
+
+  // Tooltip
+  .mat-mdc-tooltip {
+    --mdc-plain-tooltip-container-color: #374151;
+    --mdc-plain-tooltip-supporting-text-color: var(--text-color);
+  }
+}
+
+// Light theme (explicit, for completeness)
+.light-theme {
+  --text-color: #333333;
+  --bg-color: #f5f5f5;
+  --surface-card: #ffffff;
+  --surface-border: #d5d5d5;
+  --surface-hover: #f0f0f0;
 }
