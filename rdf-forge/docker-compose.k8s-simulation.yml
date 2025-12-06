@@ -1,0 +1,793 @@
+# =============================================================================
+# RDF Forge - Kubernetes Simulation Mode
+# =============================================================================
+#
+# Purpose: Simulate Kubernetes deployment patterns locally with docker-compose
+#
+# This configuration mimics Kubernetes features:
+#   - Ingress Controller (Traefik)
+#   - ConfigMaps (environment files)
+#   - Secrets (Docker secrets)
+#   - Service Discovery (DNS-based)
+#   - Health Checks & Readiness Probes
+#   - Resource Limits (CPU/Memory)
+#   - Horizontal Pod Autoscaling simulation (replicas)
+#   - Init Containers
+#   - Sidecars (logging)
+#
+# Usage:
+#   # Start all services
+#   docker compose -f docker-compose.k8s-simulation.yml up -d
+#
+#   # Scale services (simulates HPA)
+#   docker compose -f docker-compose.k8s-simulation.yml up -d --scale pipeline-service=3
+#
+#   # View logs (like kubectl logs)
+#   docker compose -f docker-compose.k8s-simulation.yml logs -f gateway
+#
+# Access Points:
+#   - Traefik Dashboard: http://localhost:8088
+#   - Application:       http://localhost (port 80)
+#   - API Gateway:       http://localhost/api
+#   - GraphDB:           http://localhost:7200
+#
+# Kubernetes Mapping:
+#   - Namespace: rdf-forge (network)
+#   - Ingress: traefik
+#   - Services: DNS-based discovery
+#   - Pods: Individual containers with resource limits
+#   - ConfigMaps: env_file + configs
+#   - Secrets: Docker secrets
+#   - PersistentVolumes: Docker volumes
+#
+# =============================================================================
+
+# Secrets (simulating Kubernetes Secrets)
+secrets:
+  db-password:
+    file: ./docker/secrets/db-password.txt
+  minio-secret:
+    file: ./docker/secrets/minio-secret.txt
+  keycloak-admin-password:
+    file: ./docker/secrets/keycloak-admin-password.txt
+  jwt-secret:
+    file: ./docker/secrets/jwt-secret.txt
+
+# Configs (simulating Kubernetes ConfigMaps)
+configs:
+  graphdb-repo-config:
+    file: ./docker/graphdb-config/rdf-forge-repo-config.ttl
+  traefik-config:
+    file: ./docker/traefik/traefik.yml
+  nginx-config:
+    file: ./docker/nginx-k8s.conf
+
+services:
+  # ===========================================================================
+  # Ingress Controller (simulates Kubernetes Ingress)
+  # ===========================================================================
+
+  traefik:
+    image: traefik:v3.0
+    container_name: rdf-forge-ingress
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=rdf-forge-k8s"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--ping=true"
+      - "--metrics.prometheus=true"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8088:8080"  # Traefik Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    labels:
+      - "traefik.enable=true"
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Infrastructure Layer (simulates StatefulSets)
+  # ===========================================================================
+
+  # PostgreSQL - simulates StatefulSet with PVC
+  postgres:
+    image: postgres:16-alpine
+    container_name: rdf-forge-postgres
+    hostname: postgres
+    secrets:
+      - db-password
+    environment:
+      POSTGRES_DB: rdfforge
+      POSTGRES_USER: rdfforge
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      POSTGRES_MULTIPLE_DATABASES: keycloak
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/01-create-dbs.sh
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/02-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rdfforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - rdf-forge-k8s
+
+  # Redis - simulates StatefulSet
+  redis:
+    image: redis:7-alpine
+    container_name: rdf-forge-redis
+    hostname: redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - rdf-forge-k8s
+
+  # GraphDB - simulates StatefulSet
+  graphdb:
+    image: ontotext/graphdb:10.6.0
+    container_name: rdf-forge-graphdb
+    hostname: graphdb
+    ports:
+      - "7200:7200"  # Exposed for direct SPARQL access
+    environment:
+      GDB_HEAP_SIZE: 2g
+      GDB_MIN_HEAP_SIZE: 1g
+    volumes:
+      - graphdb-data:/opt/graphdb/home
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7200/rest/repositories"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    networks:
+      - rdf-forge-k8s
+
+  # MinIO - simulates StatefulSet
+  minio:
+    image: minio/minio:latest
+    container_name: rdf-forge-minio
+    hostname: minio
+    secrets:
+      - minio-secret
+    environment:
+      MINIO_ROOT_USER: rdfforge
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio-secret
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio-console.rule=Host(`minio.localhost`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Init Containers (simulates Kubernetes InitContainers)
+  # ===========================================================================
+
+  # GraphDB initialization Job
+  graphdb-init:
+    image: curlimages/curl:latest
+    container_name: rdf-forge-graphdb-init
+    depends_on:
+      graphdb:
+        condition: service_healthy
+    volumes:
+      - ./docker/graphdb-config:/config:ro
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      echo '[Init] Waiting for GraphDB readiness...';
+      sleep 5;
+      echo '[Init] Creating rdf-forge repository...';
+      curl -X POST -H 'Content-Type: multipart/form-data' -F 'config=@/config/rdf-forge-repo-config.ttl' http://graphdb:7200/rest/repositories || true;
+      sleep 2;
+      echo '[Init] Loading demo RDF data...';
+      curl -X POST -H 'Content-Type: application/x-turtle' --data-binary '@/config/demo-data.ttl' 'http://graphdb:7200/repositories/rdf-forge/statements?context=<https://example.org/graph/demo>' || true;
+      echo '[Init] GraphDB initialization complete!';
+      "
+    networks:
+      - rdf-forge-k8s
+
+  # MinIO bucket initialization Job
+  minio-init:
+    image: minio/mc:latest
+    container_name: rdf-forge-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    secrets:
+      - minio-secret
+    volumes:
+      - ./docker/demo-data:/demo-data:ro
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      echo '[Init] Configuring MinIO client...';
+      sleep 5;
+      MINIO_SECRET=$$(cat /run/secrets/minio-secret);
+      mc alias set minio http://minio:9000 rdfforge $$MINIO_SECRET;
+      echo '[Init] Creating buckets...';
+      mc mb minio/rdf-forge-data --ignore-existing;
+      mc mb minio/rdf-forge-shapes --ignore-existing;
+      mc mb minio/rdf-forge-pipelines --ignore-existing;
+      echo '[Init] Uploading demo data...';
+      mc cp /demo-data/*.csv minio/rdf-forge-data/demo/ 2>/dev/null || echo 'No demo CSV files found';
+      echo '[Init] MinIO initialization complete!';
+      "
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Authentication Layer
+  # ===========================================================================
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: rdf-forge-keycloak
+    hostname: keycloak
+    secrets:
+      - keycloak-admin-password
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD_FILE: /run/secrets/keycloak-admin-password
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: rdfforge
+      KC_DB_PASSWORD_FILE: /run/secrets/db-password
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    volumes:
+      - ./docker/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    command: start-dev --import-realm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;cat <&3 | grep -q '200 OK'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.localhost`) || PathPrefix(`/auth`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Application Layer (simulates Deployments with replicas)
+  # ===========================================================================
+
+  # API Gateway - simulates Kubernetes Service + Ingress
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-gateway
+    hostname: gateway
+    secrets:
+      - db-password
+      - jwt-secret
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # Service Discovery (K8s-style DNS names)
+      PIPELINE_SERVICE_URL: http://pipeline-service:8080
+      SHACL_SERVICE_URL: http://shacl-service:8080
+      JOB_SERVICE_URL: http://job-service:8080
+      DATA_SERVICE_URL: http://data-service:8080
+      DIMENSION_SERVICE_URL: http://dimension-service:8080
+      TRIPLESTORE_SERVICE_URL: http://triplestore-service:8080
+      # Authentication
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: rdf-forge
+      # Observability
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus,metrics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+      - "traefik.http.services.api.loadbalancer.healthcheck.path=/actuator/health"
+      - "traefik.http.services.api.loadbalancer.healthcheck.interval=10s"
+    networks:
+      - rdf-forge-k8s
+
+  # Pipeline Service - scalable
+  pipeline-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-pipeline-service
+    hostname: pipeline-service
+    secrets:
+      - db-password
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - rdf-forge-k8s
+
+  # SHACL Service - scalable
+  shacl-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-shacl-service
+    hostname: shacl-service
+    secrets:
+      - db-password
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - rdf-forge-k8s
+
+  # Job Service - single instance (job coordination)
+  job-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-job-service
+    hostname: job-service
+    secrets:
+      - db-password
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 1  # Job coordination - single instance
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - rdf-forge-k8s
+
+  # Data Service - scalable
+  data-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-data-service
+    hostname: data-service
+    secrets:
+      - db-password
+      - minio-secret
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: rdfforge
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio-secret
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - rdf-forge-k8s
+
+  # Dimension Service - scalable
+  dimension-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-dimension-service
+    hostname: dimension-service
+    secrets:
+      - db-password
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - rdf-forge-k8s
+
+  # Triplestore Service - scalable
+  triplestore-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-triplestore-service
+    hostname: triplestore-service
+    secrets:
+      - db-password
+    environment:
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: k8s,graphdb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: rdfforge
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/db-password
+      TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+    depends_on:
+      postgres:
+        condition: service_healthy
+      graphdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Frontend (Angular UI)
+  # ===========================================================================
+
+  ui:
+    build:
+      context: ./rdf-forge-ui
+      dockerfile: Dockerfile
+      args:
+        BUILD_CONFIG: production
+    hostname: ui
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ui.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.ui.entrypoints=web"
+      - "traefik.http.routers.ui.priority=1"  # Lower priority than /api
+      - "traefik.http.services.ui.loadbalancer.server.port=80"
+    networks:
+      - rdf-forge-k8s
+
+  # ===========================================================================
+  # Observability Stack (optional - simulates Kubernetes monitoring)
+  # ===========================================================================
+
+  # Prometheus - metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rdf-forge-prometheus
+    hostname: prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)"
+      - "traefik.http.routers.prometheus.entrypoints=web"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+    networks:
+      - rdf-forge-k8s
+    profiles:
+      - observability
+
+  # Grafana - metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rdf-forge-grafana
+    hostname: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    networks:
+      - rdf-forge-k8s
+    profiles:
+      - observability
+
+# =============================================================================
+# Volumes (simulates PersistentVolumeClaims)
+# =============================================================================
+volumes:
+  postgres-data:
+    name: rdf-forge-k8s-postgres
+    labels:
+      app: rdf-forge
+      component: database
+  redis-data:
+    name: rdf-forge-k8s-redis
+    labels:
+      app: rdf-forge
+      component: cache
+  graphdb-data:
+    name: rdf-forge-k8s-graphdb
+    labels:
+      app: rdf-forge
+      component: triplestore
+  minio-data:
+    name: rdf-forge-k8s-minio
+    labels:
+      app: rdf-forge
+      component: storage
+  prometheus-data:
+    name: rdf-forge-k8s-prometheus
+    labels:
+      app: rdf-forge
+      component: monitoring
+  grafana-data:
+    name: rdf-forge-k8s-grafana
+    labels:
+      app: rdf-forge
+      component: monitoring
+
+# =============================================================================
+# Networks (simulates Kubernetes Namespace)
+# =============================================================================
+networks:
+  rdf-forge-k8s:
+    name: rdf-forge-k8s
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+    labels:
+      app: rdf-forge
+      environment: k8s-simulation

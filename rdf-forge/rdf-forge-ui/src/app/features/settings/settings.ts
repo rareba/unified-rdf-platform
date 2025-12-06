@@ -19,31 +19,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
-
-interface AppSettings {
-  theme: string;
-  language: string;
-  dateFormat: string;
-  pageSize: number;
-  autoRefresh: boolean;
-  refreshInterval: number;
-  defaultBaseUri: string;
-  defaultFormat: string;
-  showPrefixes: boolean;
-  pipelineTimeout: number;
-  maxParallelJobs: number;
-  autoRetryFailed: boolean;
-  retryAttempts: number;
-  sparqlTimeout: number;
-  sparqlResultLimit: number;
-  defaultTriplestoreId: string | null;
-}
-
-interface PrefixMapping {
-  prefix: string;
-  uri: string;
-  builtin: boolean;
-}
+import {
+  SettingsService,
+  AppSettings,
+  PrefixMapping,
+  BUILTIN_PREFIXES,
+  DEFAULT_SETTINGS
+} from '../../core/services/settings.service';
 
 interface ServiceHealth {
   name: string;
@@ -147,37 +129,7 @@ const AVAILABLE_PERMISSIONS = [
   { key: 'manage_triplestore', label: 'Manage Triplestore', description: 'Triplestore connections' }
 ];
 
-const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'light',
-  language: 'en',
-  dateFormat: 'MMM dd, yyyy',
-  pageSize: 20,
-  autoRefresh: false,
-  refreshInterval: 30,
-  defaultBaseUri: 'http://example.org/',
-  defaultFormat: 'turtle',
-  showPrefixes: true,
-  pipelineTimeout: 300,
-  maxParallelJobs: 3,
-  autoRetryFailed: false,
-  retryAttempts: 3,
-  sparqlTimeout: 60,
-  sparqlResultLimit: 1000,
-  defaultTriplestoreId: null
-};
-
-const BUILTIN_PREFIXES: PrefixMapping[] = [
-  { prefix: 'rdf', uri: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', builtin: true },
-  { prefix: 'rdfs', uri: 'http://www.w3.org/2000/01/rdf-schema#', builtin: true },
-  { prefix: 'owl', uri: 'http://www.w3.org/2002/07/owl#', builtin: true },
-  { prefix: 'xsd', uri: 'http://www.w3.org/2001/XMLSchema#', builtin: true },
-  { prefix: 'skos', uri: 'http://www.w3.org/2004/02/skos/core#', builtin: true },
-  { prefix: 'dct', uri: 'http://purl.org/dc/terms/', builtin: true },
-  { prefix: 'foaf', uri: 'http://xmlns.com/foaf/0.1/', builtin: true },
-  { prefix: 'schema', uri: 'https://schema.org/', builtin: true },
-  { prefix: 'qb', uri: 'http://purl.org/linked-data/cube#', builtin: true },
-  { prefix: 'sh', uri: 'http://www.w3.org/ns/shacl#', builtin: true }
-];
+// DEFAULT_SETTINGS and BUILTIN_PREFIXES are imported from SettingsService
 
 const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'Save', keys: 'Ctrl+S', description: 'Save current form or document' },
@@ -217,12 +169,13 @@ export class Settings implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
+  private readonly settingsService = inject(SettingsService);
 
   readonly env = environment;
 
-  // Settings
-  settings = signal<AppSettings>({ ...DEFAULT_SETTINGS });
-  prefixes = signal<PrefixMapping[]>([...BUILTIN_PREFIXES]);
+  // Settings - now use SettingsService as source of truth
+  settings = computed(() => this.settingsService.settings());
+  prefixes = computed(() => this.settingsService.prefixes());
   shortcuts = KEYBOARD_SHORTCUTS;
 
   // UI State
@@ -307,40 +260,23 @@ export class Settings implements OnInit {
   totalPrefixes = computed(() => this.prefixes().length);
 
   ngOnInit(): void {
-    this.loadSettings();
+    // Settings are loaded via APP_INITIALIZER, just update loading state
+    this.loading.set(false);
     this.checkServicesHealth();
   }
 
   loadSettings(): void {
+    // Settings are now managed by SettingsService
+    // This method is kept for compatibility but delegates to the service
     this.loading.set(true);
-    try {
-      const saved = localStorage.getItem('rdf-forge-settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        this.settings.set({ ...DEFAULT_SETTINGS, ...parsed.settings });
-        if (parsed.prefixes) {
-          this.prefixes.set([
-            ...BUILTIN_PREFIXES,
-            ...parsed.prefixes.filter((p: PrefixMapping) => !p.builtin)
-          ]);
-        }
-      }
-      this.applyTheme(this.settings().theme);
-    } catch (e) {
-      console.error('Failed to load settings', e);
-    }
+    this.settingsService.loadSettings();
     this.loading.set(false);
   }
 
   saveSettings(): void {
     this.saving.set(true);
     try {
-      const data = {
-        settings: this.settings(),
-        prefixes: this.customPrefixes()
-      };
-      localStorage.setItem('rdf-forge-settings', JSON.stringify(data));
-      this.applyTheme(this.settings().theme);
+      this.settingsService.saveSettings();
       this.snackBar.open('Settings saved successfully', 'Close', { duration: 3000 });
     } catch (e) {
       this.snackBar.open('Failed to save settings', 'Close', { duration: 3000 });
@@ -349,56 +285,13 @@ export class Settings implements OnInit {
   }
 
   applyTheme(theme: string): void {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark-theme');
-      root.classList.remove('light-theme');
-    } else if (theme === 'light') {
-      root.classList.remove('dark-theme');
-      root.classList.add('light-theme');
-    } else {
-      // System preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        root.classList.add('dark-theme');
-        root.classList.remove('light-theme');
-      } else {
-        root.classList.remove('dark-theme');
-        root.classList.add('light-theme');
-      }
-    }
+    // Delegate to SettingsService
+    this.settingsService.applyTheme();
   }
 
   updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
-    this.settings.update(s => ({ ...s, [key]: value }));
-
-    // Apply theme immediately when changed
-    if (key === 'theme') {
-      this.applyTheme(value as string);
-    }
-
-    // Auto-save settings
-    this.autoSave();
-  }
-
-  private autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  private autoSave(): void {
-    // Debounce auto-save to avoid too frequent writes
-    if (this.autoSaveTimeout) {
-      clearTimeout(this.autoSaveTimeout);
-    }
-    this.autoSaveTimeout = setTimeout(() => {
-      try {
-        const data = {
-          settings: this.settings(),
-          prefixes: this.customPrefixes()
-        };
-        localStorage.setItem('rdf-forge-settings', JSON.stringify(data));
-      } catch (e) {
-        console.error('Auto-save failed', e);
-      }
-    }, 500);
+    // Delegate to SettingsService - it handles theme application and auto-save
+    this.settingsService.updateSetting(key, value);
   }
 
   // Prefix Management
@@ -414,20 +307,19 @@ export class Settings implements OnInit {
       return;
     }
 
-    // Check for duplicates
-    if (this.prefixes().some(p => p.prefix === prefix.prefix)) {
+    // Use SettingsService to add prefix
+    if (!this.settingsService.addPrefix(prefix.prefix, prefix.uri)) {
       this.snackBar.open('Prefix already exists', 'Close', { duration: 3000 });
       return;
     }
 
-    this.prefixes.update(list => [...list, { ...prefix, builtin: false }]);
     this.prefixDialogVisible.set(false);
     this.snackBar.open('Prefix mapping added', 'Close', { duration: 3000 });
   }
 
   removePrefix(prefix: PrefixMapping): void {
     if (prefix.builtin) return;
-    this.prefixes.update(list => list.filter(p => p.prefix !== prefix.prefix));
+    this.settingsService.removePrefix(prefix.prefix);
     this.snackBar.open('Prefix mapping removed', 'Close', { duration: 3000 });
   }
 
@@ -438,13 +330,8 @@ export class Settings implements OnInit {
 
   // Import/Export
   openExportDialog(): void {
-    const data = {
-      settings: this.settings(),
-      prefixes: this.customPrefixes(),
-      exportedAt: new Date().toISOString(),
-      version: '1.0'
-    };
-    this.exportData.set(JSON.stringify(data, null, 2));
+    // Use SettingsService for export
+    this.exportData.set(this.settingsService.exportSettings());
     this.exportDialogVisible.set(true);
   }
 
@@ -469,21 +356,11 @@ export class Settings implements OnInit {
   }
 
   importSettings(): void {
-    try {
-      const data = JSON.parse(this.importData());
-      if (data.settings) {
-        this.settings.set({ ...DEFAULT_SETTINGS, ...data.settings });
-      }
-      if (data.prefixes) {
-        this.prefixes.set([
-          ...BUILTIN_PREFIXES,
-          ...data.prefixes.filter((p: PrefixMapping) => !p.builtin)
-        ]);
-      }
+    // Use SettingsService for import
+    if (this.settingsService.importSettings(this.importData())) {
       this.importDialogVisible.set(false);
-      this.saveSettings();
       this.snackBar.open('Settings imported successfully', 'Close', { duration: 3000 });
-    } catch (e) {
+    } else {
       this.snackBar.open('Invalid settings format', 'Close', { duration: 3000 });
     }
   }
@@ -496,10 +373,8 @@ export class Settings implements OnInit {
   }
 
   resetSettings(): void {
-    this.settings.set({ ...DEFAULT_SETTINGS });
-    this.prefixes.set([...BUILTIN_PREFIXES]);
-    localStorage.removeItem('rdf-forge-settings');
-    this.applyTheme('light');
+    // Use SettingsService for reset
+    this.settingsService.resetSettings();
     this.snackBar.open('Settings reset to defaults', 'Close', { duration: 3000 });
   }
 

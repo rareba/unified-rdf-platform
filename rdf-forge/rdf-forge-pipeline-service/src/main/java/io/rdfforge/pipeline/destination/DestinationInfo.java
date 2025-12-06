@@ -51,6 +51,7 @@ public record DestinationInfo(
     public static final String CATEGORY_FILE = "file";
     public static final String CATEGORY_CLOUD_STORAGE = "cloud-storage";
     public static final String CATEGORY_API = "api";
+    public static final String CATEGORY_CICD = "ci-cd";
 
     /**
      * Standard capabilities for destinations.

@@ -227,125 +227,176 @@
         @if (selectedNode(); as node) {
           @if (selectedOperation(); as op) {
             <div class="dialog-content">
-              <!-- Operation Info -->
-              <div class="op-description">
-                <span class="node-type-chip" [attr.data-type]="op.type.toLowerCase()">{{ op.type }}</span>
+              <!-- Operation Info Card -->
+              <div class="op-info-card">
+                <div class="op-info-header">
+                  <span class="node-type-chip" [attr.data-type]="op.type.toLowerCase()">{{ op.type }}</span>
+                  <h3 class="op-title">{{ op.name }}</h3>
+                </div>
                 <p class="op-desc-text">{{ op.description }}</p>
+                @if (getOperationExample(op.id)) {
+                  <div class="op-example">
+                    <mat-icon>lightbulb</mat-icon>
+                    <span>{{ getOperationExample(op.id) }}</span>
+                  </div>
+                }
               </div>
 
               <mat-divider></mat-divider>
 
-              <!-- Parameters -->
-              <h3>Parameters</h3>
+              <!-- Parameters Section -->
+              <div class="params-section">
+                <div class="params-header">
+                  <h3>
+                    <mat-icon>tune</mat-icon>
+                    Parameters
+                  </h3>
+                  <span class="params-count">{{ (op.parameters | keyvalue).length }} parameters</span>
+                </div>
 
-              @if ((op.parameters | keyvalue).length === 0) {
-                <p class="no-params">This operation has no configurable parameters.</p>
-              } @else {
-                <div class="params-form">
-                  @for (entry of op.parameters | keyvalue; track entry.key) {
-                    <div class="param-field">
-                      @switch (getParamType(entry.value.type)) {
-                        @case ('boolean') {
-                          <mat-checkbox
-                            [ngModel]="node.params[entry.key]"
-                            (ngModelChange)="updateNodeParam(entry.key, $event)">
-                            {{ entry.value.name }}
-                            @if (entry.value.required) {
-                              <span class="required">*</span>
-                            }
-                          </mat-checkbox>
-                          @if (entry.value.description) {
-                            <small class="param-help">{{ entry.value.description }}</small>
+                @if ((op.parameters | keyvalue).length === 0) {
+                  <div class="no-params-state">
+                    <mat-icon>check_circle</mat-icon>
+                    <p>This operation has no configurable parameters.</p>
+                  </div>
+                } @else {
+                  <!-- Required Parameters First -->
+                  @for (entry of getRequiredParams(op); track entry.key) {
+                    <div class="param-card required">
+                      <div class="param-header">
+                        <span class="param-name">{{ entry.value.name }}</span>
+                        <span class="param-badge required">Required</span>
+                      </div>
+                      @if (entry.value.description) {
+                        <p class="param-description">{{ entry.value.description }}</p>
+                      }
+                      <div class="param-input">
+                        @switch (getParamType(entry.value.type)) {
+                          @case ('boolean') {
+                            <mat-checkbox
+                              [ngModel]="node.params[entry.key]"
+                              (ngModelChange)="updateNodeParam(entry.key, $event)">
+                              Enable {{ entry.value.name }}
+                            </mat-checkbox>
+                          }
+                          @case ('number') {
+                            <mat-form-field class="full-width" appearance="outline">
+                              <mat-label>{{ entry.value.name }}</mat-label>
+                              <input matInput type="number"
+                                [ngModel]="node.params[entry.key]"
+                                (ngModelChange)="updateNodeParam(entry.key, $event)"
+                                [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            </mat-form-field>
+                          }
+                          @case ('char') {
+                            <mat-form-field class="full-width" appearance="outline">
+                              <mat-label>{{ entry.value.name }}</mat-label>
+                              <input matInput
+                                [ngModel]="node.params[entry.key]"
+                                (ngModelChange)="updateNodeParam(entry.key, $event)"
+                                [maxlength]="1"
+                                [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            </mat-form-field>
+                          }
+                          @case ('map') {
+                            <mat-form-field class="full-width" appearance="outline">
+                              <mat-label>{{ entry.value.name }}</mat-label>
+                              <textarea matInput
+                                [ngModel]="getMapValue(entry.key)"
+                                (ngModelChange)="updateMapParam(entry.key, $event)"
+                                [rows]="3"
+                                class="json-textarea"
+                                placeholder='{"key": "value"}'></textarea>
+                            </mat-form-field>
+                            <span class="param-type-hint">JSON object format</span>
+                          }
+                          @default {
+                            <mat-form-field class="full-width" appearance="outline">
+                              <mat-label>{{ entry.value.name }}</mat-label>
+                              <input matInput
+                                [ngModel]="node.params[entry.key]"
+                                (ngModelChange)="updateNodeParam(entry.key, $event)"
+                                [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                            </mat-form-field>
                           }
                         }
-                        @case ('number') {
-                          <mat-form-field class="full-width">
-                            <mat-label>
-                              {{ entry.value.name }}
-                              @if (entry.value.required) {
-                                <span class="required">*</span>
-                              }
-                            </mat-label>
-                            <input matInput type="number"
-                              [ngModel]="node.params[entry.key]"
-                              (ngModelChange)="updateNodeParam(entry.key, $event)"
-                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
-                            @if (entry.value.description) {
-                              <mat-hint>{{ entry.value.description }}</mat-hint>
-                            }
-                          </mat-form-field>
-                        }
-                        @case ('char') {
-                          <mat-form-field class="full-width">
-                            <mat-label>
-                              {{ entry.value.name }}
-                              @if (entry.value.required) {
-                                <span class="required">*</span>
-                              }
-                            </mat-label>
-                            <input matInput
-                              [ngModel]="node.params[entry.key]"
-                              (ngModelChange)="updateNodeParam(entry.key, $event)"
-                              [maxlength]="1"
-                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
-                            @if (entry.value.description) {
-                              <mat-hint>{{ entry.value.description }}</mat-hint>
-                            }
-                          </mat-form-field>
-                        }
-                        @case ('map') {
-                          <mat-form-field class="full-width">
-                            <mat-label>
-                              {{ entry.value.name }}
-                              @if (entry.value.required) {
-                                <span class="required">*</span>
-                              }
-                            </mat-label>
-                            <textarea matInput
-                              [ngModel]="getMapValue(entry.key)"
-                              (ngModelChange)="updateMapParam(entry.key, $event)"
-                              [rows]="4"
-                              class="json-textarea"
-                              placeholder='{"key": "value"}'></textarea>
-                            @if (entry.value.description) {
-                              <mat-hint>{{ entry.value.description }}</mat-hint>
-                            }
-                          </mat-form-field>
-                          <small class="param-type">Enter valid JSON object</small>
-                        }
-                        @default {
-                          <mat-form-field class="full-width">
-                            <mat-label>
-                              {{ entry.value.name }}
-                              @if (entry.value.required) {
-                                <span class="required">*</span>
-                              }
-                            </mat-label>
-                            <input matInput
-                              [ngModel]="node.params[entry.key]"
-                              (ngModelChange)="updateNodeParam(entry.key, $event)"
-                              [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
-                            @if (entry.value.description) {
-                              <mat-hint>{{ entry.value.description }}</mat-hint>
-                            }
-                          </mat-form-field>
-                        }
-                      }
-
-                      @if (entry.value.type && getParamType(entry.value.type) !== 'map') {
-                        <small class="param-type">Type: {{ entry.value.type }}</small>
-                      }
+                      </div>
+                      <span class="param-type-label">{{ entry.value.type }}</span>
                     </div>
                   }
-                </div>
-              }
+
+                  <!-- Optional Parameters -->
+                  @if (getOptionalParams(op).length > 0) {
+                    <mat-expansion-panel class="optional-params-panel">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <mat-icon>settings</mat-icon>
+                          Optional Parameters ({{ getOptionalParams(op).length }})
+                        </mat-panel-title>
+                      </mat-expansion-panel-header>
+                      @for (entry of getOptionalParams(op); track entry.key) {
+                        <div class="param-card optional">
+                          <div class="param-header">
+                            <span class="param-name">{{ entry.value.name }}</span>
+                            <span class="param-badge optional">Optional</span>
+                          </div>
+                          @if (entry.value.description) {
+                            <p class="param-description">{{ entry.value.description }}</p>
+                          }
+                          <div class="param-input">
+                            @switch (getParamType(entry.value.type)) {
+                              @case ('boolean') {
+                                <mat-checkbox
+                                  [ngModel]="node.params[entry.key]"
+                                  (ngModelChange)="updateNodeParam(entry.key, $event)">
+                                  Enable {{ entry.value.name }}
+                                </mat-checkbox>
+                              }
+                              @case ('number') {
+                                <mat-form-field class="full-width" appearance="outline">
+                                  <mat-label>{{ entry.value.name }}</mat-label>
+                                  <input matInput type="number"
+                                    [ngModel]="node.params[entry.key]"
+                                    (ngModelChange)="updateNodeParam(entry.key, $event)"
+                                    [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                                </mat-form-field>
+                              }
+                              @case ('map') {
+                                <mat-form-field class="full-width" appearance="outline">
+                                  <mat-label>{{ entry.value.name }}</mat-label>
+                                  <textarea matInput
+                                    [ngModel]="getMapValue(entry.key)"
+                                    (ngModelChange)="updateMapParam(entry.key, $event)"
+                                    [rows]="3"
+                                    class="json-textarea"
+                                    placeholder='{"key": "value"}'></textarea>
+                                </mat-form-field>
+                              }
+                              @default {
+                                <mat-form-field class="full-width" appearance="outline">
+                                  <mat-label>{{ entry.value.name }}</mat-label>
+                                  <input matInput
+                                    [ngModel]="node.params[entry.key]"
+                                    (ngModelChange)="updateNodeParam(entry.key, $event)"
+                                    [placeholder]="entry.value.defaultValue !== null ? 'Default: ' + entry.value.defaultValue : ''" />
+                                </mat-form-field>
+                              }
+                            }
+                          </div>
+                          <span class="param-type-label">{{ entry.value.type }}</span>
+                        </div>
+                      }
+                    </mat-expansion-panel>
+                  }
+                }
+              </div>
             </div>
 
             <div class="dialog-actions">
               <button mat-button (click)="configDialogVisible.set(false)">Cancel</button>
               <button mat-raised-button color="primary" (click)="saveNodeConfig()">
                 <mat-icon>check</mat-icon>
-                Apply
+                Apply Configuration
               </button>
             </div>
           }

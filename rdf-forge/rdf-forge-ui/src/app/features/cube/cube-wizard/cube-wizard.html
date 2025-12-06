@@ -292,91 +292,112 @@
             </div>
           </div>
 
-          <!-- Mapping Table -->
-          <div class="mapping-table-container">
-            <table mat-table [dataSource]="columnMappings()" class="mapping-table">
-              <!-- Column Definition -->
-              <ng-container matColumnDef="column">
-                <th mat-header-cell *matHeaderCellDef style="width: 180px">Column</th>
-                <td mat-cell *matCellDef="let mapping">
-                  <div class="column-info">
+          <!-- Bulk Actions -->
+          <div class="bulk-actions">
+            <span class="bulk-label">Quick assign all unmapped columns:</span>
+            <button mat-stroked-button (click)="setAllUnmappedToRole('dimension')" matTooltip="Set all unmapped columns as dimensions">
+              <mat-icon>apps</mat-icon> Dimensions
+            </button>
+            <button mat-stroked-button (click)="setAllUnmappedToRole('measure')" matTooltip="Set all unmapped columns as measures">
+              <mat-icon>bar_chart</mat-icon> Measures
+            </button>
+            <button mat-stroked-button (click)="setAllUnmappedToRole('attribute')" matTooltip="Set all unmapped columns as attributes">
+              <mat-icon>label</mat-icon> Attributes
+            </button>
+          </div>
+
+          <!-- Mapping Cards - Enhanced UX -->
+          <div class="mapping-cards">
+            @for (mapping of columnMappings(); track mapping.name; let i = $index) {
+              <div class="mapping-card" [class.ignored]="mapping.role === 'ignore'" [class]="'role-' + mapping.role">
+                <div class="mapping-card-header">
+                  <div class="column-badge" [class]="'type-' + mapping.sourceType">
+                    <mat-icon>{{ getColumnTypeIcon(mapping.sourceType) }}</mat-icon>
                     <span class="column-name">{{ mapping.name }}</span>
-                    <span class="column-type">{{ mapping.sourceType }}</span>
                   </div>
-                </td>
-              </ng-container>
+                  <div class="role-indicator" [class]="'role-' + mapping.role">
+                    <mat-icon>{{ getRoleIcon(mapping.role) }}</mat-icon>
+                    <span>{{ getRoleLabel(mapping.role) }}</span>
+                  </div>
+                </div>
 
-              <!-- Role Definition -->
-              <ng-container matColumnDef="role">
-                <th mat-header-cell *matHeaderCellDef style="width: 140px">Role</th>
-                <td mat-cell *matCellDef="let mapping; let i = index">
-                  <mat-form-field appearance="outline" class="w-full">
-                    <mat-select [value]="mapping.role" (valueChange)="updateMapping(i, 'role', $event)">
-                      @for (opt of roleOptions; track opt.value) {
-                        <mat-option [value]="opt.value">
-                          <mat-chip [class]="'role-' + opt.value">{{ opt.label }}</mat-chip>
-                        </mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                </td>
-              </ng-container>
+                <div class="mapping-card-content">
+                  <!-- Sample Data Preview -->
+                  @if (mapping.sampleValues && mapping.sampleValues.length > 0) {
+                    <div class="sample-preview">
+                      <span class="sample-label">Sample:</span>
+                      <div class="sample-values">
+                        @for (val of mapping.sampleValues.slice(0, 3); track val) {
+                          <code class="sample-value">{{ val }}</code>
+                        }
+                        @if (mapping.sampleValues.length > 3) {
+                          <span class="sample-more">+{{ mapping.sampleValues.length - 3 }} more</span>
+                        }
+                      </div>
+                    </div>
+                  }
 
-              <!-- Datatype Definition -->
-              <ng-container matColumnDef="datatype">
-                <th mat-header-cell *matHeaderCellDef style="width: 140px">Datatype</th>
-                <td mat-cell *matCellDef="let mapping; let i = index">
-                  <mat-form-field appearance="outline" class="w-full">
-                    <mat-select [value]="mapping.datatype" (valueChange)="updateMapping(i, 'datatype', $event)"
-                               [disabled]="mapping.role === 'ignore'">
-                      @for (opt of datatypeOptions; track opt.value) {
-                        <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                </td>
-              </ng-container>
+                  <div class="mapping-fields">
+                    <mat-form-field appearance="outline" class="role-field">
+                      <mat-label>Role</mat-label>
+                      <mat-select [value]="mapping.role" (valueChange)="updateMapping(i, 'role', $event)">
+                        @for (opt of roleOptions; track opt.value) {
+                          <mat-option [value]="opt.value">
+                            <div class="role-option">
+                              <mat-icon>{{ getRoleIcon(opt.value) }}</mat-icon>
+                              <span>{{ opt.label }}</span>
+                            </div>
+                          </mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
 
-              <!-- Dimension Reference Definition -->
-              <ng-container matColumnDef="dimension">
-                <th mat-header-cell *matHeaderCellDef>Dimension Reference</th>
-                <td mat-cell *matCellDef="let mapping; let i = index">
-                  @if (mapping.role === 'dimension') {
-                    <div class="dimension-select-group">
-                      <mat-form-field appearance="outline" class="flex-1">
-                        <mat-select [value]="mapping.dimensionId" (valueChange)="updateMapping(i, 'dimensionId', $event)"
-                                   placeholder="Link to dimension...">
-                          <mat-option [value]="null">None</mat-option>
+                    <mat-form-field appearance="outline" class="datatype-field">
+                      <mat-label>Datatype</mat-label>
+                      <mat-select [value]="mapping.datatype" (valueChange)="updateMapping(i, 'datatype', $event)"
+                                 [disabled]="mapping.role === 'ignore'">
+                        @for (opt of datatypeOptions; track opt.value) {
+                          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+
+                    @if (mapping.role === 'dimension') {
+                      <mat-form-field appearance="outline" class="dimension-field">
+                        <mat-label>Linked Dimension</mat-label>
+                        <mat-select [value]="mapping.dimensionId" (valueChange)="updateMapping(i, 'dimensionId', $event)">
+                          <mat-option [value]="null">
+                            <em>Create new dimension</em>
+                          </mat-option>
                           @for (dim of availableDimensions(); track dim.id) {
                             <mat-option [value]="dim.id">{{ dim.name }}</mat-option>
                           }
                         </mat-select>
+                        <button matSuffix mat-icon-button (click)="openNewDimensionDialog(mapping.name); $event.stopPropagation()"
+                                matTooltip="Create new dimension">
+                          <mat-icon>add_circle</mat-icon>
+                        </button>
                       </mat-form-field>
-                      <button mat-icon-button (click)="openNewDimensionDialog(mapping.name)"
-                              matTooltip="Create new dimension">
-                        <mat-icon>add</mat-icon>
-                      </button>
-                    </div>
-                  } @else {
-                    <span class="text-muted">-</span>
-                  }
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="['column', 'role', 'datatype', 'dimension']"></tr>
-              <tr mat-row *matRowDef="let row; columns: ['column', 'role', 'datatype', 'dimension'];"
-                  [class.ignored-row]="row.role === 'ignore'"></tr>
-
-              <!-- Empty state -->
-              <tr class="mat-row" *matNoDataRow>
-                <td class="mat-cell" colspan="4">
-                  <div class="empty-hint">
-                    <mat-icon>info</mat-icon>
-                    <p>Select a data source to see column mappings</p>
+                    }
                   </div>
-                </td>
-              </tr>
-            </table>
+                </div>
+
+                <!-- URI Preview -->
+                @if (mapping.role !== 'ignore') {
+                  <div class="uri-preview">
+                    <mat-icon>link</mat-icon>
+                    <code>{{ baseUri() }}{{ mapping.role }}/{{ slugify(mapping.name) }}</code>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (columnMappings().length === 0) {
+              <div class="empty-hint">
+                <mat-icon>info</mat-icon>
+                <p>Select a data source to see column mappings</p>
+              </div>
+            }
           </div>
 
           @if (mappingStats().dimensions === 0 || mappingStats().measures === 0) {

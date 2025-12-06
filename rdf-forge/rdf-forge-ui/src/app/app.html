@@ -1,76 +1,120 @@
-<div class="app-container">
-  <div class="layout-wrapper">
-    <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
-      <div class="logo">
-        <div class="logo-icon">
-          <mat-icon>view_in_ar</mat-icon>
-        </div>
+<!-- Swiss Federal Design Layout using Oblique CSS -->
+<div class="ob-master-layout" [class.ob-nav-collapsed]="sidebarCollapsed()">
+  <!-- Header -->
+  <header class="ob-header">
+    <div class="ob-header-controls">
+      <button mat-icon-button (click)="toggleSidebar()" class="ob-nav-toggle">
+        <mat-icon>{{ sidebarCollapsed() ? 'menu' : 'menu_open' }}</mat-icon>
+      </button>
+      <div class="ob-logo">
+        <mat-icon class="ob-logo-icon">view_in_ar</mat-icon>
         @if (!sidebarCollapsed()) {
-          <div class="logo-text">
-            <span class="cube">Cube Creator</span>
-            <span class="creator">X</span>
-          </div>
+          <span class="ob-logo-text">
+            <strong>Cube Creator</strong> X
+          </span>
         }
       </div>
+    </div>
+  </header>
 
-      <nav class="nav-menu">
-        <a class="nav-item" [routerLink]="['/']" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+  <!-- Navigation Sidebar -->
+  <nav class="ob-nav" [class.collapsed]="sidebarCollapsed()">
+    <ul class="ob-nav-list">
+      <li>
+        <a class="ob-nav-item" routerLink="/" routerLinkActive="ob-active" [routerLinkActiveOptions]="{exact: true}">
           <mat-icon>home</mat-icon>
           @if (!sidebarCollapsed()) { <span>Dashboard</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/pipelines']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/pipelines" routerLinkActive="ob-active">
           <mat-icon>account_tree</mat-icon>
           @if (!sidebarCollapsed()) { <span>Pipelines</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/shacl']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/shacl" routerLinkActive="ob-active">
           <mat-icon>check_box</mat-icon>
           @if (!sidebarCollapsed()) { <span>SHACL Studio</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/cubes']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/cubes" routerLinkActive="ob-active">
           <mat-icon>view_in_ar</mat-icon>
           @if (!sidebarCollapsed()) { <span>Cube Creator</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/jobs']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/jobs" routerLinkActive="ob-active">
           <mat-icon>sync</mat-icon>
           @if (!sidebarCollapsed()) { <span>Jobs</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/data']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/data" routerLinkActive="ob-active">
           <mat-icon>storage</mat-icon>
           @if (!sidebarCollapsed()) { <span>Data Sources</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/dimensions']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/dimensions" routerLinkActive="ob-active">
           <mat-icon>share</mat-icon>
           @if (!sidebarCollapsed()) { <span>Dimensions</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/triplestore']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/triplestore" routerLinkActive="ob-active">
           <mat-icon>dns</mat-icon>
           @if (!sidebarCollapsed()) { <span>Triplestore</span> }
         </a>
-        <a class="nav-item" [routerLink]="['/settings']" routerLinkActive="active">
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/settings" routerLinkActive="ob-active">
           <mat-icon>settings</mat-icon>
           @if (!sidebarCollapsed()) { <span>Settings</span> }
         </a>
-      </nav>
+      </li>
+      @if (authService.isAdmin()) {
+        <li class="ob-nav-divider">
+          @if (!sidebarCollapsed()) { <span class="ob-nav-section">Administration</span> }
+        </li>
+        <li>
+          <a class="ob-nav-item" routerLink="/admin/users" routerLinkActive="ob-active">
+            <mat-icon>people</mat-icon>
+            @if (!sidebarCollapsed()) { <span>Users</span> }
+          </a>
+        </li>
+        <li>
+          <a class="ob-nav-item" routerLink="/admin/roles" routerLinkActive="ob-active">
+            <mat-icon>admin_panel_settings</mat-icon>
+            @if (!sidebarCollapsed()) { <span>Roles</span> }
+          </a>
+        </li>
+        <li>
+          <a class="ob-nav-item" routerLink="/admin/tokens" routerLinkActive="ob-active">
+            <mat-icon>vpn_key</mat-icon>
+            @if (!sidebarCollapsed()) { <span>API Tokens</span> }
+          </a>
+        </li>
+        <li>
+          <a class="ob-nav-item" routerLink="/admin/git-sync" routerLinkActive="ob-active">
+            <mat-icon>sync</mat-icon>
+            @if (!sidebarCollapsed()) { <span>Git Sync</span> }
+          </a>
+        </li>
+        <li>
+          <a class="ob-nav-item" routerLink="/admin/system" routerLinkActive="ob-active">
+            <mat-icon>monitor_heart</mat-icon>
+            @if (!sidebarCollapsed()) { <span>System</span> }
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
 
-      <div class="sidebar-footer">
-        <button class="toggle-btn" type="button" (click)="toggleSidebar()">
-          <mat-icon>{{ sidebarCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-        </button>
-      </div>
-    </aside>
+  <!-- Main Content Area -->
+  <main class="ob-main">
+    <router-outlet></router-outlet>
+  </main>
 
-    <main class="main-content">
-      <header class="topbar">
-        <div class="breadcrumb">
-          {{ currentPageTitle() }}
-        </div>
-        <div class="toolbar">
-        </div>
-      </header>
-
-      <div class="page-content">
-        <router-outlet></router-outlet>
-      </div>
-    </main>
-  </div>
 </div>

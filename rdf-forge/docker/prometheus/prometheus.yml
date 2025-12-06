@@ -1,0 +1,54 @@
+# Prometheus Configuration for RDF Forge K8s Simulation
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Spring Boot Actuator endpoints
+  - job_name: 'rdf-forge-services'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'gateway:8080'
+          - 'pipeline-service:8080'
+          - 'shacl-service:8080'
+          - 'job-service:8080'
+          - 'data-service:8080'
+          - 'dimension-service:8080'
+          - 'triplestore-service:8080'
+        labels:
+          group: 'backend'
+
+  # Traefik metrics
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['traefik:8080']
+        labels:
+          group: 'ingress'
+
+  # Redis metrics (if redis_exporter is added)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          group: 'infrastructure'
+
+  # GraphDB metrics
+  - job_name: 'graphdb'
+    metrics_path: '/rest/monitor/infrastructure'
+    static_configs:
+      - targets: ['graphdb:7200']
+        labels:
+          group: 'triplestore'

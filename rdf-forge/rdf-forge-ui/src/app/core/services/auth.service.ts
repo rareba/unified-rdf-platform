@@ -74,4 +74,12 @@ export class AuthService {
   hasRole(role: string): boolean {
     return this.keycloak?.hasRealmRole(role) ?? false;
   }
+
+  isAdmin(): boolean {
+    // In offline mode, grant admin access for development
+    if (!environment.auth.enabled) {
+      return true;
+    }
+    return this.hasRole('admin');
+  }
 }

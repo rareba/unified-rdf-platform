@@ -35,6 +35,7 @@ interface ColumnMapping {
   dimensionName?: string;
   predicateUri?: string;
   required: boolean;
+  sampleValues?: string[];
 }
 
 interface ValidationCheck {
@@ -1022,5 +1023,73 @@ export class CubeWizard implements OnInit {
     if (!license) return '-';
     const found = this.licenseOptions.find(opt => opt.value === license);
     return found?.label || license;
+  }
+
+  // Enhanced column mapping helpers
+  setAllUnmappedToRole(role: 'dimension' | 'measure' | 'attribute'): void {
+    this.columnMappings.update(mappings =>
+      mappings.map(m => m.role === 'ignore' ? { ...m, role } : m)
+    );
+    const count = this.columnMappings().filter(m => m.role === role).length;
+    this.snackBar.open(`Set ${count} columns as ${role}s`, 'Close', { duration: 2000 });
+  }
+
+  getColumnTypeIcon(sourceType: string): string {
+    switch (sourceType?.toLowerCase()) {
+      case 'integer':
+      case 'int':
+      case 'long':
+      case 'number':
+        return 'pin';
+      case 'decimal':
+      case 'double':
+      case 'float':
+        return 'calculate';
+      case 'date':
+      case 'datetime':
+      case 'timestamp':
+        return 'event';
+      case 'boolean':
+      case 'bool':
+        return 'toggle_on';
+      default:
+        return 'text_fields';
+    }
+  }
+
+  getRoleIcon(role: string): string {
+    switch (role) {
+      case 'dimension':
+        return 'apps';
+      case 'measure':
+        return 'bar_chart';
+      case 'attribute':
+        return 'label';
+      case 'ignore':
+        return 'visibility_off';
+      default:
+        return 'help';
+    }
+  }
+
+  getRoleLabel(role: string): string {
+    switch (role) {
+      case 'dimension':
+        return 'Dimension';
+      case 'measure':
+        return 'Measure';
+      case 'attribute':
+        return 'Attribute';
+      case 'ignore':
+        return 'Ignored';
+      default:
+        return role;
+    }
+  }
+
+  slugify(text: string): string {
+    return text.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   }
 }

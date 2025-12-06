@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -77,6 +78,37 @@ export const routes: Routes = [
     path: 'settings',
     loadComponent: () => import('./features/settings/settings').then(m => m.Settings),
     canActivate: [authGuard]
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard, adminGuard],
+    children: [
+      {
+        path: '',
+        redirectTo: 'users',
+        pathMatch: 'full'
+      },
+      {
+        path: 'users',
+        loadComponent: () => import('./features/admin/user-management/user-management').then(m => m.UserManagement)
+      },
+      {
+        path: 'roles',
+        loadComponent: () => import('./features/admin/role-management/role-management').then(m => m.RoleManagement)
+      },
+      {
+        path: 'tokens',
+        loadComponent: () => import('./features/admin/token-management/token-management').then(m => m.TokenManagement)
+      },
+      {
+        path: 'system',
+        loadComponent: () => import('./features/admin/system-settings/system-settings').then(m => m.SystemSettings)
+      },
+      {
+        path: 'git-sync',
+        loadComponent: () => import('./features/admin/git-sync/git-sync').then(m => m.GitSyncComponent)
+      }
+    ]
   },
   {
     path: '**',

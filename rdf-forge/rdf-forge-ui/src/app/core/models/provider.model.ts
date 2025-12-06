@@ -59,7 +59,7 @@ export interface DestinationInfo {
   type: string;
   displayName: string;
   description: string;
-  category: 'triplestore' | 'file' | 'cloud-storage' | 'api';
+  category: 'triplestore' | 'file' | 'cloud-storage' | 'api' | 'ci-cd';
   configFields: Record<string, ConfigField>;
   capabilities: string[];
   supportedFormats: string[];

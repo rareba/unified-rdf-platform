@@ -1,0 +1,26 @@
+# Traefik Static Configuration for RDF Forge K8s Simulation
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    network: rdf-forge-k8s
+    exposedByDefault: false
+
+ping:
+  entryPoint: traefik
+
+metrics:
+  prometheus: {}
+
+log:
+  level: INFO
+
+accessLog: {}

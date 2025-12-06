@@ -31,8 +31,9 @@
               }
             ],
             "styles": [
-              "node_modules/@oblique/oblique/styles/scss/oblique-core.scss",
-              "node_modules/@oblique/oblique/styles/scss/oblique-material.scss",
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "node_modules/@oblique/oblique/styles/css/oblique-core.css",
+              "node_modules/@oblique/oblique/styles/css/oblique-components.css",
               "src/styles.scss"
             ]
           },
