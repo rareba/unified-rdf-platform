@@ -53,7 +53,55 @@
         </div>
 
         <div class="form-content">
+          <!-- Existing Cubes Section -->
+          @if (existingCubes().length > 0) {
+            <div class="existing-cubes-section">
+              <div class="section-header">
+                <mat-icon>inventory_2</mat-icon>
+                <div>
+                  <h3>Existing Cubes</h3>
+                  <p>Select a cube to edit or create a new one</p>
+                </div>
+              </div>
+              <div class="existing-cubes-list">
+                @if (loadingCubes()) {
+                  <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
+                } @else {
+                  @for (cube of existingCubes(); track cube.id) {
+                    <div class="cube-card"
+                         [class.selected]="selectedExistingCube()?.id === cube.id"
+                         (click)="selectExistingCube(cube)">
+                      <div class="cube-info">
+                        <div class="cube-name">{{ cube.name }}</div>
+                        <div class="cube-uri">{{ cube.uri }}</div>
+                        @if (cube.lastPublished) {
+                          <div class="cube-published">
+                            <mat-icon>cloud_done</mat-icon>
+                            Last published: {{ cube.lastPublished | date:'mediumDate' }}
+                          </div>
+                        }
+                      </div>
+                      @if (selectedExistingCube()?.id === cube.id) {
+                        <mat-icon class="selected-icon">check_circle</mat-icon>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+              @if (selectedExistingCube()) {
+                <div class="selection-actions">
+                  <button mat-button color="warn" (click)="clearExistingCubeSelection()">
+                    <mat-icon>close</mat-icon>
+                    Clear Selection (Create New)
+                  </button>
+                </div>
+              }
+            </div>
+            <mat-divider></mat-divider>
+          }
+
           <div class="form-section">
+            <h3>{{ createMode() === 'new' ? 'New Cube' : 'Edit Cube' }}</h3>
             <mat-form-field appearance="outline" class="w-full">
               <mat-label>Cube Name <span class="required">*</span></mat-label>
               <input matInput [ngModel]="cubeName()" (ngModelChange)="cubeName.set($event)"

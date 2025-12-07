@@ -1,10 +1,12 @@
 package io.rdfforge.job.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 @Entity
 @Table(name = "job_logs")
@@ -14,9 +16,16 @@ public class JobLogEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id", nullable = false)
     private JobEntity job;
+
+    // Expose job ID for API responses without causing lazy loading issues
+    @Transient
+    public UUID getJobId() {
+        return job != null ? job.getId() : null;
+    }
 
     @Column(nullable = false)
     private Instant timestamp = Instant.now();

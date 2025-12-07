@@ -7,3 +7,4 @@ export * from './shacl.service';
 export * from './dimension.service';
 export * from './triplestore.service';
 export * from './provider.service';
+export * from './cube.service';

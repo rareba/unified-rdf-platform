@@ -66,7 +66,7 @@ public class RouteConfig {
                 .uri(dataServiceUrl)
             )
             .route("dimension-service", r -> r
-                .path("/api/v1/dimensions/**", "/api/v1/hierarchies/**")
+                .path("/api/v1/dimensions/**", "/api/v1/hierarchies/**", "/api/v1/cubes/**")
                 .filters(f -> f
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))

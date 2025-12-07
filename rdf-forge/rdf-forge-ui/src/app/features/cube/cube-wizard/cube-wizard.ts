@@ -22,8 +22,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { DataService, DimensionService, PipelineService } from '../../../core/services';
-import { DataSource, Dimension, ColumnInfo, DimensionType, UploadOptions } from '../../../core/models';
+import { DataService, DimensionService, PipelineService, CubeService } from '../../../core/services';
+import { DataSource, Dimension, ColumnInfo, DimensionType, UploadOptions, Cube } from '../../../core/models';
 import { DataPreviewComponent } from '../../data/data-preview/data-preview';
 
 interface ColumnMapping {
@@ -94,8 +94,15 @@ export class CubeWizard implements OnInit {
   private readonly dataService = inject(DataService);
   private readonly dimensionService = inject(DimensionService);
   private readonly pipelineService = inject(PipelineService);
+  private readonly cubeService = inject(CubeService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+
+  // Existing cubes
+  existingCubes = signal<Cube[]>([]);
+  loadingCubes = signal(false);
+  selectedExistingCube = signal<Cube | null>(null);
+  createMode = signal<'new' | 'update'>('new');
 
   activeStep = signal(0);
   maxStepReached = signal(0);
@@ -293,6 +300,44 @@ export class CubeWizard implements OnInit {
     this.loadDataSources();
     this.loadDimensions();
     this.loadTriplestores();
+    this.loadExistingCubes();
+  }
+
+  loadExistingCubes(): void {
+    this.loadingCubes.set(true);
+    this.cubeService.list().subscribe({
+      next: (cubes) => {
+        this.existingCubes.set(cubes);
+        this.loadingCubes.set(false);
+      },
+      error: () => {
+        // Silent fail - cubes endpoint might not be available yet
+        this.loadingCubes.set(false);
+      }
+    });
+  }
+
+  selectExistingCube(cube: Cube): void {
+    this.selectedExistingCube.set(cube);
+    this.createMode.set('update');
+    // Populate form with existing cube data
+    this.cubeName.set(cube.name);
+    this.cubeId.set(cube.uri.split('/').pop() || '');
+    this.baseUri.set(cube.uri.replace(/[^/]+$/, ''));
+    if (cube.description) {
+      this.cubeDescription.set(cube.description);
+    }
+    this.useAutoId.set(false);
+    this.snackBar.open(`Editing cube "${cube.name}"`, 'Close', { duration: 3000 });
+  }
+
+  clearExistingCubeSelection(): void {
+    this.selectedExistingCube.set(null);
+    this.createMode.set('new');
+    this.cubeName.set('');
+    this.cubeId.set('');
+    this.cubeDescription.set('');
+    this.useAutoId.set(true);
   }
 
   // Step navigation
@@ -487,16 +532,15 @@ export class CubeWizard implements OnInit {
 
   autoAssignDimensions(): void {
     const dims = this.availableDimensions();
+    let matchCount = 0;
+
     this.columnMappings.update(mappings => {
       return mappings.map(m => {
         if (m.role === 'dimension' && !m.dimensionId) {
-          // Try to find matching dimension by name
-          const match = dims.find(d =>
-            d.name.toLowerCase() === m.name.toLowerCase() ||
-            d.name.toLowerCase().includes(m.name.toLowerCase()) ||
-            m.name.toLowerCase().includes(d.name.toLowerCase())
-          );
+          // Try to find matching dimension with multiple strategies
+          const match = this.findBestDimensionMatch(m.name, dims);
           if (match) {
+            matchCount++;
             return { ...m, dimensionId: match.id, dimensionName: match.name };
           }
         }
@@ -504,7 +548,99 @@ export class CubeWizard implements OnInit {
       });
     });
 
-    this.snackBar.open('Dimensions matched where possible', 'Close', { duration: 3000 });
+    const unmatchedCount = this.columnMappings().filter(m => m.role === 'dimension' && !m.dimensionId).length;
+    if (matchCount > 0) {
+      this.snackBar.open(`Matched ${matchCount} dimension(s)${unmatchedCount > 0 ? `, ${unmatchedCount} still unmatched` : ''}`, 'Close', { duration: 3000 });
+    } else {
+      this.snackBar.open('No automatic matches found. Please assign dimensions manually.', 'Close', { duration: 3000 });
+    }
+  }
+
+  private findBestDimensionMatch(columnName: string, dimensions: Dimension[]): Dimension | null {
+    if (!dimensions || dimensions.length === 0) return null;
+
+    const normalizedCol = this.normalizeForMatching(columnName);
+    let bestMatch: Dimension | null = null;
+    let bestScore = 0;
+
+    for (const dim of dimensions) {
+      const normalizedDim = this.normalizeForMatching(dim.name);
+      let score = 0;
+
+      // Exact match (after normalization)
+      if (normalizedCol === normalizedDim) {
+        score = 100;
+      }
+      // Column contains dimension name or vice versa
+      else if (normalizedCol.includes(normalizedDim) || normalizedDim.includes(normalizedCol)) {
+        score = 80;
+      }
+      // Word-based matching
+      else {
+        const colWords = normalizedCol.split(/[\s_-]+/).filter(w => w.length > 2);
+        const dimWords = normalizedDim.split(/[\s_-]+/).filter(w => w.length > 2);
+
+        // Count matching words
+        const matchingWords = colWords.filter(cw =>
+          dimWords.some(dw => cw === dw || cw.includes(dw) || dw.includes(cw))
+        ).length;
+
+        if (matchingWords > 0) {
+          score = 60 + (matchingWords * 10);
+        }
+      }
+
+      // Check for common dimension patterns
+      score += this.getPatternBonus(normalizedCol, normalizedDim);
+
+      if (score > bestScore && score >= 60) {
+        bestScore = score;
+        bestMatch = dim;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  private normalizeForMatching(str: string): string {
+    return str.toLowerCase()
+      .replace(/[_-]/g, ' ')           // Replace underscores and hyphens with spaces
+      .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
+      .replace(/\s+/g, ' ')            // Normalize multiple spaces
+      .trim();
+  }
+
+  private getPatternBonus(colName: string, dimName: string): number {
+    // Common dimension pattern mappings
+    const patterns: [string[], string[]][] = [
+      // Time dimensions
+      [['year', 'yr', 'anno', 'jahr'], ['year', 'time', 'period', 'reference', 'ref']],
+      [['month', 'mon', 'mese', 'monat'], ['month', 'time', 'period', 'reference', 'ref']],
+      [['quarter', 'qtr', 'q'], ['quarter', 'time', 'period']],
+      [['date', 'datum', 'data'], ['date', 'time', 'period', 'reference']],
+      // Geographic dimensions
+      [['canton', 'kanton', 'cantone'], ['canton', 'region', 'geo', 'geography']],
+      [['region', 'regione', 'gebiet'], ['region', 'geo', 'geography']],
+      [['country', 'land', 'paese', 'pays'], ['country', 'geo', 'geography']],
+      [['city', 'stadt', 'citta', 'ville'], ['city', 'municipality', 'geo']],
+      // Economic dimensions
+      [['sector', 'sektor', 'settore', 'secteur'], ['sector', 'industry', 'economic']],
+      [['branch', 'branche', 'ramo'], ['branch', 'sector', 'industry']],
+      // Other common dimensions
+      [['sex', 'gender', 'geschlecht', 'sesso'], ['sex', 'gender']],
+      [['age', 'alter', 'eta', 'age'], ['age', 'age group']],
+      [['nationality', 'nationalitat', 'nazionalita'], ['nationality', 'citizenship']],
+    ];
+
+    for (const [colPatterns, dimPatterns] of patterns) {
+      const colMatches = colPatterns.some(p => colName.includes(p));
+      const dimMatches = dimPatterns.some(p => dimName.includes(p));
+      if (colMatches && dimMatches) {
+        return 15; // Bonus for matching common patterns
+      }
+    }
+
+    return 0;
   }
 
   // File upload
@@ -852,14 +988,16 @@ export class CubeWizard implements OnInit {
       name: cubeId,
       steps: [
         {
-          operation: 'op:load-csv',
+          id: 'step1',
+          operation: 'load-csv',
           params: {
             source: this.selectedDataSource()?.id,
             options: this.uploadOptions
           }
         },
         {
-          operation: 'op:map-to-rdf',
+          id: 'step2',
+          operation: 'map-to-rdf',
           params: {
             baseUri: this.baseUri(),
             mappings: this.columnMappings()
@@ -873,7 +1011,8 @@ export class CubeWizard implements OnInit {
           }
         },
         {
-          operation: 'op:generate-cube',
+          id: 'step3',
+          operation: 'create-observation',
           params: {
             cubeId: cubeId,
             baseUri: this.baseUri(),
@@ -881,7 +1020,8 @@ export class CubeWizard implements OnInit {
           }
         },
         {
-          operation: 'op:publish',
+          id: 'step4',
+          operation: 'graph-store-put',
           params: this.publishOptions()
         }
       ]

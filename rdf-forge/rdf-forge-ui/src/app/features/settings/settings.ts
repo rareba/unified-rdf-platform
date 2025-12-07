@@ -398,21 +398,26 @@ export class Settings implements OnInit {
   // Service Health
   checkServicesHealth(): void {
     this.checkingHealth.set(true);
+    // Use health endpoint for gateway, and paginated list endpoints for services
+    // The paginated list endpoints return 200 OK even if empty
     const services: ServiceHealth[] = [
-      { name: 'API Gateway', status: 'UNKNOWN', url: environment.apiBaseUrl },
-      { name: 'Pipeline Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/pipelines` },
-      { name: 'Data Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/data` },
-      { name: 'SHACL Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/shacl` },
-      { name: 'Dimension Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/dimensions` }
+      { name: 'API Gateway', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/health` },
+      { name: 'Pipeline Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/pipelines?page=0&size=1` },
+      { name: 'Data Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/data?page=0&size=1` },
+      { name: 'SHACL Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/shacl/shapes?page=0&size=1` },
+      { name: 'Dimension Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/dimensions?page=0&size=1` },
+      { name: 'Job Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/jobs?page=0&size=1` },
+      { name: 'Triplestore Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/triplestore/connections` }
     ];
 
-    // Check each service (simplified - just checking if endpoint responds)
+    // Check each service
     let completed = 0;
     services.forEach((service, index) => {
       const start = Date.now();
       this.http.get(`${service.url}`, { observe: 'response' }).subscribe({
-        next: () => {
-          services[index].status = 'UP';
+        next: (response) => {
+          // Check if response indicates healthy service
+          services[index].status = response.status >= 200 && response.status < 300 ? 'UP' : 'DOWN';
           services[index].responseTime = Date.now() - start;
           completed++;
           if (completed === services.length) {
@@ -420,8 +425,17 @@ export class Settings implements OnInit {
             this.checkingHealth.set(false);
           }
         },
-        error: () => {
-          services[index].status = 'DOWN';
+        error: (err) => {
+          // 404 can mean the resource doesn't exist but service is up
+          // 401/403 means service is up but requires auth
+          // Only network errors or 5xx indicate service down
+          const status = err.status;
+          if (status === 401 || status === 403 || status === 404) {
+            // Service is up, just auth/resource issue
+            services[index].status = 'UP';
+          } else {
+            services[index].status = 'DOWN';
+          }
           services[index].responseTime = Date.now() - start;
           completed++;
           if (completed === services.length) {
