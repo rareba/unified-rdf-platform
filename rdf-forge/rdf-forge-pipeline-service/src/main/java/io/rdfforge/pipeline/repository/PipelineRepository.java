@@ -15,15 +15,18 @@ import java.util.UUID;
 @Repository
 public interface PipelineRepository extends JpaRepository<PipelineEntity, UUID> {
     Page<PipelineEntity> findByProjectId(UUID projectId, Pageable pageable);
-    
+
+    @Query("SELECT p FROM PipelineEntity p WHERE (:projectId IS NULL OR p.projectId = :projectId)")
+    Page<PipelineEntity> findAllByOptionalProjectId(@Param("projectId") UUID projectId, Pageable pageable);
+
     List<PipelineEntity> findByIsTemplateTrue();
-    
+
     Optional<PipelineEntity> findByProjectIdAndName(UUID projectId, String name);
-    
-    @Query("SELECT p FROM PipelineEntity p WHERE p.projectId = :projectId AND " +
+
+    @Query("SELECT p FROM PipelineEntity p WHERE (:projectId IS NULL OR p.projectId = :projectId) AND " +
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<PipelineEntity> searchByProjectId(@Param("projectId") UUID projectId, 
-                                            @Param("search") String search, 
-                                            Pageable pageable);
+    Page<PipelineEntity> searchByOptionalProjectId(@Param("projectId") UUID projectId,
+                                                    @Param("search") String search,
+                                                    Pageable pageable);
 }

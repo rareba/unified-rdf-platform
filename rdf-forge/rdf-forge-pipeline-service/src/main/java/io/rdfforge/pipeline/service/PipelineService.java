@@ -48,13 +48,13 @@ public class PipelineService {
 
     @Transactional(readOnly = true)
     public Page<Pipeline> list(UUID projectId, Pageable pageable) {
-        Page<PipelineEntity> entities = pipelineRepository.findByProjectId(projectId, pageable);
+        Page<PipelineEntity> entities = pipelineRepository.findAllByOptionalProjectId(projectId, pageable);
         return entities.map(this::toModel);
     }
 
     @Transactional(readOnly = true)
     public Page<Pipeline> search(UUID projectId, String query, Pageable pageable) {
-        Page<PipelineEntity> entities = pipelineRepository.searchByProjectId(projectId, query, pageable);
+        Page<PipelineEntity> entities = pipelineRepository.searchByOptionalProjectId(projectId, query, pageable);
         return entities.map(this::toModel);
     }
 

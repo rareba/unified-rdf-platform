@@ -180,7 +180,7 @@ INSERT INTO shapes (id, project_id, uri, name, description, target_class, conten
  'RDF Data Cube Validation',
  'SHACL shape for validating RDF Data Cube datasets according to the QB vocabulary',
  'http://purl.org/linked-data/cube#DataSet',
- 'turtle',
+ 'TURTLE',
  '@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix qb: <http://purl.org/linked-data/cube#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -226,7 +226,7 @@ ex:ObservationShape a sh:NodeShape ;
  'Swiss Canton Validation',
  'SHACL shape for validating Swiss canton dimension values',
  'https://example.org/dimension/Canton',
- 'turtle',
+ 'TURTLE',
  '@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -265,13 +265,15 @@ ex:CantonShape a sh:NodeShape ;
 ON CONFLICT (id) DO NOTHING;
 
 -- Demo Data Sources (references to files in MinIO)
-INSERT INTO data_sources (id, project_id, name, original_filename, format, size_bytes, storage_type, storage_path, metadata, uploaded_by, uploaded_at) VALUES
+INSERT INTO data_sources (id, project_id, name, original_filename, format, size_bytes, row_count, column_count, storage_type, storage_path, metadata, uploaded_by, uploaded_at) VALUES
 ('44444444-4444-4444-4444-444444444441', '11111111-1111-1111-1111-111111111111',
  'Swiss Population by Canton',
  'swiss-population-by-canton.csv',
- 'csv',
+ 'CSV',
  1524,
- 's3',
+ 26,
+ 6,
+ 'S3',
  'rdf-forge-data/demo/swiss-population-by-canton.csv',
  '{"columns": [
     {"name": "canton_code", "type": "string"},
@@ -280,15 +282,17 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
     {"name": "population", "type": "integer"},
     {"name": "area_km2", "type": "integer"},
     {"name": "density_per_km2", "type": "integer"}
-  ], "rowCount": 26, "encoding": "UTF-8", "delimiter": ","}'::jsonb,
+  ], "encoding": "UTF-8", "delimiter": ","}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW()),
 
 ('44444444-4444-4444-4444-444444444442', '11111111-1111-1111-1111-111111111111',
  'Swiss Employment Statistics',
  'swiss-employment-statistics.csv',
- 'csv',
+ 'CSV',
  2048,
- 's3',
+ 30,
+ 6,
+ 'S3',
  'rdf-forge-data/demo/swiss-employment-statistics.csv',
  '{"columns": [
     {"name": "canton_code", "type": "string"},
@@ -297,15 +301,17 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
     {"name": "sector", "type": "string"},
     {"name": "employment_count", "type": "integer"},
     {"name": "unemployment_rate", "type": "decimal"}
-  ], "rowCount": 30, "encoding": "UTF-8", "delimiter": ","}'::jsonb,
+  ], "encoding": "UTF-8", "delimiter": ","}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW()),
 
 ('44444444-4444-4444-4444-444444444443', '11111111-1111-1111-1111-111111111111',
  'Swiss GDP by Sector',
  'swiss-gdp-by-sector.csv',
- 'csv',
+ 'CSV',
  1856,
- 's3',
+ 30,
+ 6,
+ 'S3',
  'rdf-forge-data/demo/swiss-gdp-by-sector.csv',
  '{"columns": [
     {"name": "year", "type": "integer"},
@@ -314,18 +320,19 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
     {"name": "gdp_millions_chf", "type": "integer"},
     {"name": "growth_rate_pct", "type": "decimal"},
     {"name": "employment_share_pct", "type": "decimal"}
-  ], "rowCount": 30, "encoding": "UTF-8", "delimiter": ","}'::jsonb,
+  ], "encoding": "UTF-8", "delimiter": ","}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW())
 ON CONFLICT (id) DO NOTHING;
 
 -- Demo Dimensions
-INSERT INTO dimensions (id, project_id, uri, name, description, type, hierarchy_type, created_by, created_at) VALUES
+INSERT INTO dimensions (id, project_id, uri, name, description, type, hierarchy_type, is_shared, created_by, created_at) VALUES
 ('55555555-5555-5555-5555-555555555551', '11111111-1111-1111-1111-111111111111',
  'https://example.org/dimension/canton',
  'Swiss Canton',
  'Swiss cantons (administrative divisions)',
  'CODED',
  'FLAT',
+ true,
  '00000000-0000-0000-0000-000000000001', NOW()),
 
 ('55555555-5555-5555-5555-555555555552', '11111111-1111-1111-1111-111111111111',
@@ -334,6 +341,7 @@ INSERT INTO dimensions (id, project_id, uri, name, description, type, hierarchy_
  'Calendar year for statistical reference',
  'TEMPORAL',
  'FLAT',
+ true,
  '00000000-0000-0000-0000-000000000001', NOW()),
 
 ('55555555-5555-5555-5555-555555555553', '11111111-1111-1111-1111-111111111111',
@@ -341,7 +349,8 @@ INSERT INTO dimensions (id, project_id, uri, name, description, type, hierarchy_
  'Economic Sector',
  'Economic sector classification (Primary, Secondary, Tertiary)',
  'CODED',
- 'HIERARCHICAL',
+ 'FLAT',
+ true,
  '00000000-0000-0000-0000-000000000001', NOW()),
 
 ('55555555-5555-5555-5555-555555555554', '11111111-1111-1111-1111-111111111111',
@@ -350,6 +359,7 @@ INSERT INTO dimensions (id, project_id, uri, name, description, type, hierarchy_
  'Calendar quarter (Q1, Q2, Q3, Q4)',
  'TEMPORAL',
  'FLAT',
+ true,
  '00000000-0000-0000-0000-000000000001', NOW())
 ON CONFLICT (id) DO NOTHING;
 
@@ -404,28 +414,28 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO triplestore_connections (id, project_id, name, type, url, default_graph, auth_type, is_default, health_status, created_by, created_at) VALUES
 ('77777777-7777-7777-7777-777777777771', '11111111-1111-1111-1111-111111111111',
  'GraphDB Local',
- 'graphdb',
+ 'GRAPHDB',
  'http://graphdb:7200',
  'https://example.org/graph/default',
- 'none',
+ 'NONE',
  true,
- 'healthy',
+ 'HEALTHY',
  '00000000-0000-0000-0000-000000000001', NOW())
 ON CONFLICT (id) DO NOTHING;
 
 -- Demo Jobs (some completed, some pending)
-INSERT INTO jobs (id, pipeline_id, pipeline_version, status, priority, triggered_by, started_at, completed_at, metrics, created_by, created_at) VALUES
-('88888888-8888-8888-8888-888888888881', '22222222-2222-2222-2222-222222222221', 1, 'completed', 5, 'manual',
+INSERT INTO jobs (id, pipeline_id, pipeline_version, status, priority, is_dry_run, triggered_by, started_at, completed_at, metrics, created_by, created_at) VALUES
+('88888888-8888-8888-8888-888888888881', '22222222-2222-2222-2222-222222222221', 1, 'COMPLETED', 5, false, 'MANUAL',
  NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 55 minutes',
  '{"triplesGenerated": 156, "observationsCreated": 26, "processingTimeMs": 4523}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW() - INTERVAL '2 hours'),
 
-('88888888-8888-8888-8888-888888888882', '22222222-2222-2222-2222-222222222222', 1, 'completed', 5, 'manual',
+('88888888-8888-8888-8888-888888888882', '22222222-2222-2222-2222-222222222222', 1, 'COMPLETED', 5, false, 'MANUAL',
  NOW() - INTERVAL '1 hour', NOW() - INTERVAL '55 minutes',
  '{"triplesGenerated": 420, "observationsCreated": 30, "processingTimeMs": 6234}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW() - INTERVAL '1 hour'),
 
-('88888888-8888-8888-8888-888888888883', '22222222-2222-2222-2222-222222222223', 1, 'completed', 5, 'manual',
+('88888888-8888-8888-8888-888888888883', '22222222-2222-2222-2222-222222222223', 1, 'COMPLETED', 5, false, 'MANUAL',
  NOW() - INTERVAL '30 minutes', NOW() - INTERVAL '25 minutes',
  '{"triplesGenerated": 540, "observationsCreated": 30, "processingTimeMs": 5127}'::jsonb,
  '00000000-0000-0000-0000-000000000001', NOW() - INTERVAL '30 minutes')

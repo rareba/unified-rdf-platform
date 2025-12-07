@@ -1,0 +1,144 @@
+# =============================================================================
+# RDF Forge - Keycloak Authentication Mode
+# =============================================================================
+#
+# Purpose: Add Keycloak authentication to the RDF Forge stack
+#
+# Usage:
+#   docker compose -f docker-compose.standalone.yml -f docker-compose.keycloak.yml up -d
+#
+# Or to run Keycloak standalone:
+#   docker compose -f docker-compose.keycloak.yml up -d keycloak
+#
+# Users:
+#   - admin / admin (global admin)
+#   - demo / demo (editor role)
+#   - viewer / viewer (read-only access)
+#
+# Access Points:
+#   - Keycloak Admin: http://localhost:8180 (admin/admin123)
+#   - Keycloak Realm: http://localhost:8180/realms/rdf-forge
+#
+# =============================================================================
+
+services:
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: rdf-forge-keycloak
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_secret
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    ports:
+      - "${KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - ./docker/keycloak/rdf-forge-realm.json:/opt/keycloak/data/import/rdf-forge-realm.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - rdf-forge-network
+
+  # Keycloak PostgreSQL Database
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: rdf-forge-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_secret
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rdf-forge-network
+
+  # Override gateway to enable OAuth2
+  gateway:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/rdf-forge/protocol/openid-connect/certs
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override pipeline-service to enable OAuth2
+  pipeline-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override shacl-service to enable OAuth2
+  shacl-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override job-service to enable OAuth2
+  job-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override data-service to enable OAuth2
+  data-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override dimension-service to enable OAuth2
+  dimension-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  # Override triplestore-service to enable OAuth2
+  triplestore-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,keycloak
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdf-forge
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+volumes:
+  keycloak-postgres-data:
+    name: rdf-forge-keycloak-postgres-data
+
+networks:
+  rdf-forge-network:
+    name: rdf-forge-network

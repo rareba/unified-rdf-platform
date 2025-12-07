@@ -1,4 +1,4 @@
-export type TriplestoreType = 'fuseki' | 'stardog' | 'graphdb' | 'neptune' | 'virtuoso';
+export type TriplestoreType = 'FUSEKI' | 'STARDOG' | 'GRAPHDB' | 'NEPTUNE' | 'VIRTUOSO' | 'BLAZEGRAPH';
 export type AuthType = 'none' | 'basic' | 'apikey' | 'oauth2';
 export type HealthStatus = 'healthy' | 'unhealthy' | 'unknown';
 export type RdfFormat = 'turtle' | 'rdfxml' | 'ntriples' | 'jsonld';

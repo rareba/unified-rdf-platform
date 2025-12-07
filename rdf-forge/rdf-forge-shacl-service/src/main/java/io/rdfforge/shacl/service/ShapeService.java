@@ -44,13 +44,13 @@ public class ShapeService {
 
     @Transactional(readOnly = true)
     public Page<Shape> list(UUID projectId, Pageable pageable) {
-        Page<ShapeEntity> entities = shapeRepository.findByProjectId(projectId, pageable);
+        Page<ShapeEntity> entities = shapeRepository.findAllByOptionalProjectId(projectId, pageable);
         return entities.map(this::toModel);
     }
 
     @Transactional(readOnly = true)
     public Page<Shape> search(UUID projectId, String query, Pageable pageable) {
-        Page<ShapeEntity> entities = shapeRepository.searchByProjectId(projectId, query, pageable);
+        Page<ShapeEntity> entities = shapeRepository.searchByOptionalProjectId(projectId, query, pageable);
         return entities.map(this::toModel);
     }
 
@@ -96,7 +96,7 @@ public class ShapeService {
 
     @Transactional(readOnly = true)
     public List<String> getCategories(UUID projectId) {
-        return shapeRepository.findCategoriesByProjectId(projectId);
+        return shapeRepository.findCategoriesByOptionalProjectId(projectId);
     }
 
     private ShapeEntity toEntity(Shape model) {

@@ -391,9 +391,9 @@ export class CubeWizard implements OnInit {
   loadTriplestores(): void {
     // For now, use static options. Could load from backend.
     this.triplestoreOptions.set([
-      { label: 'GraphDB (Production)', value: 'graphdb' },
-      { label: 'Fuseki (Development)', value: 'fuseki' },
-      { label: 'Virtuoso', value: 'virtuoso' }
+      { label: 'GraphDB (Production)', value: 'GRAPHDB' },
+      { label: 'Fuseki (Development)', value: 'FUSEKI' },
+      { label: 'Virtuoso', value: 'VIRTUOSO' }
     ]);
   }
 

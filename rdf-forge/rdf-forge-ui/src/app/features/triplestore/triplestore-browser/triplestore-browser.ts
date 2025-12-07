@@ -99,7 +99,7 @@ export class TriplestoreBrowser implements OnInit {
   // Forms
   newConnection = signal<ConnectionCreateRequest>({
     name: '',
-    type: 'fuseki',
+    type: 'FUSEKI',
     url: '',
     defaultGraph: '',
     authType: 'none',
@@ -119,11 +119,11 @@ export class TriplestoreBrowser implements OnInit {
   triplestoreProviders = signal<TriplestoreProviderInfo[]>([]);
   triplestoreTypes = signal<{ label: string; value: TriplestoreType }[]>([
     // Fallback defaults in case API is unavailable
-    { label: 'Apache Jena Fuseki', value: 'fuseki' },
-    { label: 'Stardog', value: 'stardog' },
-    { label: 'GraphDB', value: 'graphdb' },
-    { label: 'Amazon Neptune', value: 'neptune' },
-    { label: 'Virtuoso', value: 'virtuoso' }
+    { label: 'Apache Jena Fuseki', value: 'FUSEKI' },
+    { label: 'Stardog', value: 'STARDOG' },
+    { label: 'GraphDB', value: 'GRAPHDB' },
+    { label: 'Amazon Neptune', value: 'NEPTUNE' },
+    { label: 'Virtuoso', value: 'VIRTUOSO' }
   ]);
 
   authTypes: { label: string; value: AuthType }[] = [
@@ -316,7 +316,7 @@ export class TriplestoreBrowser implements OnInit {
   openConnectionDialog(): void {
     this.newConnection.set({
       name: '',
-      type: 'fuseki',
+      type: 'FUSEKI',
       url: 'http://localhost:3030/',
       defaultGraph: '',
       authType: 'none',
@@ -533,11 +533,11 @@ export class TriplestoreBrowser implements OnInit {
 
   getTypeIcon(type: string): string {
     switch (type) {
-      case 'fuseki': return 'dns';
-      case 'stardog': return 'star';
-      case 'graphdb': return 'account_tree';
-      case 'neptune': return 'cloud';
-      case 'virtuoso': return 'storage';
+      case 'FUSEKI': return 'dns';
+      case 'STARDOG': return 'star';
+      case 'GRAPHDB': return 'account_tree';
+      case 'NEPTUNE': return 'cloud';
+      case 'VIRTUOSO': return 'storage';
       default: return 'storage';
     }
   }
