@@ -252,6 +252,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      PIPELINE_SERVICE_URL: http://pipeline-service:8080
     depends_on:
       postgres:
         condition: service_healthy

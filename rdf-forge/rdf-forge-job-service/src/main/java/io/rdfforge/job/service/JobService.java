@@ -14,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
@@ -53,12 +55,27 @@ public class JobService {
         job.setTriggeredBy(TriggerType.MANUAL);
         job.setCreatedBy(userId);
         job.setStatus(JobStatus.PENDING);
-        
+
         JobEntity savedJob = jobRepository.save(job);
-        
-        executorService.executeAsync(savedJob.getId());
-        
+
+        // Execute async after transaction commits to avoid race condition
+        scheduleAsyncExecution(savedJob.getId());
+
         return savedJob;
+    }
+
+    private void scheduleAsyncExecution(UUID jobId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    executorService.executeAsync(jobId);
+                }
+            });
+        } else {
+            // No active transaction, execute immediately
+            executorService.executeAsync(jobId);
+        }
     }
     
     public JobEntity createScheduledJob(UUID pipelineId, Map<String, Object> variables) {
@@ -69,10 +86,10 @@ public class JobService {
         job.setDryRun(false); // Scheduled jobs are real executions
         job.setTriggeredBy(TriggerType.SCHEDULE);
         job.setStatus(JobStatus.PENDING);
-        
+
         JobEntity savedJob = jobRepository.save(job);
-        executorService.executeAsync(savedJob.getId());
-        
+        scheduleAsyncExecution(savedJob.getId());
+
         return savedJob;
     }
     
@@ -95,7 +112,7 @@ public class JobService {
             if (originalJob.getStatus() != JobStatus.FAILED && originalJob.getStatus() != JobStatus.CANCELLED) {
                 throw new IllegalStateException("Can only retry failed or cancelled jobs");
             }
-            
+
             JobEntity newJob = new JobEntity();
             newJob.setPipelineId(originalJob.getPipelineId());
             newJob.setPipelineVersion(originalJob.getPipelineVersion());
@@ -105,10 +122,10 @@ public class JobService {
             newJob.setTriggeredBy(TriggerType.MANUAL);
             newJob.setCreatedBy(originalJob.getCreatedBy());
             newJob.setStatus(JobStatus.PENDING);
-            
+
             JobEntity savedJob = jobRepository.save(newJob);
-            executorService.executeAsync(savedJob.getId());
-            
+            scheduleAsyncExecution(savedJob.getId());
+
             return savedJob;
         }).orElseThrow(() -> new RuntimeException("Job not found: " + id));
     }
