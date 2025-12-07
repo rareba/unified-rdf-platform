@@ -12,6 +12,7 @@ COPY rdf-forge-data-service/pom.xml rdf-forge-data-service/
 COPY rdf-forge-dimension-service/pom.xml rdf-forge-dimension-service/
 COPY rdf-forge-triplestore-service/pom.xml rdf-forge-triplestore-service/
 COPY rdf-forge-gateway/pom.xml rdf-forge-gateway/
+COPY rdf-forge-auth-service/pom.xml rdf-forge-auth-service/
 COPY rdf-forge-cli/pom.xml rdf-forge-cli/
 
 # 2. Download dependencies (this layer will be cached unless POMs change)
@@ -27,6 +28,7 @@ COPY rdf-forge-data-service/src rdf-forge-data-service/src
 COPY rdf-forge-dimension-service/src rdf-forge-dimension-service/src
 COPY rdf-forge-triplestore-service/src rdf-forge-triplestore-service/src
 COPY rdf-forge-gateway/src rdf-forge-gateway/src
+COPY rdf-forge-auth-service/src rdf-forge-auth-service/src
 COPY rdf-forge-cli/src rdf-forge-cli/src
 
 # 4. Build all modules

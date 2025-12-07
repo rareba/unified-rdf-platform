@@ -1,0 +1,110 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <https://example.org/museum/> .
+@prefix schema: <http://schema.org/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# ============================================================================
+# Museum Visits Data - SHACL Validation Shape
+# ============================================================================
+# Validates museum visitor statistics data
+# Tests: Pattern constraints, cardinality, value ranges
+# ============================================================================
+
+ex:MuseumShape a sh:NodeShape ;
+    sh:targetClass schema:Museum ;
+    rdfs:label "Museum Entity Shape" ;
+    rdfs:comment "Validates museum entity records" ;
+    sh:property [
+        sh:path schema:identifier ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^MUS[0-9]{3}$" ;
+        sh:message "Museum ID must follow pattern MUS followed by 3 digits"
+    ] ;
+    sh:property [
+        sh:path schema:name ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 3 ;
+        sh:maxLength 100 ;
+        sh:message "Museum must have a name between 3 and 100 characters"
+    ] ;
+    sh:property [
+        sh:path schema:location ;
+        sh:minCount 1 ;
+        sh:or (
+            [ sh:datatype xsd:string ]
+            [ sh:class schema:Place ]
+        ) ;
+        sh:message "Museum must have a location"
+    ] .
+
+ex:MuseumVisitObservationShape a sh:NodeShape ;
+    sh:targetClass qb:Observation ;
+    rdfs:label "Museum Visit Observation Shape" ;
+    sh:property [
+        sh:path ex:museum ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class schema:Museum ;
+        sh:message "Visit must reference a museum"
+    ] ;
+    sh:property [
+        sh:path ex:quarter ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^Q[1-4]$" ;
+        sh:message "Quarter must be Q1, Q2, Q3, or Q4"
+    ] ;
+    sh:property [
+        sh:path ex:year ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:gYear ;
+        sh:message "Year is required"
+    ] ;
+    sh:property [
+        sh:path ex:visitorCount ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "Visitor count must be a non-negative integer"
+    ] ;
+    sh:property [
+        sh:path ex:ticketRevenue ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:message "Ticket revenue must be non-negative"
+    ] ;
+    sh:property [
+        sh:path ex:specialExhibitions ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 10 ;
+        sh:message "Special exhibitions count must be between 0 and 10"
+    ] .
+
+# Constraint to ensure visitor count is reasonable given revenue
+ex:RevenueConsistencyShape a sh:NodeShape ;
+    sh:targetClass qb:Observation ;
+    rdfs:label "Revenue Consistency Check" ;
+    sh:sparql [
+        sh:message "Ticket revenue seems inconsistent with visitor count (expected approx 8 CHF per visitor)" ;
+        sh:prefixes ex: ;
+        sh:select """
+            SELECT $this
+            WHERE {
+                $this ex:visitorCount ?visitors .
+                $this ex:ticketRevenue ?revenue .
+                FILTER (?visitors > 0 && (?revenue / ?visitors < 2 || ?revenue / ?visitors > 20))
+            }
+        """
+    ] .

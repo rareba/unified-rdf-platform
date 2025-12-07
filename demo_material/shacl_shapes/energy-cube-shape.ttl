@@ -1,0 +1,89 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <https://example.org/energy/> .
+@prefix schema: <http://schema.org/> .
+
+# ============================================================================
+# Energy Consumption Data Cube - SHACL Validation Shape
+# ============================================================================
+# This shape validates RDF Data Cubes containing energy consumption statistics
+# Use this in SHACL Studio to validate your energy cube data
+# ============================================================================
+
+ex:EnergyCubeShape a sh:NodeShape ;
+    sh:targetClass qb:DataSet ;
+    rdfs:label "Energy Consumption Data Cube Shape" ;
+    rdfs:comment "Validates energy consumption data cubes for completeness and consistency" ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Dataset must have at least one label"
+    ] ;
+    sh:property [
+        sh:path qb:structure ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class qb:DataStructureDefinition ;
+        sh:message "Dataset must reference exactly one Data Structure Definition"
+    ] ;
+    sh:property [
+        sh:path <http://purl.org/dc/terms/issued> ;
+        sh:minCount 1 ;
+        sh:datatype xsd:date ;
+        sh:message "Dataset must have an issued date"
+    ] .
+
+ex:EnergyObservationShape a sh:NodeShape ;
+    sh:targetClass qb:Observation ;
+    rdfs:label "Energy Observation Shape" ;
+    rdfs:comment "Validates individual energy consumption observations" ;
+    sh:property [
+        sh:path qb:dataSet ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class qb:DataSet ;
+        sh:message "Observation must belong to exactly one dataset"
+    ] ;
+    sh:property [
+        sh:path ex:countryCode ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Z]{2}$" ;
+        sh:message "Country code must be a 2-letter ISO code (uppercase)"
+    ] ;
+    sh:property [
+        sh:path ex:year ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:gYear ;
+        sh:message "Observation must have a reference year"
+    ] ;
+    sh:property [
+        sh:path ex:energyConsumption ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minExclusive 0 ;
+        sh:message "Energy consumption must be a positive number"
+    ] ;
+    sh:property [
+        sh:path ex:renewablePercentage ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 100 ;
+        sh:message "Renewable percentage must be between 0 and 100"
+    ] .
+
+ex:DSDShape a sh:NodeShape ;
+    sh:targetClass qb:DataStructureDefinition ;
+    rdfs:label "Data Structure Definition Shape" ;
+    sh:property [
+        sh:path qb:component ;
+        sh:minCount 2 ;
+        sh:message "DSD must have at least 2 components (1 dimension + 1 measure)"
+    ] .

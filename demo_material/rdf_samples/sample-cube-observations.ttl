@@ -1,0 +1,118 @@
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix ex: <https://example.org/demo/> .
+@prefix dim: <https://example.org/dimension/> .
+
+# ============================================================================
+# Sample RDF Data Cube - Population Statistics
+# ============================================================================
+# This file demonstrates a complete RDF Data Cube structure
+# Use this for testing SPARQL queries and understanding cube structure
+# ============================================================================
+
+# Dataset Metadata
+ex:populationDataset a qb:DataSet ;
+    rdfs:label "Sample Population Dataset"@en ;
+    rdfs:comment "Demonstration dataset for testing RDF Forge"@en ;
+    dct:title "Demo Population Statistics"@en ;
+    dct:description "Sample population data for RDF Forge demonstration purposes"@en ;
+    dct:publisher "RDF Forge Demo" ;
+    dct:issued "2024-01-01"^^xsd:date ;
+    dct:modified "2024-01-15"^^xsd:date ;
+    dct:license <https://creativecommons.org/publicdomain/zero/1.0/> ;
+    qb:structure ex:populationDSD .
+
+# Data Structure Definition
+ex:populationDSD a qb:DataStructureDefinition ;
+    rdfs:label "Population Statistics DSD"@en ;
+    qb:component [
+        qb:dimension dim:region ;
+        qb:order 1
+    ] ;
+    qb:component [
+        qb:dimension dim:timePeriod ;
+        qb:order 2
+    ] ;
+    qb:component [
+        qb:measure dim:populationCount
+    ] ;
+    qb:component [
+        qb:attribute dim:unitMeasure ;
+        qb:componentAttachment qb:DataSet
+    ] .
+
+# Dimension Properties
+dim:region a qb:DimensionProperty, rdf:Property ;
+    rdfs:label "Geographic Region"@en ;
+    rdfs:range skos:Concept .
+
+dim:timePeriod a qb:DimensionProperty, rdf:Property ;
+    rdfs:label "Time Period"@en ;
+    rdfs:range xsd:gYear .
+
+dim:populationCount a qb:MeasureProperty, rdf:Property ;
+    rdfs:label "Population Count"@en ;
+    rdfs:range xsd:integer .
+
+dim:unitMeasure a qb:AttributeProperty, rdf:Property ;
+    rdfs:label "Unit of Measure"@en ;
+    rdfs:range xsd:string .
+
+# Concept Scheme for Regions
+ex:regionScheme a skos:ConceptScheme ;
+    rdfs:label "Demo Regions"@en .
+
+ex:regionA a skos:Concept ;
+    skos:inScheme ex:regionScheme ;
+    skos:notation "REG-A" ;
+    skos:prefLabel "Region A"@en .
+
+ex:regionB a skos:Concept ;
+    skos:inScheme ex:regionScheme ;
+    skos:notation "REG-B" ;
+    skos:prefLabel "Region B"@en .
+
+ex:regionC a skos:Concept ;
+    skos:inScheme ex:regionScheme ;
+    skos:notation "REG-C" ;
+    skos:prefLabel "Region C"@en .
+
+# Sample Observations
+ex:obs001 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionA ;
+    dim:timePeriod "2022"^^xsd:gYear ;
+    dim:populationCount 125000 .
+
+ex:obs002 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionA ;
+    dim:timePeriod "2023"^^xsd:gYear ;
+    dim:populationCount 128500 .
+
+ex:obs003 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionB ;
+    dim:timePeriod "2022"^^xsd:gYear ;
+    dim:populationCount 87000 .
+
+ex:obs004 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionB ;
+    dim:timePeriod "2023"^^xsd:gYear ;
+    dim:populationCount 89200 .
+
+ex:obs005 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionC ;
+    dim:timePeriod "2022"^^xsd:gYear ;
+    dim:populationCount 45000 .
+
+ex:obs006 a qb:Observation ;
+    qb:dataSet ex:populationDataset ;
+    dim:region ex:regionC ;
+    dim:timePeriod "2023"^^xsd:gYear ;
+    dim:populationCount 46800 .

@@ -1,0 +1,116 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <https://example.org/transport/> .
+@prefix schema: <http://schema.org/> .
+
+# ============================================================================
+# Public Transport Usage Data - SHACL Validation Shape
+# ============================================================================
+# Validates public transport usage statistics
+# Tests: In-list constraints, date patterns, percentage ranges
+# ============================================================================
+
+ex:TransportLineShape a sh:NodeShape ;
+    sh:targetClass ex:TransportLine ;
+    rdfs:label "Transport Line Shape" ;
+    rdfs:comment "Validates transport line entities" ;
+    sh:property [
+        sh:path schema:identifier ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[A-Z]{2,4}[0-9]{3}$" ;
+        sh:message "Line ID must be 2-4 uppercase letters followed by 3 digits"
+    ] ;
+    sh:property [
+        sh:path ex:transportType ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:in ("tram" "bus" "train" "metro" "ferry" "trolleybus") ;
+        sh:message "Transport type must be one of: tram, bus, train, metro, ferry, trolleybus"
+    ] ;
+    sh:property [
+        sh:path ex:city ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "City/region is required"
+    ] ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Route must have a label/name"
+    ] .
+
+ex:TransportObservationShape a sh:NodeShape ;
+    sh:targetClass qb:Observation ;
+    rdfs:label "Transport Usage Observation Shape" ;
+    sh:property [
+        sh:path ex:transportLine ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class ex:TransportLine ;
+        sh:message "Observation must reference a transport line"
+    ] ;
+    sh:property [
+        sh:path ex:date ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:message "Date is required and must be a valid date"
+    ] ;
+    sh:property [
+        sh:path ex:passengerCount ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "Passenger count must be a non-negative integer"
+    ] ;
+    sh:property [
+        sh:path ex:onTimePercentage ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 100 ;
+        sh:message "On-time percentage must be between 0 and 100"
+    ] ;
+    sh:property [
+        sh:path ex:co2Saved ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:message "CO2 saved must be non-negative"
+    ] .
+
+# Data quality shape - warn about suspiciously low on-time rates
+ex:OnTimeQualityShape a sh:NodeShape ;
+    sh:targetClass qb:Observation ;
+    rdfs:label "On-Time Performance Quality Check" ;
+    sh:severity sh:Warning ;
+    sh:property [
+        sh:path ex:onTimePercentage ;
+        sh:minInclusive 70 ;
+        sh:message "Warning: On-time percentage below 70% may indicate data quality issues or service problems"
+    ] .
+
+# Swiss transport operator code validation
+ex:SwissOperatorShape a sh:NodeShape ;
+    sh:targetSubjectsOf schema:identifier ;
+    rdfs:label "Swiss Transport Operator Codes" ;
+    sh:severity sh:Info ;
+    sh:sparql [
+        sh:message "Info: Recognized Swiss transport operator codes: ZVV (Zurich), BVB (Basel), SBB (National Rail), TPG (Geneva), BLS, RhB, SOB" ;
+        sh:prefixes ex: ;
+        sh:select """
+            SELECT $this ?id
+            WHERE {
+                $this schema:identifier ?id .
+                FILTER (!REGEX(?id, "^(ZVV|BVB|SBB|TPG|BLS|RhB|SOB)"))
+            }
+        """
+    ] .

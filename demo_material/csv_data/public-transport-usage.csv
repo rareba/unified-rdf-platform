@@ -1,0 +1,16 @@
+line_id,transport_type,city,route_name,date,passenger_count,on_time_percentage,co2_saved_kg
+ZVV001,tram,Zurich,Tram 4 - Tiefenbrunnen,2023-11-01,45230,94.5,2712
+ZVV001,tram,Zurich,Tram 4 - Tiefenbrunnen,2023-11-02,48120,92.1,2887
+ZVV001,tram,Zurich,Tram 4 - Tiefenbrunnen,2023-11-03,51200,88.7,3072
+ZVV002,bus,Zurich,Bus 31 - Schlieren,2023-11-01,23450,85.2,1876
+ZVV002,bus,Zurich,Bus 31 - Schlieren,2023-11-02,24100,87.4,1928
+ZVV002,bus,Zurich,Bus 31 - Schlieren,2023-11-03,25890,81.9,2071
+BVB001,tram,Basel,Tram 8 - Weil am Rhein,2023-11-01,32100,96.2,1926
+BVB001,tram,Basel,Tram 8 - Weil am Rhein,2023-11-02,33450,94.8,2007
+BVB001,tram,Basel,Tram 8 - Weil am Rhein,2023-11-03,28900,97.1,1734
+SBB001,train,National,IC1 Geneva-St. Gallen,2023-11-01,12500,91.2,8750
+SBB001,train,National,IC1 Geneva-St. Gallen,2023-11-02,13200,89.5,9240
+SBB001,train,National,IC1 Geneva-St. Gallen,2023-11-03,14100,85.3,9870
+TPG001,tram,Geneva,Tram 12 - Moillesulaz,2023-11-01,28700,93.4,1722
+TPG001,tram,Geneva,Tram 12 - Moillesulaz,2023-11-02,29450,91.8,1767
+TPG001,tram,Geneva,Tram 12 - Moillesulaz,2023-11-03,31200,89.2,1872

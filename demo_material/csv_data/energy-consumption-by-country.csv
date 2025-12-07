@@ -1,0 +1,16 @@
+country_code,country_name,year,energy_consumption_gwh,renewable_percentage,population_millions,consumption_per_capita_kwh
+CH,Switzerland,2023,58000,76.2,8.8,6591
+DE,Germany,2023,512000,52.4,84.4,6067
+FR,France,2023,445000,27.8,67.8,6563
+IT,Italy,2023,302000,40.5,59.1,5111
+AT,Austria,2023,72000,78.5,9.0,8000
+BE,Belgium,2023,82000,23.4,11.6,7069
+NL,Netherlands,2023,115000,33.1,17.5,6571
+ES,Spain,2023,240000,50.2,47.4,5063
+PT,Portugal,2023,49000,61.3,10.4,4712
+PL,Poland,2023,175000,22.8,38.0,4605
+CZ,Czechia,2023,64000,17.2,10.5,6095
+SE,Sweden,2023,133000,68.3,10.5,12667
+NO,Norway,2023,133000,98.5,5.5,24182
+FI,Finland,2023,82000,47.2,5.5,14909
+DK,Denmark,2023,34000,84.1,5.9,5763

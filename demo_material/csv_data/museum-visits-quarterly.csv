@@ -1,0 +1,17 @@
+museum_id,museum_name,location,quarter,year,visitor_count,ticket_revenue_chf,special_exhibitions
+MUS001,Swiss National Museum,Zurich,Q1,2023,125000,875000,2
+MUS001,Swiss National Museum,Zurich,Q2,2023,185000,1295000,3
+MUS001,Swiss National Museum,Zurich,Q3,2023,245000,1715000,2
+MUS001,Swiss National Museum,Zurich,Q4,2023,155000,1085000,4
+MUS002,Kunsthaus Zurich,Zurich,Q1,2023,98000,784000,1
+MUS002,Kunsthaus Zurich,Zurich,Q2,2023,112000,896000,2
+MUS002,Kunsthaus Zurich,Zurich,Q3,2023,165000,1320000,3
+MUS002,Kunsthaus Zurich,Zurich,Q4,2023,89000,712000,2
+MUS003,Bern Historical Museum,Bern,Q1,2023,45000,270000,1
+MUS003,Bern Historical Museum,Bern,Q2,2023,62000,372000,2
+MUS003,Bern Historical Museum,Bern,Q3,2023,85000,510000,1
+MUS003,Bern Historical Museum,Bern,Q4,2023,52000,312000,2
+MUS004,Verkehrshaus,Lucerne,Q1,2023,78000,624000,0
+MUS004,Verkehrshaus,Lucerne,Q2,2023,125000,1000000,1
+MUS004,Verkehrshaus,Lucerne,Q3,2023,198000,1584000,2
+MUS004,Verkehrshaus,Lucerne,Q4,2023,95000,760000,1

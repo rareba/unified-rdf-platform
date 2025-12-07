@@ -1,0 +1,81 @@
+{
+  "name": "CSV to RDF Data Cube Pipeline",
+  "description": "Converts CSV files to RDF Data Cube format with validation",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-1",
+      "type": "data-source",
+      "name": "Load CSV Data",
+      "config": {
+        "sourceType": "csv",
+        "delimiter": ",",
+        "hasHeader": true,
+        "encoding": "UTF-8"
+      }
+    },
+    {
+      "id": "step-2",
+      "type": "mapping",
+      "name": "Column Mapping",
+      "config": {
+        "mappings": [
+          {
+            "sourceColumn": "country_code",
+            "targetProperty": "dimension:country",
+            "dataType": "string",
+            "role": "dimension"
+          },
+          {
+            "sourceColumn": "year",
+            "targetProperty": "dimension:year",
+            "dataType": "gYear",
+            "role": "dimension"
+          },
+          {
+            "sourceColumn": "value",
+            "targetProperty": "measure:value",
+            "dataType": "decimal",
+            "role": "measure"
+          }
+        ],
+        "baseUri": "https://example.org/data/"
+      }
+    },
+    {
+      "id": "step-3",
+      "type": "transform",
+      "name": "Generate Cube Structure",
+      "config": {
+        "createDSD": true,
+        "createDataset": true,
+        "observationTemplate": "obs-{row_number}"
+      }
+    },
+    {
+      "id": "step-4",
+      "type": "validation",
+      "name": "SHACL Validation",
+      "config": {
+        "shapeGraphUri": "shapes:energy-cube-shape",
+        "failOnWarning": false,
+        "failOnViolation": true
+      }
+    },
+    {
+      "id": "step-5",
+      "type": "output",
+      "name": "Store to Triplestore",
+      "config": {
+        "destination": "graphdb",
+        "graphUri": "https://example.org/graph/energy-data",
+        "format": "turtle"
+      }
+    }
+  ],
+  "metadata": {
+    "created": "2024-01-15",
+    "author": "RDF Forge Demo",
+    "tags": ["csv", "cube", "energy", "demo"]
+  }
+}

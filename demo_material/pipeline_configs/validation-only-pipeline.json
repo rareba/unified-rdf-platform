@@ -1,0 +1,50 @@
+{
+  "name": "RDF Validation Pipeline",
+  "description": "Validates existing RDF data against SHACL shapes",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-1",
+      "type": "data-source",
+      "name": "Load RDF Data",
+      "config": {
+        "sourceType": "sparql",
+        "endpoint": "http://graphdb:7200/repositories/rdf-forge",
+        "query": "CONSTRUCT { ?s ?p ?o } WHERE { GRAPH ?g { ?s ?p ?o } }",
+        "graphUri": "https://example.org/graph/to-validate"
+      }
+    },
+    {
+      "id": "step-2",
+      "type": "validation",
+      "name": "SHACL Validation",
+      "config": {
+        "shapeGraphUri": "shapes:museum-data-shape",
+        "generateReport": true,
+        "reportFormat": "turtle",
+        "severityLevels": ["Violation", "Warning", "Info"]
+      }
+    },
+    {
+      "id": "step-3",
+      "type": "output",
+      "name": "Store Validation Report",
+      "config": {
+        "destination": "minio",
+        "bucket": "rdf-forge-shapes",
+        "path": "reports/validation-{timestamp}.ttl",
+        "format": "turtle"
+      }
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "scheduled": false,
+    "onDataChange": false
+  },
+  "metadata": {
+    "created": "2024-01-15",
+    "author": "RDF Forge Demo",
+    "tags": ["validation", "shacl", "quality"]
+  }
+}

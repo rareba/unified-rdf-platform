@@ -1,0 +1,76 @@
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix ex: <https://example.org/invalid/> .
+@prefix dim: <https://example.org/dimension/> .
+
+# ============================================================================
+# INTENTIONALLY INVALID RDF Data Cube - For Testing Validation
+# ============================================================================
+# This file contains intentional errors to test SHACL validation:
+# 1. Missing required properties
+# 2. Invalid data types
+# 3. Out-of-range values
+# 4. Missing dimension values
+# Use this to test that your SHACL shapes catch these errors!
+# ============================================================================
+
+# Dataset missing label (ERROR: should have rdfs:label)
+ex:invalidDataset a qb:DataSet ;
+    # rdfs:label MISSING!
+    dct:title "Invalid Dataset"@en ;
+    qb:structure ex:brokenDSD .
+
+# DSD with only one component (ERROR: should have at least 2)
+ex:brokenDSD a qb:DataStructureDefinition ;
+    rdfs:label "Broken DSD"@en ;
+    qb:component [
+        qb:measure dim:someValue
+    ] .
+    # Missing dimension component!
+
+# Observation missing dataset reference (ERROR)
+ex:badObs001 a qb:Observation ;
+    # qb:dataSet MISSING!
+    dim:region "ABC" ;
+    dim:value 100 .
+
+# Observation with invalid country code (ERROR: should be 2 uppercase letters)
+ex:badObs002 a qb:Observation ;
+    qb:dataSet ex:invalidDataset ;
+    ex:countryCode "switzerland" ;  # ERROR: should be "CH"
+    ex:year "2023"^^xsd:gYear ;
+    ex:energyConsumption 50000 .
+
+# Observation with negative energy consumption (ERROR)
+ex:badObs003 a qb:Observation ;
+    qb:dataSet ex:invalidDataset ;
+    ex:countryCode "DE" ;
+    ex:year "2023"^^xsd:gYear ;
+    ex:energyConsumption -5000 .  # ERROR: negative value
+
+# Observation with renewable percentage out of range (ERROR)
+ex:badObs004 a qb:Observation ;
+    qb:dataSet ex:invalidDataset ;
+    ex:countryCode "FR" ;
+    ex:year "2023"^^xsd:gYear ;
+    ex:energyConsumption 100000 ;
+    ex:renewablePercentage 150 .  # ERROR: > 100%
+
+# Observation with wrong data type (ERROR)
+ex:badObs005 a qb:Observation ;
+    qb:dataSet ex:invalidDataset ;
+    ex:countryCode "IT" ;
+    ex:year "twenty-twenty-three" ;  # ERROR: should be xsd:gYear
+    ex:energyConsumption "lots" .  # ERROR: should be xsd:decimal
+
+# Museum with invalid ID pattern (ERROR)
+ex:badMuseum a <http://schema.org/Museum> ;
+    <http://schema.org/identifier> "MUSEUM-001" ;  # ERROR: should be MUS followed by 3 digits
+    <http://schema.org/name> "X" .  # ERROR: name too short (min 3 chars)
+
+# Transport observation with invalid transport type (ERROR)
+ex:badTransport a qb:Observation ;
+    ex:transportType "helicopter" ;  # ERROR: not in allowed list
+    ex:onTimePercentage 45 .  # WARNING: below 70%
