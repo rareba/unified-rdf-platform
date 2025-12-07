@@ -68,7 +68,7 @@ export interface DestinationInfo {
 /**
  * Validation result from provider
  */
-export interface ValidationResult {
+export interface ProviderValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];

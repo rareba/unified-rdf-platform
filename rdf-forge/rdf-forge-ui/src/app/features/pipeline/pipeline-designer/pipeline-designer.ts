@@ -621,4 +621,37 @@ export class PipelineDesigner implements OnInit {
   cancel(): void {
     this.router.navigate(['/pipelines']);
   }
+
+  // Helper methods for operation parameters
+  getRequiredParams(op: Operation): { key: string; value: OperationParameter }[] {
+    if (!op.parameters) return [];
+    return Object.entries(op.parameters)
+      .filter(([, param]) => param.required)
+      .map(([key, value]) => ({ key, value }));
+  }
+
+  getOptionalParams(op: Operation): { key: string; value: OperationParameter }[] {
+    if (!op.parameters) return [];
+    return Object.entries(op.parameters)
+      .filter(([, param]) => !param.required)
+      .map(([key, value]) => ({ key, value }));
+  }
+
+  getOperationExample(operationId: string): string {
+    const op = this.availableOperations().find(o => o.id === operationId);
+    if (!op) return '';
+
+    const examples: Record<string, string> = {
+      'csv-source': 'source: data/input.csv',
+      'sparql-source': 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }',
+      'rdf-source': 'source: data/input.ttl',
+      'csv-to-rdf': 'Transform CSV rows to RDF triples',
+      'shacl-validate': 'shapes: shapes/my-shape.ttl',
+      'cube-generate': 'Create qb:DataSet structure',
+      'turtle-output': 'output: results/output.ttl',
+      'graphdb-output': 'graph: http://example.org/my-graph'
+    };
+
+    return examples[operationId] || 'Configure parameters below';
+  }
 }

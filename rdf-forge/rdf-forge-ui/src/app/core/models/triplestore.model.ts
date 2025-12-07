@@ -33,6 +33,7 @@ export interface ConnectionCreateRequest {
 
 export interface Graph {
   uri: string;
+  name?: string;
   tripleCount: number;
   lastModified?: Date;
 }

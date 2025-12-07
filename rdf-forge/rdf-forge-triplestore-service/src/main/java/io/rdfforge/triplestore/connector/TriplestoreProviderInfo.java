@@ -50,6 +50,10 @@ public record TriplestoreProviderInfo(
         public ConfigField(String name, String displayName, String type, String description, boolean required, String defaultValue) {
             this(name, displayName, type, description, required, defaultValue, null, null);
         }
+
+        public ConfigField(String name, String displayName, String type, String description, boolean required, String defaultValue, String placeholder) {
+            this(name, displayName, type, description, required, defaultValue, placeholder, null);
+        }
     }
 
     /**

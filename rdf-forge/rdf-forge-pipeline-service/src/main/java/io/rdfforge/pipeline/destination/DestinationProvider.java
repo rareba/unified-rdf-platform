@@ -107,7 +107,7 @@ public interface DestinationProvider {
         java.util.List<String> errors,
         java.util.List<String> warnings
     ) {
-        public static ValidationResult valid() {
+        public static ValidationResult success() {
             return new ValidationResult(true, java.util.List.of(), java.util.List.of());
         }
 

@@ -143,7 +143,7 @@ interface UserInfo {
         <mat-card-footer>
           <p class="footer-info">
             Total users: {{ users().length }} |
-            Active: {{ users().filter(u => u.enabled).length }}
+            Active: {{ activeUsersCount() }}
           </p>
         </mat-card-footer>
       </mat-card>
@@ -214,6 +214,8 @@ export class UserManagement implements OnInit {
   users = signal<UserInfo[]>([]);
   loading = signal(false);
   searchQuery = '';
+
+  activeUsersCount = computed(() => this.users().filter(u => u.enabled).length);
 
   filteredUsers = computed(() => {
     const query = this.searchQuery.toLowerCase();

@@ -318,7 +318,7 @@ public class TriplestoreDestinationProvider implements DestinationProvider {
         }
 
         if (errors.isEmpty()) {
-            return ValidationResult.valid();
+            return ValidationResult.success();
         }
         return new ValidationResult(false, errors, warnings);
     }

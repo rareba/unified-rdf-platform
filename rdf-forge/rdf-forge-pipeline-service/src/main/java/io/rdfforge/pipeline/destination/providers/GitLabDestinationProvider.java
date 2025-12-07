@@ -317,7 +317,7 @@ public class GitLabDestinationProvider implements DestinationProvider {
             return ValidationResult.invalid(errors);
         }
 
-        return ValidationResult.valid();
+        return ValidationResult.success();
     }
 
     private HttpHeaders createHeaders(String accessToken) {

@@ -42,6 +42,10 @@ public record StorageProviderInfo(
         public ConfigField(String name, String displayName, String type, String description, boolean required, boolean sensitive) {
             this(name, displayName, type, description, required, null, null, sensitive);
         }
+
+        public ConfigField(String name, String displayName, String type, String description, boolean required, Object defaultValue, List<Object> allowedValues) {
+            this(name, displayName, type, description, required, defaultValue, allowedValues, false);
+        }
     }
 
     /**

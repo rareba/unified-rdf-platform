@@ -41,6 +41,10 @@ public record DataFormatInfo(
         public FormatOption(String name, String displayName, String type, String description, boolean required, Object defaultValue) {
             this(name, displayName, type, description, required, defaultValue, null);
         }
+
+        public FormatOption(String name, String displayName, String type, String description, Object defaultValue, List<Object> allowedValues) {
+            this(name, displayName, type, description, false, defaultValue, allowedValues);
+        }
     }
 
     /**

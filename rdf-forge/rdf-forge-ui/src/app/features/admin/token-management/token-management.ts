@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -171,7 +171,7 @@ const TOKEN_EXPIRATION_OPTIONS = [
 
         <mat-card-footer>
           <p class="footer-info">
-            Active tokens: {{ tokens().filter(t => !t.revoked).length }}
+            Active tokens: {{ activeTokensCount() }}
           </p>
         </mat-card-footer>
       </mat-card>
@@ -370,6 +370,8 @@ export class TokenManagement implements OnInit {
   newTokenDialogVisible = signal(false);
   tokenCreatedDialogVisible = signal(false);
   createdToken = signal<string>('');
+
+  activeTokensCount = computed(() => this.tokens().filter(t => !t.revoked).length);
 
   newToken: CreateTokenRequest = {
     name: '',
