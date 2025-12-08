@@ -38,7 +38,22 @@ export class AuthService {
         this._isAuthenticated = authenticated;
 
         if (authenticated) {
-          this._userProfile = await this.keycloak.loadUserProfile();
+          // Try to load user profile, but don't fail auth if it fails
+          try {
+            this._userProfile = await this.keycloak.loadUserProfile();
+          } catch (profileError) {
+            console.warn('Failed to load user profile, using token claims instead', profileError);
+            // Extract basic profile from token if available
+            const tokenParsed = this.keycloak.tokenParsed;
+            if (tokenParsed) {
+              this._userProfile = {
+                username: tokenParsed['preferred_username'],
+                firstName: tokenParsed['given_name'],
+                lastName: tokenParsed['family_name'],
+                email: tokenParsed['email']
+              };
+            }
+          }
         }
 
         return authenticated;

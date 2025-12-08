@@ -141,6 +141,8 @@ services:
       DATA_SERVICE_URL: http://data-service:8004
       DIMENSION_SERVICE_URL: http://dimension-service:8005
       TRIPLESTORE_SERVICE_URL: http://triplestore-service:8006
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdfforge
+      KEYCLOAK_JWK_URI: http://keycloak:8080/realms/rdfforge/protocol/openid-connect/certs
     depends_on:
       - pipeline-service
       - job-service
