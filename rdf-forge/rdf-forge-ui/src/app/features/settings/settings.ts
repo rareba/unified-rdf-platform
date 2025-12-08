@@ -404,10 +404,10 @@ export class Settings implements OnInit {
       { name: 'API Gateway', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/health` },
       { name: 'Pipeline Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/pipelines?page=0&size=1` },
       { name: 'Data Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/data?page=0&size=1` },
-      { name: 'SHACL Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/shacl/shapes?page=0&size=1` },
+      { name: 'SHACL Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/shapes?page=0&size=1` },
       { name: 'Dimension Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/dimensions?page=0&size=1` },
       { name: 'Job Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/jobs?page=0&size=1` },
-      { name: 'Triplestore Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/triplestore/connections` }
+      { name: 'Triplestore Service', status: 'UNKNOWN', url: `${environment.apiBaseUrl}/triplestores` }
     ];
 
     // Check each service
