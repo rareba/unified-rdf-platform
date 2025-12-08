@@ -13,10 +13,15 @@ public interface CubeRepository extends JpaRepository<CubeEntity, UUID> {
 
     Page<CubeEntity> findByProjectId(UUID projectId, Pageable pageable);
 
-    @Query("SELECT c FROM CubeEntity c WHERE " +
-           "(:projectId IS NULL OR c.projectId = :projectId) AND " +
-           "(:search IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(c.uri) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query(value = "SELECT * FROM cubes c WHERE " +
+           "(CAST(:projectId AS UUID) IS NULL OR c.project_id = CAST(:projectId AS UUID)) AND " +
+           "(CAST(:search AS TEXT) IS NULL OR LOWER(c.name) LIKE LOWER('%' || CAST(:search AS TEXT) || '%') OR " +
+           "LOWER(c.uri) LIKE LOWER('%' || CAST(:search AS TEXT) || '%'))",
+           countQuery = "SELECT COUNT(*) FROM cubes c WHERE " +
+           "(CAST(:projectId AS UUID) IS NULL OR c.project_id = CAST(:projectId AS UUID)) AND " +
+           "(CAST(:search AS TEXT) IS NULL OR LOWER(c.name) LIKE LOWER('%' || CAST(:search AS TEXT) || '%') OR " +
+           "LOWER(c.uri) LIKE LOWER('%' || CAST(:search AS TEXT) || '%'))",
+           nativeQuery = true)
     Page<CubeEntity> search(
         @Param("projectId") UUID projectId,
         @Param("search") String search,
