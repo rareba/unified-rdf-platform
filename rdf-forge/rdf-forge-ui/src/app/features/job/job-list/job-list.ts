@@ -138,7 +138,7 @@ export class JobList implements OnInit, OnDestroy {
     this.loading.set(true);
     this.jobService.list().subscribe({
       next: (data) => {
-        this.jobs.set(data);
+        this.enrichJobsWithPipelineNames(data);
         this.loading.set(false);
         this.backendAvailable.set(true);
         this.initialLoadComplete.set(true);
@@ -155,9 +155,25 @@ export class JobList implements OnInit, OnDestroy {
 
   loadPipelines(): void {
     this.pipelineService.list().subscribe({
-      next: (data) => this.pipelines.set(data),
+      next: (data) => {
+        this.pipelines.set(data);
+        // Re-enrich jobs with pipeline names if jobs are already loaded
+        const currentJobs = this.jobs();
+        if (currentJobs.length > 0) {
+          this.enrichJobsWithPipelineNames(currentJobs);
+        }
+      },
       error: (err) => console.error('Failed to load pipelines:', err)
     });
+  }
+
+  private enrichJobsWithPipelineNames(jobs: Job[]): void {
+    const pipelineNameMap = new Map(this.pipelines().map(p => [p.id, p.name]));
+    const enrichedJobs = jobs.map(job => ({
+      ...job,
+      pipelineName: pipelineNameMap.get(job.pipelineId) || job.pipelineName || 'Unknown Pipeline'
+    }));
+    this.jobs.set(enrichedJobs);
   }
 
   onPageChange(event: PageEvent): void {

@@ -469,7 +469,7 @@ class JobServiceTest {
         @DisplayName("Should return all logs when minLevel is null")
         void getLogs_WithNullLevel_ReturnsAllLogs() {
             List<JobLogEntity> logs = List.of(new JobLogEntity(), new JobLogEntity());
-            when(jobLogRepository.findByJobIdOrderByTimestampAsc(jobId)).thenReturn(logs);
+            when(jobLogRepository.findByJob_IdOrderByTimestampAsc(jobId)).thenReturn(logs);
 
             List<JobLogEntity> result = jobService.getLogs(jobId, null);
 

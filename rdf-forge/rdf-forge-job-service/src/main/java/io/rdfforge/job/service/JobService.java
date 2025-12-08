@@ -181,7 +181,7 @@ public class JobService {
     
     public List<JobLogEntity> getLogs(UUID jobId, LogLevel minLevel) {
         if (minLevel == null) {
-            return jobLogRepository.findByJobIdOrderByTimestampAsc(jobId);
+            return jobLogRepository.findByJob_IdOrderByTimestampAsc(jobId);
         }
         List<LogLevel> levels = switch (minLevel) {
             case DEBUG -> List.of(LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR);
@@ -193,7 +193,7 @@ public class JobService {
     }
     
     public Page<JobLogEntity> getLogs(UUID jobId, int page, int size) {
-        return jobLogRepository.findByJobIdOrderByTimestampAsc(jobId, PageRequest.of(page, size));
+        return jobLogRepository.findByJob_IdOrderByTimestampAsc(jobId, PageRequest.of(page, size));
     }
     
     public long getRunningJobCount() {

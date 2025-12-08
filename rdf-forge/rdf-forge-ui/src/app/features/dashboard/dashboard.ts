@@ -64,7 +64,17 @@ export class Dashboard implements OnInit {
         shapes: shapes.length,
         dataSources: dataSources.length
       });
-      this.recentJobs.set(jobs.slice(0, 5));
+
+      // Create pipeline name lookup map
+      const pipelineNameMap = new Map(pipelines.map(p => [p.id, p.name]));
+
+      // Enrich jobs with pipeline names
+      const enrichedJobs = jobs.slice(0, 5).map(job => ({
+        ...job,
+        pipelineName: pipelineNameMap.get(job.pipelineId) || 'Unknown Pipeline'
+      }));
+
+      this.recentJobs.set(enrichedJobs);
       this.loading.set(false);
     });
   }
