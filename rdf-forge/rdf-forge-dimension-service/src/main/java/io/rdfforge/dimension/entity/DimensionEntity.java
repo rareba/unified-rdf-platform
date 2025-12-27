@@ -65,6 +65,16 @@ public class DimensionEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
     
+    // Hierarchy support (meta:inHierarchy, meta:nextInHierarchy)
+    @Column(name = "parent_dimension_id")
+    private UUID parentDimensionId;
+    
+    @Column(name = "hierarchy_level")
+    private Integer hierarchyLevel = 0;
+    
+    @Column(name = "hierarchy_name", length = 255)
+    private String hierarchyName;
+    
     public enum DimensionType {
         TEMPORAL, GEO, KEY, MEASURE, ATTRIBUTE, CODED
     }
@@ -120,6 +130,16 @@ public class DimensionEntity {
     
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    
+    // Hierarchy getters/setters
+    public UUID getParentDimensionId() { return parentDimensionId; }
+    public void setParentDimensionId(UUID parentDimensionId) { this.parentDimensionId = parentDimensionId; }
+    
+    public Integer getHierarchyLevel() { return hierarchyLevel; }
+    public void setHierarchyLevel(Integer hierarchyLevel) { this.hierarchyLevel = hierarchyLevel; }
+    
+    public String getHierarchyName() { return hierarchyName; }
+    public void setHierarchyName(String hierarchyName) { this.hierarchyName = hierarchyName; }
     
     @PreUpdate
     protected void onUpdate() {

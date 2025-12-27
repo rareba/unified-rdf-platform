@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -22,6 +23,7 @@ public class ValidationReport {
     private List<ValidationResult> results;
     private Instant validatedAt;
     private long durationMs;
+    private Map<String, Object> metadata;
 
     @Data
     @Builder

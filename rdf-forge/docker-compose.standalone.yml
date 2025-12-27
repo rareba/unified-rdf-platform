@@ -301,11 +301,17 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
       TRIPLESTORE_GRAPHDB_URL: http://graphdb:7200
+      SHACL_SERVICE_URL: http://shacl-service:8080
+      PIPELINE_SERVICE_URL: http://pipeline-service:8080
     depends_on:
       postgres:
         condition: service_healthy
       graphdb:
         condition: service_healthy
+      shacl-service:
+        condition: service_started
+      pipeline-service:
+        condition: service_started
     networks:
       - rdf-forge-network
 

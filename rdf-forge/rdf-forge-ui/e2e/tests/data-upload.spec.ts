@@ -27,12 +27,12 @@ test.describe('Data Upload and Management', () => {
   });
 
   test('should show supported file formats', async ({ page }) => {
-    const uploadButton = page.getByRole('button', { name: /upload/i });
+    const uploadButton = page.getByRole('button', { name: /upload/i }).first();
     await uploadButton.click();
 
-    // Should mention supported formats
-    const formatText = page.getByText(/csv|xlsx|json|parquet/i);
-    await expect(formatText).toBeVisible();
+    // Should mention supported formats (use first() for multiple matches)
+    const formatText = page.getByText(/csv|xlsx|json|parquet/i).first();
+    await expect(formatText).toBeVisible({ timeout: 5000 });
   });
 
   test('should display data sources list', async ({ page }) => {

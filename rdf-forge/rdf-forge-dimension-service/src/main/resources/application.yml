@@ -60,3 +60,11 @@ logging:
     io.rdfforge: DEBUG
     org.hibernate.SQL: DEBUG
     org.springframework.web: INFO
+
+# Inter-service communication URLs
+rdf-forge:
+  services:
+    shacl:
+      url: ${SHACL_SERVICE_URL:http://localhost:8002}
+    pipeline:
+      url: ${PIPELINE_SERVICE_URL:http://localhost:8001}

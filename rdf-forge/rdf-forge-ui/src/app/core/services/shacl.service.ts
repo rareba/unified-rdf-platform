@@ -16,6 +16,24 @@ export interface ShapeListParams {
   isTemplate?: boolean;
 }
 
+/**
+ * Validation profile info (cube-link profiles like standalone, visualize, opendataswiss)
+ */
+export interface ValidationProfile {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * Profile validation request
+ */
+export interface ProfileValidationRequest {
+  profile: string;
+  dataContent: string;
+  dataFormat?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -69,4 +87,28 @@ export class ShaclService {
   getTemplates(): Observable<Shape[]> {
     return this.api.getArray<Shape>('/templates/shapes');
   }
+
+  // ===== Validation Profiles (cube-link) =====
+
+  /**
+   * Get available validation profiles (standalone, visualize, opendataswiss)
+   */
+  getProfiles(): Observable<ValidationProfile[]> {
+    return this.api.getArray<ValidationProfile>('/shapes/profiles');
+  }
+
+  /**
+   * Validate data against a specific cube-link profile
+   */
+  validateAgainstProfile(request: ProfileValidationRequest): Observable<ValidationResult> {
+    return this.api.post<ValidationResult>('/shapes/validate-profile', request);
+  }
+
+  /**
+   * Validate data against all available profiles
+   */
+  validateAgainstAllProfiles(dataContent: string, dataFormat?: string): Observable<Record<string, ValidationResult>> {
+    return this.api.post<Record<string, ValidationResult>>('/shapes/validate-all-profiles', { dataContent, dataFormat });
+  }
 }
+

@@ -34,13 +34,13 @@ test.describe('Pipeline Designer', () => {
     // If directly opens designer, check for palette
     const palette = page.getByText(/operations/i).or(
       page.getByText(/source/i)
-    );
+    ).first();
 
-    if (await palette.isVisible()) {
-      // Check operation categories
-      await expect(page.getByText(/source/i)).toBeVisible();
-      await expect(page.getByText(/transform/i)).toBeVisible();
-      await expect(page.getByText(/output/i)).toBeVisible();
+    if (await palette.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // Check operation categories exist (use first() for multiple matches)
+      await expect(page.getByText(/source/i).first()).toBeVisible();
+      await expect(page.getByText(/transform/i).first()).toBeVisible();
+      await expect(page.getByText(/output/i).first()).toBeVisible();
     }
   });
 

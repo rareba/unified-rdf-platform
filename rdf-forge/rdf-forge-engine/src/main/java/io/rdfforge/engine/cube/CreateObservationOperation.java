@@ -47,7 +47,8 @@ public class CreateObservationOperation implements Operation {
             "dimensions", new ParameterSpec("dimensions", "Dimension column mappings", Map.class, true, null),
             "measures", new ParameterSpec("measures", "Measure column mappings", Map.class, true, null),
             "attributes", new ParameterSpec("attributes", "Attribute column mappings", Map.class, false, null),
-            "dateFormat", new ParameterSpec("dateFormat", "Date format pattern", String.class, false, "yyyy-MM-dd")
+            "dateFormat", new ParameterSpec("dateFormat", "Date format pattern", String.class, false, "yyyy-MM-dd"),
+            "emitUndefined", new ParameterSpec("emitUndefined", "Emit cube:Undefined for NULL values instead of skipping", Boolean.class, false, false)
         );
     }
 
@@ -60,6 +61,7 @@ public class CreateObservationOperation implements Operation {
         Map<String, MeasureConfig> measures = (Map<String, MeasureConfig>) context.parameters().get("measures");
         Map<String, AttributeConfig> attributes = (Map<String, AttributeConfig>) context.parameters().getOrDefault("attributes", Collections.emptyMap());
         String dateFormat = (String) context.parameters().getOrDefault("dateFormat", "yyyy-MM-dd");
+        Boolean emitUndefined = (Boolean) context.parameters().getOrDefault("emitUndefined", false);
 
         if (context.inputStream() == null) {
             throw new OperationException(getId(), "No input stream provided");
@@ -72,8 +74,12 @@ public class CreateObservationOperation implements Operation {
         Resource cubeResource = model.createResource(cubeUri);
         Property observedBy = model.createProperty(CUBE_NS, "observedBy");
         Property observationProp = model.createProperty(CUBE_NS, "Observation");
+        
+        // cube:Undefined resource for missing values (as per cube-link spec)
+        Resource undefinedValue = model.createResource(CUBE_NS + "Undefined");
 
         long[] counter = {0};
+        long[] undefinedCounter = {0};
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern(dateFormat);
 
         Stream<?> inputStream = context.inputStream();
@@ -95,10 +101,14 @@ public class CreateObservationOperation implements Operation {
                     DimensionConfig config = dim.getValue();
                     Object value = row.get(column);
 
-                    if (value != null) {
-                        Property dimProperty = model.createProperty(config.propertyUri);
+                    Property dimProperty = model.createProperty(config.propertyUri);
+                    if (value != null && !isNullOrEmpty(value)) {
                         RDFNode dimValue = createDimensionValue(model, value, config, dtf);
                         model.add(observation, dimProperty, dimValue);
+                    } else if (emitUndefined) {
+                        // Emit cube:Undefined for missing dimension values
+                        model.add(observation, dimProperty, undefinedValue);
+                        undefinedCounter[0]++;
                     }
                 }
 
@@ -107,10 +117,14 @@ public class CreateObservationOperation implements Operation {
                     MeasureConfig config = meas.getValue();
                     Object value = row.get(column);
 
-                    if (value != null) {
-                        Property measProperty = model.createProperty(config.propertyUri);
+                    Property measProperty = model.createProperty(config.propertyUri);
+                    if (value != null && !isNullOrEmpty(value)) {
                         Literal measValue = createMeasureValue(model, value, config);
                         model.add(observation, measProperty, measValue);
+                    } else if (emitUndefined) {
+                        // Emit cube:Undefined for missing measure values
+                        model.add(observation, measProperty, undefinedValue);
+                        undefinedCounter[0]++;
                     }
                 }
 
@@ -119,10 +133,14 @@ public class CreateObservationOperation implements Operation {
                     AttributeConfig config = attr.getValue();
                     Object value = row.get(column);
 
-                    if (value != null) {
-                        Property attrProperty = model.createProperty(config.propertyUri);
+                    Property attrProperty = model.createProperty(config.propertyUri);
+                    if (value != null && !isNullOrEmpty(value)) {
                         Literal attrValue = model.createLiteral(value.toString());
                         model.add(observation, attrProperty, attrValue);
+                    } else if (emitUndefined) {
+                        // Emit cube:Undefined for missing attribute values
+                        model.add(observation, attrProperty, undefinedValue);
+                        undefinedCounter[0]++;
                     }
                 }
 
@@ -133,13 +151,18 @@ public class CreateObservationOperation implements Operation {
 
         if (context.callback() != null) {
             context.callback().onLog("INFO", "Created " + counter[0] + " observations");
+            if (undefinedCounter[0] > 0) {
+                context.callback().onLog("INFO", "Emitted " + undefinedCounter[0] + " cube:Undefined values for missing data");
+            }
             context.callback().onMetric("observationCount", counter[0]);
             context.callback().onMetric("triplesGenerated", model.size());
+            context.callback().onMetric("undefinedCount", undefinedCounter[0]);
         }
 
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("observationCount", counter[0]);
         metadata.put("triplesGenerated", model.size());
+        metadata.put("undefinedCount", undefinedCounter[0]);
         metadata.put("cubeUri", cubeUri);
 
         return new OperationResult(true, null, model, metadata, null);
@@ -171,6 +194,28 @@ public class CreateObservationOperation implements Operation {
     private String sanitizeUri(String value) {
         return value.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
+
+    /**
+     * Check if a value is null, empty, or represents a null-like value.
+     * Handles common CSV representations of NULL values.
+     */
+    private boolean isNullOrEmpty(Object value) {
+        if (value == null) {
+            return true;
+        }
+        String str = value.toString().trim();
+        if (str.isEmpty()) {
+            return true;
+        }
+        // Common NULL representations in CSV files
+        String lower = str.toLowerCase();
+        return lower.equals("null") || 
+               lower.equals("na") || 
+               lower.equals("n/a") || 
+               lower.equals("-") ||
+               lower.equals(".");
+    }
+
 
     private RDFNode createDimensionValue(Model model, Object value, DimensionConfig config, DateTimeFormatter dtf) {
         if (config.valueUri != null) {

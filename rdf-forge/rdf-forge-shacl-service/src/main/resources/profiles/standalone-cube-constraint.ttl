@@ -1,0 +1,63 @@
+PREFIX qudt: <http://qudt.org/schema/qudt/>
+PREFIX meta: <https://cube.link/meta/>
+PREFIX time: <http://www.w3.org/2006/time#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX schema: <http://schema.org/>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX cube: <https://cube.link/>
+PREFIX : <https://cube.link/shape/standalone-cube-constraint#>
+
+# Standalone Cube Constraint Shape
+# Validates basic RDF Data Cube structure
+
+:CubeShape
+    a sh:NodeShape ;
+    sh:targetClass cube:Cube ;
+    sh:property
+        [
+            sh:path cube:observationSet ;
+            sh:minCount 1 ;
+            sh:message "Cube must have at least one observation set" ;
+        ],
+        [
+            sh:path cube:observationConstraint ;
+            sh:minCount 0 ;
+            sh:message "Cube should have an observation constraint" ;
+        ] ;
+.
+
+:ObservationSetShape
+    a sh:NodeShape ;
+    sh:targetClass cube:ObservationSet ;
+    sh:property
+        [
+            sh:path cube:observation ;
+            sh:minCount 1 ;
+            sh:message "Observation set must contain at least one observation" ;
+        ] ;
+.
+
+:ObservationShape
+    a sh:NodeShape ;
+    sh:targetClass cube:Observation ;
+    sh:property
+        [
+            sh:path rdf:type ;
+            sh:hasValue cube:Observation ;
+            sh:message "Observation must have type cube:Observation" ;
+        ] ;
+.
+
+:ConstraintShape
+    a sh:NodeShape ;
+    sh:targetClass cube:Constraint ;
+    sh:property
+        [
+            sh:path sh:property ;
+            sh:minCount 1 ;
+            sh:message "Constraint must define at least one property shape" ;
+        ] ;
+.

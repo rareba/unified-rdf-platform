@@ -94,18 +94,15 @@ public class PipelineController {
 
     @GetMapping("/operations")
     @Operation(summary = "List available operations")
-    public ResponseEntity<Map<io.rdfforge.engine.operation.Operation.OperationType, 
-            List<OperationRegistry.OperationInfo>>> getOperations() {
+    public ResponseEntity<Map<io.rdfforge.engine.operation.Operation.OperationType, List<OperationRegistry.OperationInfo>>> getOperations() {
         return ResponseEntity.ok(operationRegistry.getCatalog());
     }
 
     @GetMapping("/operations/{operationId}")
     @Operation(summary = "Get operation details")
     public ResponseEntity<OperationRegistry.OperationInfo> getOperation(@PathVariable String operationId) {
-        return operationRegistry.get(operationId)
-            .map(op -> ResponseEntity.ok(new OperationRegistry.OperationInfo(
-                op.getId(), op.getName(), op.getDescription(), op.getType(), op.getParameters()
-            )))
-            .orElse(ResponseEntity.notFound().build());
+        return operationRegistry.getOperationInfo(operationId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

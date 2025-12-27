@@ -42,7 +42,7 @@ public class RouteConfig {
                 .uri(pipelineServiceUrl)
             )
             .route("shacl-service", r -> r
-                .path("/api/v1/shapes/**", "/api/v1/validation/**")
+                .path("/api/v1/shapes/**", "/api/v1/validation/**", "/api/v1/cubes/validate/**")
                 .filters(f -> f
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))

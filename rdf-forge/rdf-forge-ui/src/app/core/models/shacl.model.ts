@@ -1,4 +1,4 @@
-export type ContentFormat = 'turtle' | 'jsonld';
+export type ContentFormat = 'turtle' | 'jsonld' | 'TURTLE' | 'JSON_LD';
 export type ValidationSeverity = 'Violation' | 'Warning' | 'Info';
 
 export interface Shape {

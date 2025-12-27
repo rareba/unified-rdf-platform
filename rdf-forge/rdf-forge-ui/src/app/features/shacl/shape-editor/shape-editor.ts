@@ -565,10 +565,10 @@ export class ShapeEditor implements OnInit {
 
     const data: ShapeCreateRequest = {
       name: this.name(),
-      uri: this.uri(),
+      uri: this.uri() || `http://example.org/shapes/${crypto.randomUUID()}`,
       targetClass: this.targetClass(),
       content: this.content(),
-      contentFormat: this.contentFormat()
+      contentFormat: this.contentFormat().toUpperCase() as ContentFormat
     };
 
     this.saving.set(true);

@@ -245,9 +245,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
       SPRING_DATASOURCE_USERNAME: rdfforge
       SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SHACL_SERVICE_URL: http://shacl-service:8002
+      PIPELINE_SERVICE_URL: http://pipeline-service:8001
     depends_on:
       postgres:
         condition: service_healthy
+      shacl-service:
+        condition: service_started
+      pipeline-service:
+        condition: service_started
 
   triplestore-service:
     build:

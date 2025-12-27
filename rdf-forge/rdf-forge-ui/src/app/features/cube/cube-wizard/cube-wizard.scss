@@ -1,6 +1,6 @@
 .cube-wizard {
-  padding: 1.5rem;
-  height: calc(100vh - 100px);
+  padding: 0.5rem 0.75rem;
+  height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
 }
@@ -10,21 +10,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 
   .header-left {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .header-icon {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     color: var(--primary-color);
   }
 
   h1 {
     margin: 0;
+    font-size: 1.25rem;
   }
 }
 
@@ -39,11 +40,11 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin-bottom: 2rem;
-  padding: 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .step-indicator {
@@ -87,21 +88,21 @@
 }
 
 .step-number {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--surface-300);
   color: var(--text-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .step-label {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: var(--text-color-secondary);
   white-space: nowrap;
 }
@@ -232,7 +233,7 @@
 }
 
 .step-panel {
-  padding: 1.5rem;
+  padding: 1rem;
 }
 
 .step-title {
@@ -310,8 +311,8 @@
 .source-card {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   background: var(--surface-card);
   border: 2px solid var(--surface-border);
   border-radius: 8px;
@@ -326,6 +327,38 @@
   &.selected {
     border-color: var(--primary-color);
     background: var(--primary-50);
+  }
+
+  .source-checkbox {
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+  }
+}
+
+.selected-sources-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+
+  >mat-icon {
+    color: var(--primary-color);
+    font-size: 1.25rem;
+  }
+
+  >span {
+    font-weight: 500;
+    color: var(--primary-700);
+    margin-right: 0.5rem;
+  }
+
+  mat-chip {
+    font-size: 0.8rem;
   }
 }
 
@@ -617,6 +650,110 @@
   border-bottom: 1px solid var(--surface-border);
 }
 
+// Quick Role Toggle Buttons
+.role-quick-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--surface-100);
+  border-radius: 8px;
+  padding: 0.25rem;
+
+  button {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--text-color-secondary);
+    }
+
+    &:hover {
+      background: var(--surface-200);
+    }
+
+    &.active {
+      background: white;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+      &:nth-child(1) mat-icon {
+        color: var(--blue-600);
+      }
+
+      &:nth-child(2) mat-icon {
+        color: var(--green-600);
+      }
+
+      &:nth-child(3) mat-icon {
+        color: var(--orange-600);
+      }
+
+      &:nth-child(4) mat-icon {
+        color: var(--surface-500);
+      }
+    }
+  }
+}
+
+// Mapping Card Header enhancements
+.mapping-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--surface-50);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.column-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--text-color-secondary);
+  }
+
+  .column-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-color);
+  }
+}
+
+.mapping-card-content {
+  padding: 1rem;
+}
+
+.mapping-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  mat-form-field {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .role-field {
+    flex: 0 0 120px;
+  }
+
+  .datatype-field {
+    flex: 0 0 120px;
+  }
+
+  .dimension-field {
+    flex: 1 1 200px;
+  }
+}
+
 .column-info {
   display: flex;
   align-items: center;
@@ -760,10 +897,21 @@
       height: 1.125rem;
     }
 
-    &.dimension mat-icon { color: var(--blue-500); }
-    &.measure mat-icon { color: var(--green-500); }
-    &.attribute mat-icon { color: var(--orange-500); }
-    &.ignore mat-icon { color: var(--surface-500); }
+    &.dimension mat-icon {
+      color: var(--blue-500);
+    }
+
+    &.measure mat-icon {
+      color: var(--green-500);
+    }
+
+    &.attribute mat-icon {
+      color: var(--orange-500);
+    }
+
+    &.ignore mat-icon {
+      color: var(--surface-500);
+    }
   }
 }
 
@@ -1199,6 +1347,50 @@
     margin: 0;
     color: var(--text-color-secondary);
   }
+}
+
+// Success Card
+.success-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+  border: 1px solid var(--green-400);
+  border-radius: 8px;
+  margin-top: 1rem;
+
+  > mat-icon {
+    font-size: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--green-500);
+  }
+
+  .success-content {
+    flex: 1;
+
+    h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.125rem;
+      color: var(--green-700);
+    }
+
+    p {
+      margin: 0 0 1rem 0;
+      color: var(--text-color-secondary);
+    }
+  }
+
+  .success-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+}
+
+// Utility Classes
+.mr-2 {
+  margin-right: 0.5rem;
 }
 
 // Wizard Footer

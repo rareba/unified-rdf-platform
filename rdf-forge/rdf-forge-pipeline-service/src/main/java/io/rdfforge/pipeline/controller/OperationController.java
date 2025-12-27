@@ -30,10 +30,8 @@ public class OperationController {
     @GetMapping("/{id}")
     @Operation(summary = "Get operation details")
     public ResponseEntity<OperationRegistry.OperationInfo> getById(@PathVariable String id) {
-        return operationRegistry.get(id)
-            .map(op -> ResponseEntity.ok(new OperationRegistry.OperationInfo(
-                op.getId(), op.getName(), op.getDescription(), op.getType(), op.getParameters()
-            )))
-            .orElse(ResponseEntity.notFound().build());
+        return operationRegistry.getOperationInfo(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

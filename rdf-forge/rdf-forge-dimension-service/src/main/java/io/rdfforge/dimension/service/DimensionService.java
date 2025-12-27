@@ -42,15 +42,20 @@ public class DimensionService {
     
     public DimensionEntity create(DimensionEntity dimension) {
         log.info("Creating dimension: {} ({})", dimension.getName(), dimension.getUri());
-        
+
         if (dimensionRepository.existsByProjectIdAndUri(dimension.getProjectId(), dimension.getUri())) {
             throw new IllegalArgumentException("Dimension with URI already exists: " + dimension.getUri());
         }
-        
+
         dimension.setCreatedAt(Instant.now());
         dimension.setVersion(1);
         dimension.setValueCount(0L);
-        
+
+        // Dimensions without a project are shared globally
+        if (dimension.getProjectId() == null && (dimension.getIsShared() == null || !dimension.getIsShared())) {
+            dimension.setIsShared(true);
+        }
+
         return dimensionRepository.save(dimension);
     }
     

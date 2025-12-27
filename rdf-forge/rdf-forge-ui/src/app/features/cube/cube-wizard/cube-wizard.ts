@@ -61,6 +61,21 @@ interface CubeMetadata {
   temporal: string;
 }
 
+interface SourceMapping {
+  dataSourceId: string;
+  dataSourceName: string;
+  columnMappings: ColumnMapping[];
+}
+
+interface CubeDefinition {
+  id: string;
+  name: string;
+  description: string;
+  baseUri: string;
+  sourceMappings: SourceMapping[];
+  metadata: CubeMetadata;
+}
+
 @Component({
   selector: 'app-cube-wizard',
   imports: [
@@ -125,9 +140,21 @@ export class CubeWizard implements OnInit {
   sourceType = signal<'existing' | 'upload'>('existing');
   dataSources = signal<DataSource[]>([]);
   selectedDataSource = signal<DataSource | null>(null);
+  selectedDataSources = signal<DataSource[]>([]); // Multi-source support
   sourceColumns = signal<ColumnInfo[]>([]);
   loadingDataSources = signal(false);
   loadingColumns = signal(false);
+
+  // Multi-cube support
+  cubeDefinitions = signal<CubeDefinition[]>([]);
+  activeCubeIndex = signal(0);
+
+  // Computed: active cube definition
+  activeCube = computed(() => {
+    const cubes = this.cubeDefinitions();
+    const idx = this.activeCubeIndex();
+    return cubes[idx] || null;
+  });
 
   // CSV/File Options
   delimiter = signal(',');
@@ -258,15 +285,28 @@ export class CubeWizard implements OnInit {
     };
   });
 
-  // Step 6: Publish
+  // Step 6: Save & Generate
   publishOptions = signal({
     triplestore: '',
     graphUri: '',
     createNamedGraph: true,
     savePipeline: true,
     pipelineName: '',
-    runImmediately: true
+    runImmediately: false  // Default to false - user decides when to run
   });
+
+  // New: Options for what to generate when saving
+  saveOptions = signal({
+    generateShacl: true,    // Generate SHACL shape from column mappings
+    generatePipeline: true, // Generate draft pipeline
+    publishImmediately: false  // Run the pipeline right away
+  });
+
+  // Track generated artifacts for linking to their editors
+  savedCubeId = signal<string | null>(null);
+  generatedShapeId = signal<string | null>(null);
+  generatedPipelineId = signal<string | null>(null);
+  saveComplete = signal(false);
 
   triplestoreOptions = signal<{ label: string; value: string }[]>([]);
 
@@ -448,6 +488,78 @@ export class CubeWizard implements OnInit {
     this.loadColumnsFromSource(dataSource);
   }
 
+  // Multi-source selection toggle
+  toggleDataSourceSelection(dataSource: DataSource): void {
+    const current = this.selectedDataSources();
+    const exists = current.some(s => s.id === dataSource.id);
+
+    if (exists) {
+      this.selectedDataSources.set(current.filter(s => s.id !== dataSource.id));
+    } else {
+      this.selectedDataSources.set([...current, dataSource]);
+    }
+
+    // Also update single selection for backward compatibility
+    if (!exists) {
+      this.selectedDataSource.set(dataSource);
+      this.loadColumnsFromSource(dataSource);
+    }
+  }
+
+  isDataSourceSelected(dataSource: DataSource): boolean {
+    return this.selectedDataSources().some(s => s.id === dataSource.id);
+  }
+
+  // Multi-cube management
+  addCubeDefinition(): void {
+    const newCube: CubeDefinition = {
+      id: crypto.randomUUID(),
+      name: `Cube ${this.cubeDefinitions().length + 1}`,
+      description: '',
+      baseUri: this.baseUri(),
+      sourceMappings: [],
+      metadata: {
+        title: '',
+        description: '',
+        publisher: '',
+        publisherUri: '',
+        license: '',
+        issued: '',
+        modified: '',
+        keywords: [],
+        language: 'en',
+        accrualPeriodicity: '',
+        spatial: '',
+        temporal: ''
+      }
+    };
+    this.cubeDefinitions.update(cubes => [...cubes, newCube]);
+    this.activeCubeIndex.set(this.cubeDefinitions().length - 1);
+    this.snackBar.open(`Added new cube definition`, 'Close', { duration: 2000 });
+  }
+
+  removeCubeDefinition(index: number): void {
+    const cubes = this.cubeDefinitions();
+    if (cubes.length <= 1) {
+      this.snackBar.open('Cannot remove the only cube', 'Close', { duration: 2000 });
+      return;
+    }
+    this.cubeDefinitions.update(c => c.filter((_, i) => i !== index));
+    if (this.activeCubeIndex() >= index && this.activeCubeIndex() > 0) {
+      this.activeCubeIndex.update(i => i - 1);
+    }
+  }
+
+  selectCubeDefinition(index: number): void {
+    this.activeCubeIndex.set(index);
+  }
+
+  updateCubeDefinition(index: number, updates: Partial<CubeDefinition>): void {
+    this.cubeDefinitions.update(cubes =>
+      cubes.map((c, i) => i === index ? { ...c, ...updates } : c)
+    );
+  }
+
   loadColumnsFromSource(dataSource: DataSource): void {
     this.loadingColumns.set(true);
     this.dataService.analyze(dataSource.id).subscribe({
@@ -481,9 +593,9 @@ export class CubeWizard implements OnInit {
       if (['integer', 'decimal', 'float', 'double', 'number', 'numeric'].includes(colType)) {
         // Check if it looks like a measure
         if (lowerName.includes('count') || lowerName.includes('amount') ||
-            lowerName.includes('value') || lowerName.includes('sum') ||
-            lowerName.includes('total') || lowerName.includes('qty') ||
-            lowerName.includes('quantity') || lowerName.includes('price')) {
+          lowerName.includes('value') || lowerName.includes('sum') ||
+          lowerName.includes('total') || lowerName.includes('qty') ||
+          lowerName.includes('quantity') || lowerName.includes('price')) {
           role = 'measure';
         }
         datatype = colType === 'integer' ? 'xsd:integer' : 'xsd:decimal';
@@ -500,7 +612,7 @@ export class CubeWizard implements OnInit {
 
       // Check for notes/comments
       if (lowerName.includes('note') || lowerName.includes('comment') ||
-          lowerName.includes('remark') || lowerName.includes('desc')) {
+        lowerName.includes('remark') || lowerName.includes('desc')) {
         role = 'attribute';
       }
 
@@ -970,115 +1082,222 @@ export class CubeWizard implements OnInit {
     return turtle;
   }
 
-  // Publishing
-  publishCube(): void {
-    if (confirm(`Are you sure you want to publish the cube "${this.cubeName()}" to the triplestore?`)) {
-      this.doPublish();
-    }
-  }
+  // ===== Save & Generate Workflow =====
 
-  private doPublish(): void {
+  /**
+   * Main save action - saves cube definition first, then optionally generates artifacts
+   */
+  saveCubeDefinition(): void {
     this.publishing.set(true);
     this.publishProgress.set(0);
+    this.saveComplete.set(false);
 
-    const cubeId = this.useAutoId() ? this.generatedId() : this.cubeId();
+    const cubeIdValue = this.useAutoId() ? this.generatedId() : this.cubeId();
+    const cubeUri = this.baseUri() + cubeIdValue;
+    const options = this.saveOptions();
 
-    // Create pipeline definition
-    const pipelineDef = {
-      name: cubeId,
-      steps: [
-        {
-          id: 'step1',
-          operation: 'load-csv',
-          params: {
-            source: this.selectedDataSource()?.id,
-            options: this.uploadOptions
-          }
-        },
-        {
-          id: 'step2',
-          operation: 'map-to-rdf',
-          params: {
-            baseUri: this.baseUri(),
-            mappings: this.columnMappings()
-              .filter(m => m.role !== 'ignore')
-              .map(m => ({
-                column: m.name,
-                role: m.role,
-                datatype: m.datatype,
-                dimension: m.dimensionId
-              }))
-          }
-        },
-        {
-          id: 'step3',
-          operation: 'create-observation',
-          params: {
-            cubeId: cubeId,
-            baseUri: this.baseUri(),
-            metadata: this.metadata()
-          }
-        },
-        {
-          id: 'step4',
-          operation: 'graph-store-put',
-          params: this.publishOptions()
+    // Step 1: Create/Update the Cube Definition
+    const cubeData = {
+      name: this.cubeName(),
+      uri: cubeUri,
+      description: this.cubeDescription(),
+      sourceDataId: this.selectedDataSource()?.id,
+      graphUri: this.publishOptions().graphUri || cubeUri,
+      metadata: {
+        ...this.metadata(),
+        columnMappings: this.columnMappings().filter(m => m.role !== 'ignore').map(m => ({
+          name: m.name,
+          role: m.role,
+          datatype: m.datatype,
+          dimensionId: m.dimensionId,
+          dimensionName: m.dimensionName,
+          predicateUri: m.predicateUri
+        })),
+        csvOptions: {
+          delimiter: this.delimiter(),
+          hasHeader: this.hasHeader(),
+          encoding: this.encoding()
         }
-      ]
+      }
     };
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      this.publishProgress.update(p => Math.min(90, p + 10));
-    }, 300);
+    this.publishProgress.set(20);
 
-    this.pipelineService.create({
-      name: this.publishOptions().pipelineName || `Cube Pipeline: ${this.cubeName()}`,
-      description: `Pipeline to generate and publish ${this.cubeName()} data cube`,
-      definition: JSON.stringify(pipelineDef, null, 2),
-      definitionFormat: 'JSON',
-      tags: ['cube-generation', 'auto-generated']
-    }).subscribe({
-      next: (pipeline) => {
-        // If runImmediately is checked, execute the pipeline
-        if (this.publishOptions().runImmediately) {
-          this.pipelineService.run(pipeline.id).subscribe({
-            next: (result) => {
-              clearInterval(progressInterval);
-              this.publishProgress.set(100);
+    // Create or update cube based on mode
+    const cubeObs = this.createMode() === 'update' && this.selectedExistingCube()
+      ? this.cubeService.update(this.selectedExistingCube()!.id!, cubeData)
+      : this.cubeService.create(cubeData as any);
 
-              setTimeout(() => {
-                this.publishing.set(false);
-                this.snackBar.open(`Pipeline started! Job ID: ${result.jobId}`, 'Close', { duration: 5000 });
-                this.router.navigate(['/jobs']);
-              }, 500);
-            },
-            error: (err) => {
-              clearInterval(progressInterval);
-              this.publishing.set(false);
-              this.publishProgress.set(0);
-              this.snackBar.open(err.error?.message || 'Pipeline created but failed to start execution', 'Close', { duration: 5000 });
-              this.router.navigate(['/pipelines']);
-            }
-          });
+    cubeObs.subscribe({
+      next: (savedCube) => {
+        this.savedCubeId.set(savedCube.id!);
+        this.publishProgress.set(40);
+        this.snackBar.open(`Cube definition "${this.cubeName()}" saved!`, 'Close', { duration: 3000 });
+
+        // Step 2: Generate SHACL shape if requested
+        if (options.generateShacl) {
+          this.generateShapeFromCube(savedCube.id!, options.generatePipeline);
+        } else if (options.generatePipeline) {
+          // Skip to pipeline generation
+          this.generatePipelineFromCube(savedCube.id!);
         } else {
-          clearInterval(progressInterval);
-          this.publishProgress.set(100);
-
-          setTimeout(() => {
-            this.publishing.set(false);
-            this.snackBar.open(`Cube "${this.cubeName()}" pipeline created successfully`, 'Close', { duration: 5000 });
-            this.router.navigate(['/pipelines']);
-          }, 500);
+          // Just saved cube definition, we're done
+          this.finishSave();
         }
       },
       error: (err) => {
-        clearInterval(progressInterval);
         this.publishing.set(false);
         this.publishProgress.set(0);
-        this.snackBar.open(err.error?.message || 'Failed to create cube pipeline', 'Close', { duration: 3000 });
+        this.snackBar.open(err.error?.message || 'Failed to save cube definition', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  /**
+   * Generate SHACL shape from the saved cube definition
+   */
+  private generateShapeFromCube(cubeId: string, alsoGeneratePipeline: boolean): void {
+    this.cubeService.generateShape(cubeId, {
+      name: `${this.cubeName()} Validation Shape`
+    }).subscribe({
+      next: (artifact) => {
+        this.generatedShapeId.set(artifact.id);
+        this.publishProgress.set(60);
+        this.snackBar.open(`SHACL shape "${artifact.name}" generated!`, 'Close', { duration: 3000 });
+
+        // Step 3: Generate pipeline if requested
+        if (alsoGeneratePipeline) {
+          this.generatePipelineFromCube(cubeId);
+        } else {
+          this.finishSave();
+        }
+      },
+      error: (err) => {
+        console.warn('Failed to generate SHACL shape:', err);
+        // Continue with pipeline generation even if shape fails
+        if (alsoGeneratePipeline) {
+          this.generatePipelineFromCube(cubeId);
+        } else {
+          this.finishSave();
+        }
+      }
+    });
+  }
+
+  /**
+   * Generate draft pipeline from the saved cube definition
+   */
+  private generatePipelineFromCube(cubeId: string): void {
+    this.cubeService.generatePipeline(cubeId, {
+      name: this.publishOptions().pipelineName || `Pipeline: ${this.cubeName()}`,
+      graphUri: this.publishOptions().graphUri
+    }).subscribe({
+      next: (artifact) => {
+        this.generatedPipelineId.set(artifact.id);
+        this.publishProgress.set(80);
+        this.snackBar.open(`Draft pipeline "${artifact.name}" generated!`, 'Close', { duration: 3000 });
+        this.finishSave();
+      },
+      error: (err) => {
+        console.warn('Failed to generate pipeline:', err);
+        this.finishSave();
+      }
+    });
+  }
+
+  /**
+   * Complete the save process
+   */
+  private finishSave(): void {
+    this.publishProgress.set(100);
+    this.saveComplete.set(true);
+
+    setTimeout(() => {
+      this.publishing.set(false);
+    }, 500);
+  }
+
+  /**
+   * Navigate to edit the generated SHACL shape
+   */
+  editGeneratedShape(): void {
+    const shapeId = this.generatedShapeId();
+    if (shapeId) {
+      this.router.navigate(['/shacl', shapeId]);
+    } else {
+      this.router.navigate(['/shacl']);
+    }
+  }
+
+  /**
+   * Navigate to edit the generated pipeline
+   */
+  editGeneratedPipeline(): void {
+    const pipelineId = this.generatedPipelineId();
+    if (pipelineId) {
+      this.router.navigate(['/pipelines', pipelineId]);
+    } else {
+      this.router.navigate(['/pipelines']);
+    }
+  }
+
+  /**
+   * Navigate to view/edit the saved cube
+   */
+  viewSavedCube(): void {
+    const cubeId = this.savedCubeId();
+    if (cubeId) {
+      this.router.navigate(['/cubes', cubeId]);
+    }
+  }
+
+  /**
+   * Save cube definition and generate artifacts (SHACL shape, pipeline)
+   */
+  publishCube(): void {
+    this.saveCubeDefinition();
+  }
+
+  /**
+   * Publish the saved cube to the selected triplestore
+   */
+  publishToTriplestore(): void {
+    const cubeId = this.savedCubeId();
+    const pipelineId = this.generatedPipelineId();
+    const triplestore = this.publishOptions().triplestore;
+
+    if (!cubeId || !triplestore) {
+      this.snackBar.open('Please save the cube first and select a triplestore', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.publishing.set(true);
+    this.publishProgress.set(0);
+
+    // If we have a pipeline and user wants to run immediately, execute it
+    if (pipelineId && this.publishOptions().runImmediately) {
+      this.publishProgress.set(50);
+      this.pipelineService.run(pipelineId).subscribe({
+        next: (result: { jobId: string }) => {
+          this.publishProgress.set(100);
+          this.publishing.set(false);
+          this.snackBar.open(`Pipeline execution started! Job ID: ${result.jobId}`, 'View Jobs', {
+            duration: 5000
+          }).onAction().subscribe(() => {
+            this.router.navigate(['/jobs']);
+          });
+        },
+        error: (err: { error?: { message?: string } }) => {
+          this.publishing.set(false);
+          this.snackBar.open(err.error?.message || 'Failed to execute pipeline', 'Close', { duration: 3000 });
+        }
+      });
+    } else {
+      // Just mark as ready for publishing (user can run pipeline later)
+      this.publishProgress.set(100);
+      this.publishing.set(false);
+      this.snackBar.open('Cube is ready for publishing. Edit and run the pipeline when ready.', 'Close', { duration: 3000 });
+    }
   }
 
   // Utility

@@ -3,6 +3,7 @@ package io.rdfforge.shacl.controller;
 import io.rdfforge.common.model.Shape;
 import io.rdfforge.common.model.ValidationReport;
 import io.rdfforge.engine.shacl.ShaclValidator;
+import io.rdfforge.shacl.service.ProfileValidationService;
 import io.rdfforge.shacl.service.ShapeBuilderService;
 import io.rdfforge.shacl.service.ShapeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +32,7 @@ public class ShapeController {
     private final ShapeService shapeService;
     private final ShapeBuilderService shapeBuilderService;
     private final ShaclValidator shaclValidator;
+    private final ProfileValidationService profileValidationService;
 
     @PostMapping
     @Operation(summary = "Create a new shape")
@@ -129,6 +131,51 @@ public class ShapeController {
         return ResponseEntity.ok(report);
     }
 
+    // ===== Profile-based validation endpoints =====
+
+    @GetMapping("/profiles")
+    @Operation(summary = "List available validation profiles", 
+               description = "Returns list of cube-link validation profiles (standalone, visualize, opendataswiss)")
+    public ResponseEntity<List<ProfileValidationService.ProfileInfo>> getProfiles() {
+        return ResponseEntity.ok(profileValidationService.getAvailableProfiles());
+    }
+
+    @PostMapping("/validate-profile")
+    @Operation(summary = "Validate against a specific profile",
+               description = "Validate RDF data against a cube-link profile (standalone-cube-constraint, profile-visualize, profile-opendataswiss)")
+    public ResponseEntity<ValidationReport> validateAgainstProfile(@RequestBody ProfileValidationRequest request) {
+        if (request.getProfile() == null || request.getDataContent() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        if (!profileValidationService.isProfileAvailable(request.getProfile())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        ValidationReport report = profileValidationService.validateAgainstProfile(
+            request.getDataContent(),
+            request.getDataFormat(),
+            request.getProfile()
+        );
+        return ResponseEntity.ok(report);
+    }
+
+    @PostMapping("/validate-all-profiles")
+    @Operation(summary = "Validate against all profiles",
+               description = "Validate RDF data against all available cube-link profiles and return combined results")
+    public ResponseEntity<Map<String, ValidationReport>> validateAgainstAllProfiles(
+            @RequestBody ProfileValidationRequest request) {
+        if (request.getDataContent() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Map<String, ValidationReport> results = profileValidationService.validateAgainstAllProfiles(
+            request.getDataContent(),
+            request.getDataFormat()
+        );
+        return ResponseEntity.ok(results);
+    }
+
     @lombok.Data
     public static class ValidationRequest {
         private UUID shapeId;
@@ -136,4 +183,12 @@ public class ShapeController {
         private String dataContent;
         private String dataFormat;
     }
+
+    @lombok.Data
+    public static class ProfileValidationRequest {
+        private String profile;
+        private String dataContent;
+        private String dataFormat;
+    }
 }
+

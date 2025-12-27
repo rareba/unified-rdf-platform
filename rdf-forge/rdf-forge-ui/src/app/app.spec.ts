@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
 import { App } from './app';
 
 describe('App', () => {
@@ -9,7 +10,7 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])]
+      providers: [provideRouter([]), provideHttpClient()]
     }).compileComponents();
 
     fixture = TestBed.createComponent(App);
@@ -21,8 +22,16 @@ describe('App', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should have title signal with value "rdf-forge-ui"', () => {
-    expect(component['title']()).toBe('rdf-forge-ui');
+  it('should have sidebarCollapsed signal initialized to false', () => {
+    expect(component.sidebarCollapsed()).toBe(false);
+  });
+
+  it('should toggle sidebar when toggleSidebar is called', () => {
+    expect(component.sidebarCollapsed()).toBe(false);
+    component.toggleSidebar();
+    expect(component.sidebarCollapsed()).toBe(true);
+    component.toggleSidebar();
+    expect(component.sidebarCollapsed()).toBe(false);
   });
 
   it('should render router-outlet', () => {

@@ -1,0 +1,108 @@
+PREFIX qudt: <http://qudt.org/schema/qudt/>
+PREFIX meta: <https://cube.link/meta/>
+PREFIX time: <http://www.w3.org/2006/time#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX schema: <http://schema.org/>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX cube: <https://cube.link/>
+PREFIX : <https://cube.link/shape/profile-visualize#>
+
+# Profile: visualize.admin.ch
+# Validates cubes for Swiss Federal Statistics visualization platform
+# Based on: https://github.com/zazuko/cube-link/blob/main/validation/profile-visualize.ttl
+
+:CubeShape
+    a sh:NodeShape ;
+    sh:targetClass cube:Cube ;
+    sh:property
+        [
+            sh:path cube:observationConstraint ;
+            sh:node :ObservationConstraintShape ;
+            sh:minCount 1 ;
+            sh:maxCount 1 ;
+            sh:message "Cube must have exactly one observation constraint" ;
+        ],
+        [
+            sh:path schema:name ;
+            sh:minCount 1 ;
+            sh:datatype xsd:langString ;
+            sh:message "Cube must have a name with language tag" ;
+        ],
+        [
+            sh:path schema:workExample ;
+            sh:hasValue <https://ld.admin.ch/application/visualize> ;
+            sh:severity sh:Warning ;
+            sh:message "Cube should be marked for visualize.admin.ch" ;
+        ],
+        [
+            sh:path schema:creativeWorkStatus ;
+            sh:minCount 1 ;
+            sh:in
+                (
+                    <https://ld.admin.ch/vocabulary/CreativeWorkStatus/Published>
+                    <https://ld.admin.ch/vocabulary/CreativeWorkStatus/Draft>
+                ) ;
+            sh:message "Cube must have a valid creative work status" ;
+        ],
+        [
+            sh:path schema:expires ;
+            sh:maxCount 0 ;
+            sh:message "Cube cannot be expired for visualize profile" ;
+        ] ;
+.
+
+:ObservationConstraintShape
+    a sh:NodeShape ;
+    sh:property
+        [
+            sh:path sh:property ;
+            sh:minCount 1 ;
+            sh:message "Constraint must have at least one dimension property" ;
+        ] ;
+.
+
+:DimensionShape
+    a sh:NodeShape ;
+    sh:property
+        [
+            sh:path qudt:scaleType ;
+            sh:minCount 1 ;
+            sh:in
+                (
+                    qudt:IntervalScale
+                    qudt:NominalScale
+                    qudt:RatioScale
+                    qudt:OrdinalScale
+                ) ;
+            sh:message "Dimension must have a valid scale type" ;
+        ],
+        [
+            sh:path sh:datatype ;
+            sh:or
+                (
+                    [ sh:hasValue xsd:string ]
+                    [ sh:hasValue xsd:integer ]
+                    [ sh:hasValue xsd:decimal ]
+                    [ sh:hasValue xsd:date ]
+                    [ sh:hasValue xsd:dateTime ]
+                    [ sh:hasValue xsd:gYear ]
+                    [ sh:hasValue xsd:boolean ]
+                ) ;
+            sh:message "Dimension must have a valid XSD datatype" ;
+        ] ;
+.
+
+:KeyDimensionShape
+    a sh:NodeShape ;
+    sh:targetClass cube:KeyDimension ;
+    sh:severity sh:Info ;
+    sh:message "For performance, add sh:in list to nominal/ordinal key dimensions" ;
+    sh:property
+        [
+            sh:path qudt:scaleType ;
+            sh:minCount 1 ;
+        ] ;
+.

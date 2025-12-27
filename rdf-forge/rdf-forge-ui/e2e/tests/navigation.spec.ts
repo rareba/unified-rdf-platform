@@ -6,7 +6,7 @@ test.describe('Navigation', () => {
   });
 
   test('should display the dashboard on initial load', async ({ page }) => {
-    await expect(page).toHaveTitle(/Cube Creator X/);
+    await expect(page).toHaveTitle(/RDF Forge/);
     await expect(page.locator('app-dashboard')).toBeVisible();
   });
 
@@ -17,7 +17,7 @@ test.describe('Navigation', () => {
   });
 
   test('should navigate to cube creator page', async ({ page }) => {
-    await page.getByRole('link', { name: /cubes/i }).click();
+    await page.getByRole('link', { name: /cube creator/i }).click();
     await expect(page).toHaveURL(/.*cubes/);
     await expect(page.locator('app-cube-wizard')).toBeVisible();
   });

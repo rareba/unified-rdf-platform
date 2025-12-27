@@ -197,11 +197,30 @@
                   </button>
                 </div>
               } @else {
+                <!-- Selected Sources Summary -->
+                @if (selectedDataSources().length > 0) {
+                  <div class="selected-sources-bar">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>{{ selectedDataSources().length }} source(s) selected:</span>
+                    @for (src of selectedDataSources(); track src.id) {
+                      <mat-chip removable (removed)="toggleDataSourceSelection(src)">
+                        {{ src.name }}
+                        <mat-icon matChipRemove>cancel</mat-icon>
+                      </mat-chip>
+                    }
+                  </div>
+                }
                 <div class="source-grid">
                   @for (source of dataSources(); track source.id) {
                     <div class="source-card"
-                         [class.selected]="selectedDataSource()?.id === source.id"
-                         (click)="onDataSourceSelect(source)">
+                         [class.selected]="isDataSourceSelected(source)"
+                         (click)="toggleDataSourceSelection(source)">
+                      <mat-checkbox 
+                        [checked]="isDataSourceSelected(source)" 
+                        (click)="$event.stopPropagation()"
+                        (change)="toggleDataSourceSelection(source)"
+                        class="source-checkbox">
+                      </mat-checkbox>
                       <div class="source-icon">
                         <mat-icon>{{ source.format === 'csv' || source.format === 'xlsx' ? 'table_chart' : 'description' }}</mat-icon>
                       </div>
@@ -214,7 +233,7 @@
                           }
                         </div>
                       </div>
-                      @if (selectedDataSource()?.id === source.id) {
+                      @if (isDataSourceSelected(source)) {
                         <mat-icon class="selected-icon" color="primary">check_circle</mat-icon>
                       }
                     </div>
@@ -363,9 +382,32 @@
                     <mat-icon>{{ getColumnTypeIcon(mapping.sourceType) }}</mat-icon>
                     <span class="column-name">{{ mapping.name }}</span>
                   </div>
-                  <div class="role-indicator" [class]="'role-' + mapping.role">
-                    <mat-icon>{{ getRoleIcon(mapping.role) }}</mat-icon>
-                    <span>{{ getRoleLabel(mapping.role) }}</span>
+                  <!-- Quick Role Toggle Buttons -->
+                  <div class="role-quick-toggle">
+                    <button mat-icon-button
+                            [class.active]="mapping.role === 'dimension'"
+                            (click)="updateMapping(i, 'role', 'dimension')"
+                            matTooltip="Dimension">
+                      <mat-icon>apps</mat-icon>
+                    </button>
+                    <button mat-icon-button
+                            [class.active]="mapping.role === 'measure'"
+                            (click)="updateMapping(i, 'role', 'measure')"
+                            matTooltip="Measure">
+                      <mat-icon>bar_chart</mat-icon>
+                    </button>
+                    <button mat-icon-button
+                            [class.active]="mapping.role === 'attribute'"
+                            (click)="updateMapping(i, 'role', 'attribute')"
+                            matTooltip="Attribute">
+                      <mat-icon>label</mat-icon>
+                    </button>
+                    <button mat-icon-button
+                            [class.active]="mapping.role === 'ignore'"
+                            (click)="updateMapping(i, 'role', 'ignore')"
+                            matTooltip="Ignore">
+                      <mat-icon>visibility_off</mat-icon>
+                    </button>
                   </div>
                 </div>
 
@@ -775,7 +817,37 @@
           @if (publishing()) {
             <div class="publish-progress">
               <mat-progress-bar mode="determinate" [value]="publishProgress()"></mat-progress-bar>
-              <p>Publishing cube... {{ publishProgress() }}%</p>
+              <p>Saving cube... {{ publishProgress() }}%</p>
+            </div>
+          }
+
+          @if (saveComplete()) {
+            <div class="success-card">
+              <mat-icon color="primary">check_circle</mat-icon>
+              <div class="success-content">
+                <h3>Cube Saved Successfully!</h3>
+                <p>Your cube definition, SHACL shape, and pipeline have been generated.</p>
+                <div class="success-actions">
+                  @if (savedCubeId()) {
+                    <button mat-stroked-button (click)="viewSavedCube()">
+                      <mat-icon>visibility</mat-icon>
+                      View Cube
+                    </button>
+                  }
+                  @if (generatedShapeId()) {
+                    <button mat-stroked-button (click)="editGeneratedShape()">
+                      <mat-icon>rule</mat-icon>
+                      Edit Shape
+                    </button>
+                  }
+                  @if (generatedPipelineId()) {
+                    <button mat-stroked-button (click)="editGeneratedPipeline()">
+                      <mat-icon>settings</mat-icon>
+                      Edit Pipeline
+                    </button>
+                  }
+                </div>
+              </div>
             </div>
           }
         </div>
@@ -801,15 +873,29 @@
           <mat-icon>arrow_forward</mat-icon>
         </button>
       } @else {
-        <button mat-raised-button color="primary" (click)="publishCube()"
-               [disabled]="publishing() || !publishOptions().triplestore">
-          @if (publishing()) {
-            <mat-spinner diameter="20"></mat-spinner>
-          } @else {
+        @if (!saveComplete()) {
+          <button mat-raised-button color="primary" (click)="publishCube()"
+                 [disabled]="publishing()">
+            @if (publishing()) {
+              <mat-spinner diameter="20"></mat-spinner>
+              Saving...
+            } @else {
+              <mat-icon>save</mat-icon>
+              Save & Generate
+            }
+          </button>
+        } @else {
+          <button mat-stroked-button color="primary" (click)="editGeneratedPipeline()"
+                 class="mr-2" [disabled]="!generatedPipelineId()">
+            <mat-icon>edit</mat-icon>
+            Edit Pipeline
+          </button>
+          <button mat-raised-button color="accent" (click)="publishToTriplestore()"
+                 [disabled]="!publishOptions().triplestore || publishing()">
             <mat-icon>cloud_upload</mat-icon>
-          }
-          Publish Cube
-        </button>
+            Publish to Triplestore
+          </button>
+        }
       }
     </div>
   </div>

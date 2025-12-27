@@ -50,7 +50,7 @@ interface SystemInfo {
           <div class="info-grid">
             <div class="info-item">
               <span class="label">Application</span>
-              <span class="value">Cube Creator X</span>
+              <span class="value">RDF Forge</span>
             </div>
             <div class="info-item">
               <span class="label">Version</span>
@@ -299,10 +299,10 @@ export class SystemSettings implements OnInit {
     this.checking.set(true);
 
     const servicesList: ServiceHealth[] = [
-      { name: 'API Gateway', status: 'UNKNOWN', url: this.env.apiBaseUrl },
+      { name: 'API Gateway', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/health` },
       { name: 'Pipeline Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/pipelines` },
       { name: 'Data Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/data` },
-      { name: 'SHACL Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/shacl` },
+      { name: 'SHACL Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/shapes` },
       { name: 'Job Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/jobs` },
       { name: 'Dimension Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/dimensions` },
       { name: 'Triplestore Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/triplestores` }

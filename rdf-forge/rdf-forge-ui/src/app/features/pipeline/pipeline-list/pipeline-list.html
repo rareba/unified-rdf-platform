@@ -50,8 +50,8 @@
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
           <td mat-cell *matCellDef="let pipeline">
-            <span class="status-chip" [ngClass]="getStatusClass(pipeline.status)">
-              {{ pipeline.status }}
+            <span class="status-chip" [ngClass]="getStatusClass(pipeline.status || 'active')">
+              {{ pipeline.status || 'active' }}
             </span>
           </td>
         </ng-container>
@@ -59,7 +59,9 @@
         <ng-container matColumnDef="stepsCount">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Steps</th>
           <td mat-cell *matCellDef="let pipeline">
-            <span class="step-count">{{ pipeline.stepsCount }}</span>
+            <span class="step-count" [matTooltip]="(pipeline.stepsCount || 0) + ' pipeline steps'">
+              {{ pipeline.stepsCount ?? 0 }}
+            </span>
           </td>
         </ng-container>
 

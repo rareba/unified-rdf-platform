@@ -411,13 +411,14 @@ INSERT INTO dimension_values (id, dimension_id, uri, code, label, label_lang, hi
 ON CONFLICT (id) DO NOTHING;
 
 -- Demo Triplestore Connection (GraphDB)
-INSERT INTO triplestore_connections (id, project_id, name, type, url, default_graph, auth_type, is_default, health_status, created_by, created_at) VALUES
+INSERT INTO triplestore_connections (id, project_id, name, type, url, default_graph, auth_type, auth_config, is_default, health_status, created_by, created_at) VALUES
 ('77777777-7777-7777-7777-777777777771', '11111111-1111-1111-1111-111111111111',
  'GraphDB Local',
  'GRAPHDB',
  'http://graphdb:7200',
  'https://example.org/graph/default',
  'NONE',
+ '{"repository": "rdf-forge"}',
  true,
  'HEALTHY',
  '00000000-0000-0000-0000-000000000001', NOW())

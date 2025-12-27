@@ -1,0 +1,108 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX schema: <http://schema.org/>
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX cube: <https://cube.link/>
+PREFIX : <https://cube.link/shape/profile-opendataswiss#>
+
+# Profile: opendata.swiss (DCAT-AP CH)
+# Validates cubes for Swiss Open Government Data portal
+# Based on: https://github.com/zazuko/cube-link/blob/main/validation/profile-opendataswiss.ttl
+
+:CubeShape
+    a sh:NodeShape ;
+    sh:targetClass cube:Cube ;
+    sh:property
+        # Required DCAT metadata
+        [
+            sh:path dcterms:title ;
+            sh:minCount 1 ;
+            sh:message "Cube must have a title (dcterms:title)" ;
+        ],
+        [
+            sh:path dcterms:description ;
+            sh:minCount 1 ;
+            sh:message "Cube must have a description" ;
+        ],
+        [
+            sh:path dcterms:publisher ;
+            sh:minCount 1 ;
+            sh:message "Cube must have a publisher" ;
+        ],
+        [
+            sh:path dcterms:issued ;
+            sh:minCount 1 ;
+            sh:or
+                (
+                    [ sh:datatype xsd:date ]
+                    [ sh:datatype xsd:dateTime ]
+                ) ;
+            sh:message "Cube must have an issued date" ;
+        ],
+        [
+            sh:path dcterms:identifier ;
+            sh:minCount 1 ;
+            sh:message "Cube must have an identifier" ;
+        ],
+        # Contact point
+        [
+            sh:path dcat:contactPoint ;
+            sh:minCount 1 ;
+            sh:message "Cube should have a contact point" ;
+            sh:severity sh:Warning ;
+        ],
+        # Theme/category
+        [
+            sh:path dcat:theme ;
+            sh:minCount 1 ;
+            sh:message "Cube should have at least one theme" ;
+            sh:severity sh:Warning ;
+        ],
+        # Access rights
+        [
+            sh:path dcterms:accessRights ;
+            sh:minCount 1 ;
+            sh:message "Cube should specify access rights" ;
+            sh:severity sh:Warning ;
+        ],
+        # Language
+        [
+            sh:path dcterms:language ;
+            sh:minCount 1 ;
+            sh:message "Cube must specify language" ;
+        ] ;
+.
+
+:DistributionShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Distribution ;
+    sh:property
+        [
+            sh:path dcat:accessURL ;
+            sh:minCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:message "Distribution must have an access URL" ;
+        ],
+        [
+            sh:path dcterms:format ;
+            sh:minCount 1 ;
+            sh:message "Distribution must specify format" ;
+        ],
+        [
+            sh:path dcterms:license ;
+            sh:minCount 1 ;
+            sh:message "Distribution must have a license" ;
+        ] ;
+.
+
+:PublisherShape
+    a sh:NodeShape ;
+    sh:property
+        [
+            sh:path schema:name ;
+            sh:minCount 1 ;
+            sh:message "Publisher must have a name" ;
+        ] ;
+.

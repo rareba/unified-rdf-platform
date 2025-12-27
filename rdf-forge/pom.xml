@@ -9,7 +9,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Cube Creator X</name>
+    <name>RDF Forge</name>
     <description>Unified RDF Data Platform - Full-stack ETL tool for RDF and triplestores</description>
 
     <modules>

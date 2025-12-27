@@ -606,6 +606,34 @@ export class TriplestoreBrowser implements OnInit {
     this.editConnection.update(c => ({ ...c, url: value }));
   }
 
+  updateEditConnectionRepository(value: string): void {
+    this.editConnection.update(c => ({
+      ...c,
+      authConfig: { ...c.authConfig, repository: value }
+    }));
+  }
+
+  updateEditConnectionAuthUsername(value: string): void {
+    this.editConnection.update(c => ({
+      ...c,
+      authConfig: { ...c.authConfig, username: value }
+    }));
+  }
+
+  updateEditConnectionAuthPassword(value: string): void {
+    this.editConnection.update(c => ({
+      ...c,
+      authConfig: { ...c.authConfig, password: value }
+    }));
+  }
+
+  updateEditConnectionAuthApiKey(value: string): void {
+    this.editConnection.update(c => ({
+      ...c,
+      authConfig: { ...c.authConfig, apiKey: value }
+    }));
+  }
+
   updateEditConnectionDefaultGraph(value: string): void {
     this.editConnection.update(c => ({ ...c, defaultGraph: value }));
   }
@@ -629,6 +657,13 @@ export class TriplestoreBrowser implements OnInit {
 
   updateNewConnectionDefaultGraph(value: string): void {
     this.newConnection.update(c => ({ ...c, defaultGraph: value }));
+  }
+
+  updateNewConnectionRepository(value: string): void {
+    this.newConnection.update(c => ({
+      ...c,
+      authConfig: { ...c.authConfig, repository: value }
+    }));
   }
 
   updateNewConnectionAuthUsername(value: string): void {

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+import io.rdfforge.dimension.dto.GeneratedArtifact;
+
 @RestController
 @RequestMapping("/api/v1/cubes")
 @Tag(name = "Cubes", description = "RDF Data Cube management API")
@@ -98,4 +100,94 @@ public class CubeController {
     }
 
     public record PublishRequest(Long observationCount) {}
+
+    // ===== New endpoints for cube definition architecture =====
+
+    public record GenerateShapeRequest(String name, String targetClass) {}
+    public record GeneratePipelineRequest(String name, UUID triplestoreId, String graphUri) {}
+
+    @PostMapping("/{id}/generate-shape")
+    @Operation(summary = "Generate SHACL shape", description = "Generate a SHACL shape from cube definition column mappings")
+    public ResponseEntity<GeneratedArtifact> generateShape(
+            @PathVariable UUID id,
+            @RequestBody(required = false) GenerateShapeRequest request) {
+        try {
+            String shapeName = request != null && request.name() != null ? request.name() : null;
+            String targetClass = request != null && request.targetClass() != null ? request.targetClass() : null;
+            GeneratedArtifact result = cubeService.generateShape(id, shapeName, targetClass);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Failed to generate shape for cube {}: {}", id, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/{id}/generate-pipeline")
+    @Operation(summary = "Generate draft pipeline", description = "Generate a draft ETL pipeline from cube definition")
+    public ResponseEntity<GeneratedArtifact> generatePipeline(
+            @PathVariable UUID id,
+            @RequestBody(required = false) GeneratePipelineRequest request) {
+        try {
+            String pipelineName = request != null && request.name() != null ? request.name() : null;
+            UUID triplestoreId = request != null ? request.triplestoreId() : null;
+            String graphUri = request != null ? request.graphUri() : null;
+            GeneratedArtifact result = cubeService.generatePipeline(id, pipelineName, triplestoreId, graphUri);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Failed to generate pipeline for cube {}: {}", id, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PutMapping("/{id}/shape/{shapeId}")
+    @Operation(summary = "Link shape to cube", description = "Link an existing SHACL shape to the cube")
+    public ResponseEntity<CubeEntity> linkShape(
+            @PathVariable UUID id,
+            @PathVariable UUID shapeId) {
+        try {
+            CubeEntity updated = cubeService.linkShape(id, shapeId);
+            return ResponseEntity.ok(updated);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PutMapping("/{id}/pipeline/{pipelineId}")
+    @Operation(summary = "Link pipeline to cube", description = "Link an existing pipeline to the cube")
+    public ResponseEntity<CubeEntity> linkPipeline(
+            @PathVariable UUID id,
+            @PathVariable UUID pipelineId) {
+        try {
+            CubeEntity updated = cubeService.linkPipeline(id, pipelineId);
+            return ResponseEntity.ok(updated);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/{id}/shape")
+    @Operation(summary = "Unlink shape from cube", description = "Remove the link to the SHACL shape")
+    public ResponseEntity<CubeEntity> unlinkShape(@PathVariable UUID id) {
+        try {
+            CubeEntity updated = cubeService.unlinkShape(id);
+            return ResponseEntity.ok(updated);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/{id}/pipeline")
+    @Operation(summary = "Unlink pipeline from cube", description = "Remove the link to the pipeline")
+    public ResponseEntity<CubeEntity> unlinkPipeline(@PathVariable UUID id) {
+        try {
+            CubeEntity updated = cubeService.unlinkPipeline(id);
+            return ResponseEntity.ok(updated);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

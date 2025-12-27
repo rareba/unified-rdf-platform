@@ -23,7 +23,7 @@ spring:
         - id: shacl-service
           uri: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
           predicates:
-            - Path=/api/v1/shapes/**,/api/v1/validation/**
+            - Path=/api/v1/shapes/**,/api/v1/validation/**,/api/v1/cubes/validate/**
         
         - id: job-service
           uri: ${JOB_SERVICE_URL:http://rdf-forge-job-service:8003}

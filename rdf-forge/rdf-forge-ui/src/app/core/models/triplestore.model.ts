@@ -27,6 +27,7 @@ export interface ConnectionCreateRequest {
     username?: string;
     password?: string;
     apiKey?: string;
+    repository?: string;
   };
   isDefault?: boolean;
 }

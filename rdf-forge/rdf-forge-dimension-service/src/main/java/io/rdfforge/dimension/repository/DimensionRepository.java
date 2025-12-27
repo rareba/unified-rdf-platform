@@ -64,4 +64,14 @@ public interface DimensionRepository extends JpaRepository<DimensionEntity, UUID
     long sumValueCountByProjectId(@Param("projectId") UUID projectId);
 
     boolean existsByProjectIdAndUri(UUID projectId, String uri);
+
+    // Hierarchy support
+    List<DimensionEntity> findByParentDimensionId(UUID parentDimensionId);
+    
+    List<DimensionEntity> findByHierarchyNameAndProjectId(String hierarchyName, UUID projectId);
+    
+    List<DimensionEntity> findByHierarchyName(String hierarchyName);
+    
+    @Query("SELECT d FROM DimensionEntity d WHERE d.parentDimensionId IS NULL AND d.hierarchyName = :hierarchyName")
+    List<DimensionEntity> findHierarchyRoots(@Param("hierarchyName") String hierarchyName);
 }

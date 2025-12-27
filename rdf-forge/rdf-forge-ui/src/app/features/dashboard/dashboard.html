@@ -1,6 +1,50 @@
 <div class="dashboard">
+  <!-- Getting Started Banner (shown when no data) -->
+  @if (!loading() && isNewUser()) {
+    <mat-card class="getting-started-card">
+      <mat-card-content>
+        <div class="getting-started">
+          <div class="welcome-section">
+            <mat-icon class="welcome-icon">rocket_launch</mat-icon>
+            <div class="welcome-text">
+              <h2>Welcome to RDF Forge</h2>
+              <p>Transform your CSV data into RDF Data Cubes with just a few clicks. Follow the steps below to get started.</p>
+            </div>
+          </div>
+          <div class="steps-grid">
+            <div class="step-card" (click)="navigateTo('/data')">
+              <div class="step-number">1</div>
+              <mat-icon>upload_file</mat-icon>
+              <h4>Upload Data</h4>
+              <p>Upload CSV, JSON, or other tabular data files</p>
+            </div>
+            <div class="step-card" (click)="navigateTo('/cubes/new')">
+              <div class="step-number">2</div>
+              <mat-icon>view_in_ar</mat-icon>
+              <h4>Create Cube</h4>
+              <p>Map your columns to dimensions and measures</p>
+            </div>
+            <div class="step-card" (click)="navigateTo('/pipelines/new')">
+              <div class="step-number">3</div>
+              <mat-icon>account_tree</mat-icon>
+              <h4>Build Pipeline</h4>
+              <p>Create automated transformation workflows</p>
+            </div>
+            <div class="step-card" (click)="navigateTo('/triplestore')">
+              <div class="step-number">4</div>
+              <mat-icon>storage</mat-icon>
+              <h4>Query Data</h4>
+              <p>Browse and query your RDF data with SPARQL</p>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- Stats Grid -->
   <div class="stats-grid">
-    <mat-card class="stat-card">
+    <mat-card class="stat-card clickable" (click)="navigateTo('/pipelines')">
       <mat-card-content>
         <div class="stat-content">
           <div class="stat-icon blue">
@@ -18,7 +62,7 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stat-card">
+    <mat-card class="stat-card clickable" (click)="navigateTo('/jobs')">
       <mat-card-content>
         <div class="stat-content">
           <div class="stat-icon green">
@@ -36,7 +80,7 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stat-card">
+    <mat-card class="stat-card clickable" (click)="navigateTo('/shacl')">
       <mat-card-content>
         <div class="stat-content">
           <div class="stat-icon purple">
@@ -54,7 +98,7 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stat-card">
+    <mat-card class="stat-card clickable" (click)="navigateTo('/data')">
       <mat-card-content>
         <div class="stat-content">
           <div class="stat-icon orange">
@@ -74,9 +118,13 @@
   </div>
 
   <div class="content-grid">
+    <!-- Recent Jobs -->
     <mat-card class="jobs-card">
       <mat-card-header>
         <mat-card-title>Recent Jobs</mat-card-title>
+        <button mat-icon-button (click)="navigateTo('/jobs')" class="view-all-btn">
+          <mat-icon>open_in_new</mat-icon>
+        </button>
       </mat-card-header>
       <mat-card-content>
         @if (loading()) {
@@ -87,6 +135,9 @@
           <div class="empty-state">
             <mat-icon>work_off</mat-icon>
             <p>No jobs yet</p>
+            <button mat-stroked-button (click)="navigateTo('/pipelines')">
+              Run your first pipeline
+            </button>
           </div>
         } @else {
           <table mat-table [dataSource]="recentJobs()" class="jobs-table">
@@ -113,12 +164,13 @@
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="navigateTo('/jobs/' + row.id)"></tr>
           </table>
         }
       </mat-card-content>
     </mat-card>
 
+    <!-- Quick Actions -->
     <mat-card class="actions-card">
       <mat-card-header>
         <mat-card-title>Quick Actions</mat-card-title>
@@ -129,20 +181,80 @@
             <mat-icon>add</mat-icon>
             New Pipeline
           </button>
-          <button mat-stroked-button (click)="navigateTo('/shacl/new')">
-            <mat-icon>add</mat-icon>
-            Create Shape
+          <button mat-stroked-button (click)="navigateTo('/cubes/new')">
+            <mat-icon>view_in_ar</mat-icon>
+            Create Cube
           </button>
           <button mat-stroked-button color="accent" (click)="navigateTo('/data')">
             <mat-icon>upload</mat-icon>
             Upload Data
           </button>
-          <button mat-stroked-button (click)="navigateTo('/cubes')">
-            <mat-icon>view_in_ar</mat-icon>
-            Create Cube
+          <button mat-stroked-button (click)="navigateTo('/shacl/new')">
+            <mat-icon>check_box</mat-icon>
+            Create Shape
           </button>
+        </div>
+
+        <mat-divider class="action-divider"></mat-divider>
+
+        <!-- Common Workflows -->
+        <h4 class="workflows-title">Common Workflows</h4>
+        <div class="workflow-list">
+          <div class="workflow-item" (click)="startWorkflow('csv-to-cube')">
+            <mat-icon>table_chart</mat-icon>
+            <div class="workflow-info">
+              <span class="workflow-name">CSV to RDF Cube</span>
+              <span class="workflow-desc">Transform CSV data into a linked data cube</span>
+            </div>
+            <mat-icon class="arrow">arrow_forward</mat-icon>
+          </div>
+          <div class="workflow-item" (click)="startWorkflow('validate-cube')">
+            <mat-icon>verified</mat-icon>
+            <div class="workflow-info">
+              <span class="workflow-name">Validate Cube</span>
+              <span class="workflow-desc">Check cube against cube-link profiles</span>
+            </div>
+            <mat-icon class="arrow">arrow_forward</mat-icon>
+          </div>
+          <div class="workflow-item" (click)="startWorkflow('publish-graphdb')">
+            <mat-icon>cloud_upload</mat-icon>
+            <div class="workflow-info">
+              <span class="workflow-name">Publish to GraphDB</span>
+              <span class="workflow-desc">Store RDF data in the triplestore</span>
+            </div>
+            <mat-icon class="arrow">arrow_forward</mat-icon>
+          </div>
         </div>
       </mat-card-content>
     </mat-card>
   </div>
+
+  <!-- Operations Overview -->
+  <mat-card class="operations-card">
+    <mat-card-header>
+      <mat-card-title>Available Operations</mat-card-title>
+      <span class="operations-count">{{ operationsCount() }} operations</span>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="operations-grid">
+        @for (group of operationGroups(); track group.type) {
+          <div class="operation-group">
+            <div class="group-header">
+              <mat-icon [style.color]="getGroupColor(group.type)">{{ group.icon }}</mat-icon>
+              <span>{{ group.label }}</span>
+              <span class="count-badge">{{ group.count }}</span>
+            </div>
+            <div class="group-items">
+              @for (op of group.operations.slice(0, 3); track op.id) {
+                <span class="op-chip">{{ op.name }}</span>
+              }
+              @if (group.operations.length > 3) {
+                <span class="more-chip">+{{ group.operations.length - 3 }} more</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
 </div>

@@ -17,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatToolbarModule } from '@angular/material/toolbar';
 import { PipelineService } from '../../../core/services';
 import {
   Pipeline,
@@ -41,6 +42,15 @@ interface RunVariable {
   value: string;
 }
 
+interface PipelineTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'cube' | 'validation' | 'etl' | 'publish';
+  steps: { operation: string; params: Record<string, unknown> }[];
+}
+
 @Component({
   selector: 'app-pipeline-designer',
   imports: [
@@ -60,6 +70,7 @@ interface RunVariable {
     MatFormFieldModule,
     MatMenuModule,
     MatProgressSpinnerModule,
+    MatToolbarModule,
     KeyValuePipe
   ],
   templateUrl: './pipeline-designer.html',
@@ -117,6 +128,7 @@ export class PipelineDesigner implements OnInit {
   isDraggingNode = false;
   draggedNodeId: string | null = null;
   dragOffset = { x: 0, y: 0 };
+  private draggedOp: any = null;
 
   // Edge drawing state
   isDrawingEdge = false;
@@ -127,6 +139,96 @@ export class PipelineDesigner implements OnInit {
   runVariables = signal<Record<string, string>>({});
   newVarKey = signal('');
   newVarValue = signal('');
+
+  // Search and filter
+  operationSearch = signal('');
+  filteredOperationGroups = computed(() => {
+    const search = this.operationSearch().toLowerCase();
+    const groups = this.operationGroups();
+    if (!search) return groups;
+    return groups.map(g => ({
+      ...g,
+      operations: g.operations.filter(op =>
+        op.name.toLowerCase().includes(search) ||
+        op.description.toLowerCase().includes(search) ||
+        op.id.toLowerCase().includes(search)
+      )
+    })).filter(g => g.operations.length > 0);
+  });
+
+  // Zoom and pan
+  zoom = signal(1);
+  panOffset = signal({ x: 0, y: 0 });
+
+  // Templates dialog
+  templatesDialogVisible = signal(false);
+
+  // Pipeline templates for common cube workflows
+  pipelineTemplates: PipelineTemplate[] = [
+    {
+      id: 'csv-to-cube',
+      name: 'CSV to RDF Cube',
+      description: 'Transform CSV data into a complete RDF Data Cube with validation',
+      icon: 'table_chart',
+      category: 'cube',
+      steps: [
+        { operation: 'load-csv', params: { hasHeader: true } },
+        { operation: 'create-observation', params: { cubeUri: 'https://example.org/cube/my-cube' } },
+        { operation: 'build-cube-shape', params: {} },
+        { operation: 'validate-shacl', params: { onViolation: 'WARN' } },
+        { operation: 'graph-store-put', params: { graph: 'https://example.org/graph/my-cube' } }
+      ]
+    },
+    {
+      id: 'validate-cube-link',
+      name: 'Validate Against cube-link',
+      description: 'Fetch and validate an existing cube against cube-link profiles',
+      icon: 'verified',
+      category: 'validation',
+      steps: [
+        { operation: 'fetch-cube', params: { endpoint: 'http://localhost:7200/repositories/rdf-forge' } },
+        { operation: 'validate-shacl', params: { onViolation: 'FAIL' } }
+      ]
+    },
+    {
+      id: 'cube-to-graphdb',
+      name: 'Publish Cube to GraphDB',
+      description: 'Load RDF cube data and publish to GraphDB triplestore',
+      icon: 'cloud_upload',
+      category: 'publish',
+      steps: [
+        { operation: 'fetch-cube', params: {} },
+        { operation: 'graph-store-put', params: { endpoint: 'http://localhost:7200/repositories/rdf-forge' } }
+      ]
+    },
+    {
+      id: 'full-etl',
+      name: 'Full ETL Pipeline',
+      description: 'Complete ETL: Load CSV, create observations, build shape, validate, publish',
+      icon: 'sync_alt',
+      category: 'etl',
+      steps: [
+        { operation: 'load-csv', params: { hasHeader: true } },
+        { operation: 'map-to-rdf', params: { baseUri: 'https://example.org/' } },
+        { operation: 'create-observation', params: {} },
+        { operation: 'build-cube-shape', params: {} },
+        { operation: 'validate-shacl', params: {} },
+        { operation: 'graph-store-put', params: {} }
+      ]
+    },
+    {
+      id: 'fetch-validate',
+      name: 'Fetch and Validate',
+      description: 'Fetch cube from SPARQL endpoint and run SHACL validation',
+      icon: 'fact_check',
+      category: 'validation',
+      steps: [
+        { operation: 'fetch-metadata', params: {} },
+        { operation: 'fetch-observations', params: {} },
+        { operation: 'validate-shacl', params: {} }
+      ]
+    }
+  ];
 
   // JSON view
   pipelineJson = computed(() => {
@@ -255,6 +357,7 @@ export class PipelineDesigner implements OnInit {
 
   // Drag operation from palette to canvas
   onDragStart(event: DragEvent, op: Operation): void {
+    this.draggedOp = op;
     event.dataTransfer?.setData('application/json', JSON.stringify(op));
     event.dataTransfer!.effectAllowed = 'copy';
   }
@@ -266,15 +369,26 @@ export class PipelineDesigner implements OnInit {
 
   onDrop(event: DragEvent): void {
     event.preventDefault();
-    const data = event.dataTransfer?.getData('application/json');
-    if (!data) return;
 
-    const op = JSON.parse(data) as Operation;
+    let op: any = this.draggedOp;
+
+    if (!op) {
+      const data = event.dataTransfer?.getData('application/json');
+      if (data) {
+        try {
+          op = JSON.parse(data);
+        } catch { }
+      }
+    }
+
+    if (!op) return;
+
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
     this.addNode(op, x, y);
+    this.draggedOp = null; // Reset
   }
 
   addNode(op: Operation, x: number, y: number): void {
@@ -321,13 +435,16 @@ export class PipelineDesigner implements OnInit {
 
   removeNode(id: string, event: Event): void {
     event.stopPropagation();
-    if (confirm('Remove this step from the pipeline?')) {
-      this.nodes.update(n => n.filter(node => node.id !== id));
-      this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
-      if (this.selectedNode()?.id === id) {
-        this.selectedNode.set(null);
-        this.configDialogVisible.set(false);
-      }
+    const node = this.nodes().find(n => n.id === id);
+    if (!node) return;
+
+    // Remove the node and its connections
+    this.nodes.update(n => n.filter(n => n.id !== id));
+    this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
+
+    if (this.selectedNode()?.id === id) {
+      this.selectedNode.set(null);
+      this.configDialogVisible.set(false);
     }
   }
 
@@ -433,7 +550,7 @@ export class PipelineDesigner implements OnInit {
   getParamType(type: string): 'text' | 'number' | 'boolean' | 'map' | 'char' {
     if (type === 'java.lang.Boolean' || type === 'boolean') return 'boolean';
     if (type === 'java.lang.Integer' || type === 'java.lang.Long' ||
-        type === 'java.lang.Double' || type === 'int' || type === 'long' || type === 'double') return 'number';
+      type === 'java.lang.Double' || type === 'int' || type === 'long' || type === 'double') return 'number';
     if (type === 'java.util.Map') return 'map';
     if (type === 'java.lang.Character' || type === 'char') return 'char';
     return 'text';
@@ -615,6 +732,85 @@ export class PipelineDesigner implements OnInit {
       this.nodes.set([]);
       this.edges.set([]);
       this.selectedNode.set(null);
+    }
+  }
+
+  // Template methods
+  openTemplates(): void {
+    this.templatesDialogVisible.set(true);
+  }
+
+  applyTemplate(template: PipelineTemplate): void {
+    if (this.nodes().length > 0) {
+      if (!confirm('This will replace your current pipeline. Continue?')) {
+        return;
+      }
+    }
+
+    const ops = this.availableOperations();
+    const newNodes: PipelineNode[] = [];
+    const newEdges: PipelineEdge[] = [];
+
+    template.steps.forEach((step, index) => {
+      const op = ops.find(o => o.id === step.operation);
+      if (op) {
+        const node: PipelineNode = {
+          id: `node-${Date.now()}-${index}`,
+          operationId: op.id,
+          operationName: op.name,
+          operationType: op.type,
+          x: 150 + (index % 3) * 350,
+          y: 100 + Math.floor(index / 3) * 180,
+          params: { ...this.getDefaultParams(op), ...step.params }
+        };
+        newNodes.push(node);
+      }
+    });
+
+    // Create sequential edges
+    for (let i = 1; i < newNodes.length; i++) {
+      newEdges.push({
+        id: `edge-${Date.now()}-${i}`,
+        sourceId: newNodes[i - 1].id,
+        targetId: newNodes[i].id
+      });
+    }
+
+    this.nodes.set(newNodes);
+    this.edges.set(newEdges);
+    this.name.set(template.name);
+    this.description.set(template.description);
+    this.templatesDialogVisible.set(false);
+    this.snackBar.open(`Applied template: ${template.name}`, 'Close', { duration: 3000 });
+  }
+
+  // Zoom methods
+  zoomIn(): void {
+    this.zoom.update(z => Math.min(z + 0.1, 2));
+  }
+
+  zoomOut(): void {
+    this.zoom.update(z => Math.max(z - 0.1, 0.5));
+  }
+
+  resetZoom(): void {
+    this.zoom.set(1);
+    this.panOffset.set({ x: 0, y: 0 });
+  }
+
+  // Check if operation is cube-link related
+  isCubeLinkOperation(opId: string): boolean {
+    return ['fetch-cube', 'fetch-metadata', 'fetch-observations', 'fetch-constraint',
+            'build-cube-shape', 'create-observation', 'validate-shacl'].includes(opId);
+  }
+
+  getTemplateCategoryColor(category: string): string {
+    switch (category) {
+      case 'cube': return '#f59e0b';
+      case 'validation': return '#22c55e';
+      case 'etl': return '#3b82f6';
+      case 'publish': return '#8b5cf6';
+      default: return '#64748b';
     }
   }
 
