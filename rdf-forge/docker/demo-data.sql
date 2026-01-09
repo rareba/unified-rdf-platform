@@ -274,7 +274,7 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
  26,
  6,
  'S3',
- 'rdf-forge-data/demo/swiss-population-by-canton.csv',
+ 'demo/swiss-population-by-canton.csv',
  '{"columns": [
     {"name": "canton_code", "type": "string"},
     {"name": "canton_name", "type": "string"},
@@ -293,7 +293,7 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
  30,
  6,
  'S3',
- 'rdf-forge-data/demo/swiss-employment-statistics.csv',
+ 'demo/swiss-employment-statistics.csv',
  '{"columns": [
     {"name": "canton_code", "type": "string"},
     {"name": "year", "type": "integer"},
@@ -312,7 +312,7 @@ INSERT INTO data_sources (id, project_id, name, original_filename, format, size_
  30,
  6,
  'S3',
- 'rdf-forge-data/demo/swiss-gdp-by-sector.csv',
+ 'demo/swiss-gdp-by-sector.csv',
  '{"columns": [
     {"name": "year", "type": "integer"},
     {"name": "sector", "type": "string"},

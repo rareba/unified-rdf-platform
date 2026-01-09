@@ -92,8 +92,14 @@ export class PipelineService {
     return this.api.post<PipelineValidationResult>('/pipelines/validate', { definition, format });
   }
 
-  run(id: string, variables?: Record<string, unknown>): Observable<{ jobId: string }> {
-    return this.api.post<{ jobId: string }>(`/pipelines/${id}/run`, { variables });
+  run(id: string, variables?: Record<string, unknown>): Observable<{ jobId: string; id: string }> {
+    // Create a job through the jobs API to run the pipeline
+    return this.api.post<{ id: string }>('/jobs', {
+      pipelineId: id,
+      variables: variables || {}
+    }).pipe(
+      map(job => ({ jobId: job.id, id: job.id }))
+    );
   }
 
   getVersions(id: string): Observable<PipelineVersion[]> {

@@ -111,7 +111,7 @@ export class Dashboard implements OnInit {
     }).subscribe(({ pipelines, jobs, shapes, dataSources, operations }) => {
       this.stats.set({
         pipelines: pipelines.length,
-        completedJobs: jobs.filter(j => j.status === 'completed').length,
+        completedJobs: jobs.filter(j => j.status?.toLowerCase() === 'completed').length,
         shapes: shapes.length,
         dataSources: dataSources.length
       });
@@ -167,7 +167,7 @@ export class Dashboard implements OnInit {
       pending: '',
       cancelled: ''
     };
-    return map[status] || '';
+    return map[status?.toLowerCase()] || '';
   }
 
   formatDate(date: Date | undefined): string {

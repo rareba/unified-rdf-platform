@@ -92,7 +92,7 @@ export class JobList implements OnInit, OnDestroy {
     }
     const status = this.statusFilter();
     if (status) {
-      result = result.filter(j => j.status === status);
+      result = result.filter(j => j.status?.toLowerCase() === status?.toLowerCase());
     }
     return result;
   });
@@ -104,15 +104,15 @@ export class JobList implements OnInit, OnDestroy {
   });
 
   // Stats computed properties
-  runningCount = computed(() => this.jobs().filter(j => j.status === 'running').length);
-  pendingCount = computed(() => this.jobs().filter(j => j.status === 'pending').length);
+  runningCount = computed(() => this.jobs().filter(j => j.status?.toLowerCase() === 'running').length);
+  pendingCount = computed(() => this.jobs().filter(j => j.status?.toLowerCase() === 'pending').length);
   completedToday = computed(() => {
     const today = new Date().toDateString();
-    return this.jobs().filter(j => j.status === 'completed' && j.completedAt && new Date(j.completedAt).toDateString() === today).length;
+    return this.jobs().filter(j => j.status?.toLowerCase() === 'completed' && j.completedAt && new Date(j.completedAt).toDateString() === today).length;
   });
   failedToday = computed(() => {
     const today = new Date().toDateString();
-    return this.jobs().filter(j => j.status === 'failed' && j.completedAt && new Date(j.completedAt).toDateString() === today).length;
+    return this.jobs().filter(j => j.status?.toLowerCase() === 'failed' && j.completedAt && new Date(j.completedAt).toDateString() === today).length;
   });
   avgDuration = computed(() => {
     const completed = this.jobs().filter(j => j.duration);
@@ -283,7 +283,7 @@ export class JobList implements OnInit, OnDestroy {
   }
 
   getStatusClass(status: string): string {
-    return 'status-' + status;
+    return 'status-' + status?.toLowerCase();
   }
 
   formatDate(date: Date | undefined): string {

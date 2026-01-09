@@ -16,8 +16,9 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { PipelineService } from '../../../core/services';
-import { Pipeline } from '../../../core/models';
+import { PipelineService, JobService } from '../../../core/services';
+import { Pipeline, Job } from '../../../core/models';
+import { forkJoin, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-pipeline-list',
@@ -45,6 +46,7 @@ import { Pipeline } from '../../../core/models';
 export class PipelineList implements OnInit {
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
+  private readonly jobService = inject(JobService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
@@ -118,9 +120,30 @@ export class PipelineList implements OnInit {
 
   loadPipelines(): void {
     this.loading.set(true);
-    this.pipelineService.list().subscribe({
-      next: (data) => {
-        this.pipelines.set(data);
+    forkJoin({
+      pipelines: this.pipelineService.list().pipe(catchError(() => of([]))),
+      jobs: this.jobService.list().pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ pipelines, jobs }) => {
+        // Compute lastRun for each pipeline from jobs
+        const lastRunMap = new Map<string, Date>();
+        jobs.forEach((job: Job) => {
+          if (job.completedAt && (job.status?.toLowerCase() === 'completed' || job.status?.toLowerCase() === 'failed')) {
+            const completedAt = new Date(job.completedAt);
+            const existing = lastRunMap.get(job.pipelineId);
+            if (!existing || completedAt > existing) {
+              lastRunMap.set(job.pipelineId, completedAt);
+            }
+          }
+        });
+
+        // Enrich pipelines with lastRun
+        const enrichedPipelines = pipelines.map(p => ({
+          ...p,
+          lastRun: lastRunMap.get(p.id) || p.lastRun
+        }));
+
+        this.pipelines.set(enrichedPipelines);
         this.loading.set(false);
       },
       error: () => {
