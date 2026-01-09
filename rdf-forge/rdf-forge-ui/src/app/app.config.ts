@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners, APP_INITIALIZER, inject } from '@angular/core';
+import { ApplicationConfig, provideBrowserGlobalErrorListeners, APP_INITIALIZER, inject, ErrorHandler } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -8,6 +8,7 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { timeoutInterceptor } from './core/interceptors/timeout.interceptor';
 import { SettingsService } from './core/services/settings.service';
 import { AuthService } from './core/services/auth.service';
+import { GlobalErrorHandlerService } from './core/services/global-error-handler.service';
 
 /**
  * Initialize settings before the app starts
@@ -35,6 +36,10 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor, timeoutInterceptor])),
     provideAnimations(),
+    {
+      provide: ErrorHandler,
+      useClass: GlobalErrorHandlerService
+    },
     {
       provide: APP_INITIALIZER,
       useFactory: initializeSettings,

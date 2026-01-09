@@ -66,10 +66,19 @@ export class JobMonitor implements OnInit, OnDestroy {
     });
   }
 
+  logsError = signal(false);
+
   loadLogs(id: string): void {
+    this.logsError.set(false);
     this.jobService.getLogs(id, { limit: 100 }).subscribe({
       next: (data) => this.logs.set(data),
-      error: () => { /* ignored */ }
+      error: () => {
+        this.logsError.set(true);
+        // Only show error on first load, not during polling
+        if (this.logs().length === 0) {
+          this.snackBar.open('Failed to load job logs', 'Close', { duration: 3000 });
+        }
+      }
     });
   }
 

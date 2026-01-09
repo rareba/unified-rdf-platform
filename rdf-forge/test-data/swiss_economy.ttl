@@ -1,0 +1,81 @@
+@prefix ex: <http://example.org/swiss-economy/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix sdmx-dimension: <http://purl.org/linked-data/sdmx/2009/dimension#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Dataset definition
+ex:SwissEconomyDataset a qb:DataSet ;
+    rdfs:label "Swiss Economy Statistics by Canton"@en ;
+    rdfs:comment "Population and GDP data for Swiss cantons 2020-2022"@en .
+
+# Canton dimension values
+ex:Zurich a ex:Canton ; rdfs:label "Zurich"@en .
+ex:Bern a ex:Canton ; rdfs:label "Bern"@en .
+ex:Geneva a ex:Canton ; rdfs:label "Geneva"@en .
+
+# 2020 Data
+ex:observation-2020-zurich a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2020"^^xsd:gYear ;
+    ex:canton ex:Zurich ;
+    ex:population 1553423 ;
+    ex:gdpMillions 156789 .
+
+ex:observation-2020-bern a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2020"^^xsd:gYear ;
+    ex:canton ex:Bern ;
+    ex:population 1043132 ;
+    ex:gdpMillions 98765 .
+
+ex:observation-2020-geneva a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2020"^^xsd:gYear ;
+    ex:canton ex:Geneva ;
+    ex:population 504128 ;
+    ex:gdpMillions 67890 .
+
+# 2021 Data
+ex:observation-2021-zurich a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2021"^^xsd:gYear ;
+    ex:canton ex:Zurich ;
+    ex:population 1567892 ;
+    ex:gdpMillions 162345 .
+
+ex:observation-2021-bern a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2021"^^xsd:gYear ;
+    ex:canton ex:Bern ;
+    ex:population 1055678 ;
+    ex:gdpMillions 101234 .
+
+ex:observation-2021-geneva a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2021"^^xsd:gYear ;
+    ex:canton ex:Geneva ;
+    ex:population 512456 ;
+    ex:gdpMillions 70123 .
+
+# 2022 Data
+ex:observation-2022-zurich a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2022"^^xsd:gYear ;
+    ex:canton ex:Zurich ;
+    ex:population 1582345 ;
+    ex:gdpMillions 168901 .
+
+ex:observation-2022-bern a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2022"^^xsd:gYear ;
+    ex:canton ex:Bern ;
+    ex:population 1068234 ;
+    ex:gdpMillions 104567 .
+
+ex:observation-2022-geneva a qb:Observation ;
+    qb:dataSet ex:SwissEconomyDataset ;
+    sdmx-dimension:refPeriod "2022"^^xsd:gYear ;
+    ex:canton ex:Geneva ;
+    ex:population 520789 ;
+    ex:gdpMillions 72456 .

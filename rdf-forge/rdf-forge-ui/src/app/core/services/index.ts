@@ -8,3 +8,7 @@ export * from './dimension.service';
 export * from './triplestore.service';
 export * from './provider.service';
 export * from './cube.service';
+export * from './settings.service';
+export * from './global-error-handler.service';
+export * from './keyboard-shortcuts.service';
+export * from './notification.service';

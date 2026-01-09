@@ -66,6 +66,29 @@ export const BUILTIN_PREFIXES: PrefixMapping[] = [
 
 const STORAGE_KEY = 'rdf-forge-settings';
 
+/**
+ * Validation constraints for timeout settings
+ */
+export const TIMEOUT_CONSTRAINTS = {
+  min: 5,           // Minimum 5 seconds
+  max: 3600,        // Maximum 1 hour
+  defaultPipeline: 300,
+  defaultSparql: 60,
+  defaultRefresh: 30
+};
+
+export const PAGE_SIZE_CONSTRAINTS = {
+  min: 5,
+  max: 100,
+  default: 20
+};
+
+export const RESULT_LIMIT_CONSTRAINTS = {
+  min: 10,
+  max: 10000,
+  default: 1000
+};
+
 @Injectable({
   providedIn: 'root'
 })
@@ -146,10 +169,13 @@ export class SettingsService {
   }
 
   /**
-   * Update a single setting
+   * Update a single setting with validation
    */
   updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
-    this._settings.update(s => ({ ...s, [key]: value }));
+    // Validate and constrain numeric settings
+    const validatedValue = this.validateSettingValue(key, value);
+
+    this._settings.update(s => ({ ...s, [key]: validatedValue }));
 
     // Apply theme immediately when changed
     if (key === 'theme') {
@@ -157,6 +183,65 @@ export class SettingsService {
     }
 
     this.autoSave();
+  }
+
+  /**
+   * Validate and constrain setting values
+   */
+  private validateSettingValue<K extends keyof AppSettings>(key: K, value: AppSettings[K]): AppSettings[K] {
+    switch (key) {
+      case 'pipelineTimeout':
+      case 'sparqlTimeout':
+      case 'refreshInterval': {
+        const num = Number(value);
+        if (isNaN(num) || num < TIMEOUT_CONSTRAINTS.min) {
+          return TIMEOUT_CONSTRAINTS.min as AppSettings[K];
+        }
+        if (num > TIMEOUT_CONSTRAINTS.max) {
+          return TIMEOUT_CONSTRAINTS.max as AppSettings[K];
+        }
+        return Math.floor(num) as AppSettings[K];
+      }
+
+      case 'pageSize': {
+        const num = Number(value);
+        if (isNaN(num) || num < PAGE_SIZE_CONSTRAINTS.min) {
+          return PAGE_SIZE_CONSTRAINTS.min as AppSettings[K];
+        }
+        if (num > PAGE_SIZE_CONSTRAINTS.max) {
+          return PAGE_SIZE_CONSTRAINTS.max as AppSettings[K];
+        }
+        return Math.floor(num) as AppSettings[K];
+      }
+
+      case 'sparqlResultLimit': {
+        const num = Number(value);
+        if (isNaN(num) || num < RESULT_LIMIT_CONSTRAINTS.min) {
+          return RESULT_LIMIT_CONSTRAINTS.min as AppSettings[K];
+        }
+        if (num > RESULT_LIMIT_CONSTRAINTS.max) {
+          return RESULT_LIMIT_CONSTRAINTS.max as AppSettings[K];
+        }
+        return Math.floor(num) as AppSettings[K];
+      }
+
+      case 'maxParallelJobs': {
+        const num = Number(value);
+        if (isNaN(num) || num < 1) return 1 as AppSettings[K];
+        if (num > 10) return 10 as AppSettings[K];
+        return Math.floor(num) as AppSettings[K];
+      }
+
+      case 'retryAttempts': {
+        const num = Number(value);
+        if (isNaN(num) || num < 0) return 0 as AppSettings[K];
+        if (num > 10) return 10 as AppSettings[K];
+        return Math.floor(num) as AppSettings[K];
+      }
+
+      default:
+        return value;
+    }
   }
 
   /**

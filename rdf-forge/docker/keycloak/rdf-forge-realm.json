@@ -104,17 +104,20 @@
       "clientId": "rdf-forge-ui",
       "name": "RDF Forge UI",
       "description": "RDF Forge Angular Frontend Application",
-      "rootUrl": "http://localhost:4200",
+      "rootUrl": "http://localhost:3000",
+        "http://localhost:4200",
       "baseUrl": "/",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
+        "http://localhost:3000/*",
         "http://localhost:4200/*",
         "http://localhost:9080/*"
       ],
       "webOrigins": [
+        "http://localhost:3000",
         "http://localhost:4200",
         "http://localhost:9080"
       ],

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright configuration for Cube Creator X E2E tests
+ * Playwright configuration for RDF Forge E2E tests
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
@@ -29,7 +29,8 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:4200',
+    /* Default to port 4200 (dev server). Use E2E_BASE_URL=http://localhost:3000 for Docker */
+    baseURL: process.env['E2E_BASE_URL'] || 'http://localhost:4200',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -66,7 +67,9 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
+  /* When E2E_SKIP_SERVER is set, don't start the dev server (use Docker UI instead) */
+  /* Always use --configuration=offline for E2E tests (no authentication required) */
+  webServer: process.env['E2E_SKIP_SERVER'] === 'true' ? undefined : {
     command: 'npm run start -- --configuration=offline',
     url: 'http://localhost:4200',
     reuseExistingServer: !process.env['CI'],

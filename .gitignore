@@ -1,0 +1,43 @@
+# Auto Claude data directory
+.auto-claude/
+
+# Build artifacts
+**/target/
+**/dist/
+**/build/
+
+# Node
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Test results
+**/test-results/
+**/playwright-report/
+**/playwright-results.xml
+**/.angular/
+
+# Debug files
+**/debug*.png
+**/debug*.log
+**/*.log
+
+# Temporary files
+nul
+**/*.tmp
+**/*.bak
+
+# Local configuration
+.claude/settings.local.json
+.claude/*.local.md
+.claude_settings.json
+
+# Downloaded dependencies
+lindas-cube-link-main/
+lindas-cube-validator-main/

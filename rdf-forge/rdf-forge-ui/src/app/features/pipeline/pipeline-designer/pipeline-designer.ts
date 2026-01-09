@@ -377,7 +377,11 @@ export class PipelineDesigner implements OnInit {
       if (data) {
         try {
           op = JSON.parse(data);
-        } catch { }
+        } catch (e) {
+          console.warn('Failed to parse dropped operation data:', e);
+          this.snackBar.open('Invalid operation data', 'Close', { duration: 3000 });
+          return;
+        }
       }
     }
 

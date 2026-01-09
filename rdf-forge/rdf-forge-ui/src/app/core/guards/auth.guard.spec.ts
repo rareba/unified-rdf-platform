@@ -8,9 +8,13 @@ describe('authGuard', () => {
   let authService: jasmine.SpyObj<AuthService>;
   let mockRoute: ActivatedRouteSnapshot;
   let mockState: RouterStateSnapshot;
+  let originalAuthEnabled: boolean;
 
   beforeEach(() => {
-    const authSpy = jasmine.createSpyObj('AuthService', ['init'], {
+    originalAuthEnabled = environment.auth.enabled;
+    environment.auth.enabled = true;
+
+    const authSpy = jasmine.createSpyObj('AuthService', ['init', 'login'], {
       isAuthenticated: false
     });
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
@@ -23,9 +27,13 @@ describe('authGuard', () => {
     });
 
     authService = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
-    
+
     mockRoute = {} as ActivatedRouteSnapshot;
     mockState = { url: '/test' } as RouterStateSnapshot;
+  });
+
+  afterEach(() => {
+    environment.auth.enabled = originalAuthEnabled;
   });
 
   it('should return true when user is already authenticated', async () => {
@@ -89,17 +97,8 @@ describe('authGuard', () => {
   });
 
   describe('when auth is disabled', () => {
-    const originalEnvAuth = { ...environment.auth };
-
-    beforeAll(() => {
-      environment.auth.enabled = false;
-    });
-
-    afterAll(() => {
-      environment.auth = originalEnvAuth;
-    });
-
     it('should return true immediately', async () => {
+      environment.auth.enabled = false;
       const result = await TestBed.runInInjectionContext(() =>
         authGuard(mockRoute, mockState)
       );

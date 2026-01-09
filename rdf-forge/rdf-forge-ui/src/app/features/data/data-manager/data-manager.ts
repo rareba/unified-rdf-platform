@@ -164,8 +164,13 @@ export class DataManager implements OnInit {
     this.uploading.set(true);
     this.uploadProgress.set(0);
 
-    this.dataService.upload(file, { analyze: true }).subscribe({
+    this.dataService.uploadWithProgress(
+      file,
+      { analyze: true },
+      (progress) => this.uploadProgress.set(progress.progress)
+    ).subscribe({
       next: () => {
+        this.uploadProgress.set(100);
         this.snackBar.open(`${file.name} uploaded successfully`, 'Close', { duration: 3000 });
         this.uploading.set(false);
         this.uploadDialogVisible.set(false);
@@ -176,6 +181,7 @@ export class DataManager implements OnInit {
         console.error('Upload failed:', err);
         this.snackBar.open('Failed to upload file', 'Close', { duration: 3000 });
         this.uploading.set(false);
+        this.uploadProgress.set(0);
       }
     });
   }

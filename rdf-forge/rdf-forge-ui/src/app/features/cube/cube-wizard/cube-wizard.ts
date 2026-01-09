@@ -1174,6 +1174,7 @@ export class CubeWizard implements OnInit {
       },
       error: (err) => {
         console.warn('Failed to generate SHACL shape:', err);
+        this.snackBar.open('Failed to generate SHACL shape. Continuing with other steps...', 'Close', { duration: 4000 });
         // Continue with pipeline generation even if shape fails
         if (alsoGeneratePipeline) {
           this.generatePipelineFromCube(cubeId);
@@ -1200,6 +1201,7 @@ export class CubeWizard implements OnInit {
       },
       error: (err) => {
         console.warn('Failed to generate pipeline:', err);
+        this.snackBar.open('Failed to generate pipeline. Cube definition was saved successfully.', 'Close', { duration: 4000 });
         this.finishSave();
       }
     });
