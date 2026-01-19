@@ -57,11 +57,14 @@ public class CreateObservationOperation implements Operation {
     public OperationResult execute(OperationContext context) throws OperationException {
         String cubeUri = (String) context.parameters().get("cubeUri");
         String observationBaseUri = (String) context.parameters().getOrDefault("observationBaseUri", cubeUri + "/observation/");
-        Map<String, DimensionConfig> dimensions = (Map<String, DimensionConfig>) context.parameters().get("dimensions");
-        Map<String, MeasureConfig> measures = (Map<String, MeasureConfig>) context.parameters().get("measures");
-        Map<String, AttributeConfig> attributes = (Map<String, AttributeConfig>) context.parameters().getOrDefault("attributes", Collections.emptyMap());
+
+        // Parse dimension configurations - supports both simple {"col": "uri"} and full {"col": {...}} format
+        Map<String, DimensionConfig> dimensions = parseDimensionConfigs(context.parameters().get("dimensions"));
+        Map<String, MeasureConfig> measures = parseMeasureConfigs(context.parameters().get("measures"));
+        Map<String, AttributeConfig> attributes = parseAttributeConfigs(context.parameters().getOrDefault("attributes", Collections.emptyMap()));
+
         String dateFormat = (String) context.parameters().getOrDefault("dateFormat", "yyyy-MM-dd");
-        Boolean emitUndefined = (Boolean) context.parameters().getOrDefault("emitUndefined", false);
+        Boolean emitUndefined = parseBoolean(context.parameters().getOrDefault("emitUndefined", false));
 
         if (context.inputStream() == null) {
             throw new OperationException(getId(), "No input stream provided");
@@ -250,6 +253,150 @@ public class CreateObservationOperation implements Operation {
         } catch (NumberFormatException e) {
             return model.createLiteral(value.toString());
         }
+    }
+
+    /**
+     * Parse boolean from various input types (Boolean, String)
+     */
+    private boolean parseBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof String str) {
+            return Boolean.parseBoolean(str);
+        }
+        return false;
+    }
+
+    /**
+     * Parse dimension configurations from JSON parameter.
+     * Supports simple format: {"columnName": "propertyUri"}
+     * And full format: {"columnName": {"propertyUri": "...", "datatype": "..."}}
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, DimensionConfig> parseDimensionConfigs(Object dimensionsParam) {
+        if (dimensionsParam == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap = (Map<String, Object>) dimensionsParam;
+        Map<String, DimensionConfig> result = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
+            String columnName = entry.getKey();
+            Object value = entry.getValue();
+
+            DimensionConfig config;
+            if (value instanceof String uri) {
+                // Simple format: just the property URI
+                config = DimensionConfig.builder()
+                    .propertyUri(uri)
+                    .keyDimension(true) // Default to key dimension for simple format
+                    .build();
+            } else if (value instanceof Map) {
+                // Full format: nested object with configuration
+                Map<String, Object> configMap = (Map<String, Object>) value;
+                config = DimensionConfig.builder()
+                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
+                    .valueUri((String) configMap.get("valueUri"))
+                    .datatype((String) configMap.get("datatype"))
+                    .keyDimension(parseBoolean(configMap.getOrDefault("keyDimension", true)))
+                    .sharedDimensionUri((String) configMap.get("sharedDimensionUri"))
+                    .build();
+            } else {
+                log.warn("Unknown dimension config format for column {}: {}", columnName, value);
+                continue;
+            }
+
+            result.put(columnName, config);
+        }
+
+        return result;
+    }
+
+    /**
+     * Parse measure configurations from JSON parameter.
+     * Supports simple format: {"columnName": "propertyUri"}
+     * And full format: {"columnName": {"propertyUri": "...", "datatype": "..."}}
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, MeasureConfig> parseMeasureConfigs(Object measuresParam) {
+        if (measuresParam == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap = (Map<String, Object>) measuresParam;
+        Map<String, MeasureConfig> result = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
+            String columnName = entry.getKey();
+            Object value = entry.getValue();
+
+            MeasureConfig config;
+            if (value instanceof String uri) {
+                // Simple format: just the property URI
+                config = MeasureConfig.builder()
+                    .propertyUri(uri)
+                    .build();
+            } else if (value instanceof Map) {
+                // Full format: nested object with configuration
+                Map<String, Object> configMap = (Map<String, Object>) value;
+                config = MeasureConfig.builder()
+                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
+                    .datatype((String) configMap.get("datatype"))
+                    .unit((String) configMap.get("unit"))
+                    .build();
+            } else {
+                log.warn("Unknown measure config format for column {}: {}", columnName, value);
+                continue;
+            }
+
+            result.put(columnName, config);
+        }
+
+        return result;
+    }
+
+    /**
+     * Parse attribute configurations from JSON parameter.
+     * Supports simple format: {"columnName": "propertyUri"}
+     * And full format: {"columnName": {"propertyUri": "...", "datatype": "..."}}
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, AttributeConfig> parseAttributeConfigs(Object attributesParam) {
+        if (attributesParam == null) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap = (Map<String, Object>) attributesParam;
+        Map<String, AttributeConfig> result = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
+            String columnName = entry.getKey();
+            Object value = entry.getValue();
+
+            AttributeConfig config;
+            if (value instanceof String uri) {
+                // Simple format: just the property URI
+                config = AttributeConfig.builder()
+                    .propertyUri(uri)
+                    .build();
+            } else if (value instanceof Map) {
+                // Full format: nested object with configuration
+                Map<String, Object> configMap = (Map<String, Object>) value;
+                config = AttributeConfig.builder()
+                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
+                    .datatype((String) configMap.get("datatype"))
+                    .build();
+            } else {
+                log.warn("Unknown attribute config format for column {}: {}", columnName, value);
+                continue;
+            }
+
+            result.put(columnName, config);
+        }
+
+        return result;
     }
 
     @lombok.Data

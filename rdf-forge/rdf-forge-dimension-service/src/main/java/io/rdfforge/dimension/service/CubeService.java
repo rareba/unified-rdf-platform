@@ -33,6 +33,9 @@ public class CubeService {
     @Value("${rdf-forge.services.pipeline.url:http://pipeline-service:8080}")
     private String pipelineServiceUrl;
 
+    @Value("${rdf-forge.services.data.url:http://data-service:8080}")
+    private String dataServiceUrl;
+
     public CubeService(CubeRepository cubeRepository, RestTemplateBuilder restTemplateBuilder) {
         this.cubeRepository = cubeRepository;
         this.restTemplate = restTemplateBuilder.build();
@@ -303,37 +306,145 @@ public class CubeService {
         return turtle.toString();
     }
 
+    @SuppressWarnings("unchecked")
     private String buildPipelineDefinition(CubeEntity cube, UUID triplestoreId, String graphUri) {
         String finalGraphUri = graphUri != null ? graphUri : cube.getGraphUri();
         if (finalGraphUri == null) {
             finalGraphUri = cube.getUri();
         }
 
+        // Extract dimensions and measures from column mappings
+        StringBuilder dimensionsJson = new StringBuilder();
+        StringBuilder measuresJson = new StringBuilder();
+        StringBuilder attributesJson = new StringBuilder();
+
+        Map<String, Object> metadata = cube.getMetadata();
+        if (metadata != null && metadata.containsKey("columnMappings")) {
+            Object mappingsObj = metadata.get("columnMappings");
+            if (mappingsObj instanceof java.util.List<?> mappings) {
+                boolean firstDim = true;
+                boolean firstMeas = true;
+                boolean firstAttr = true;
+
+                for (Object m : mappings) {
+                    if (m instanceof Map<?, ?> mapping) {
+                        String role = (String) mapping.get("role");
+                        String columnName = (String) mapping.get("name");
+                        String datatype = (String) mapping.get("datatype");
+                        String predicateUri = (String) mapping.get("predicateUri");
+
+                        if (columnName == null || role == null || "ignore".equals(role)) {
+                            continue;
+                        }
+
+                        // Generate predicate URI if not provided
+                        if (predicateUri == null || predicateUri.isEmpty()) {
+                            predicateUri = cube.getUri() + "#" +
+                                columnName.toLowerCase().replace(" ", "-").replaceAll("[^a-z0-9-]", "");
+                        }
+
+                        String configJson = buildColumnConfigJson(predicateUri, datatype, "dimension".equals(role));
+
+                        if ("dimension".equals(role)) {
+                            if (!firstDim) dimensionsJson.append(",\n");
+                            dimensionsJson.append("            \"").append(escapeJson(columnName)).append("\": ").append(configJson);
+                            firstDim = false;
+                        } else if ("measure".equals(role)) {
+                            if (!firstMeas) measuresJson.append(",\n");
+                            measuresJson.append("            \"").append(escapeJson(columnName)).append("\": ").append(configJson);
+                            firstMeas = false;
+                        } else if ("attribute".equals(role)) {
+                            if (!firstAttr) attributesJson.append(",\n");
+                            attributesJson.append("            \"").append(escapeJson(columnName)).append("\": ").append(configJson);
+                            firstAttr = false;
+                        }
+                    }
+                }
+            }
+        }
+
         StringBuilder json = new StringBuilder();
         json.append("{\n");
-        json.append("  \"name\": \"Pipeline: ").append(cube.getName()).append("\",\n");
-        json.append("  \"description\": \"Auto-generated pipeline for cube: ").append(cube.getName()).append("\",\n");
+        json.append("  \"name\": \"Pipeline: ").append(escapeJson(cube.getName())).append("\",\n");
+        json.append("  \"description\": \"Auto-generated pipeline for cube: ").append(escapeJson(cube.getName())).append("\",\n");
+        json.append("  \"variables\": {},\n");
         json.append("  \"steps\": [\n");
 
-        // Step 1: Load data
+        // Step 1: Load data - use sourceFile variable or direct file path from metadata
+        // Try to get file path from cube metadata first
+        String sourceFilePath = getSourceFilePathFromMetadata(cube);
+        boolean isS3Path = sourceFilePath != null &&
+            (sourceFilePath.startsWith("s3://") || sourceFilePath.startsWith("data-sources/"));
+
+        if (isS3Path) {
+            // For S3/MinIO storage, use s3-get followed by load-csv
+            String bucket = "rdf-forge-data";
+            String key = sourceFilePath.startsWith("data-sources/")
+                ? sourceFilePath
+                : sourceFilePath.substring(5); // Remove "s3://"
+
+            json.append("    {\n");
+            json.append("      \"id\": \"step-1a\",\n");
+            json.append("      \"operation\": \"s3-get\",\n");
+            json.append("      \"name\": \"Download from Storage\",\n");
+            json.append("      \"params\": {\n");
+            json.append("        \"bucket\": \"").append(bucket).append("\",\n");
+            json.append("        \"key\": \"").append(escapeJson(key)).append("\"\n");
+            json.append("      }\n");
+            json.append("    },\n");
+        }
+
         json.append("    {\n");
         json.append("      \"id\": \"step-1\",\n");
         json.append("      \"operation\": \"load-csv\",\n");
         json.append("      \"name\": \"Load Source Data\",\n");
         json.append("      \"params\": {\n");
-        json.append("        \"sourceId\": \"").append(cube.getSourceDataId()).append("\"\n");
-        json.append("      }\n");
-        json.append("    },\n");
 
-        // Step 2: Map to RDF
+        if (sourceFilePath != null && !isS3Path) {
+            // Local file path
+            json.append("        \"file\": \"").append(escapeJson(sourceFilePath)).append("\"\n");
+        } else if (isS3Path) {
+            // Will use the output from s3-get step
+            json.append("        \"file\": \"${tempFile}\"\n");
+        } else {
+            // Use a variable placeholder that will be resolved at job execution
+            json.append("        \"file\": \"${sourceFile}\"\n");
+        }
+        json.append("      }");
+        if (isS3Path) {
+            json.append(",\n      \"inputConnections\": [\"step-1a\"]");
+        }
+        json.append("\n    },\n");
+
+        // Step 2: Create observations with full dimension/measure definitions
         json.append("    {\n");
         json.append("      \"id\": \"step-2\",\n");
         json.append("      \"operation\": \"create-observation\",\n");
         json.append("      \"name\": \"Create Cube Observations\",\n");
         json.append("      \"params\": {\n");
         json.append("        \"cubeUri\": \"").append(cube.getUri()).append("\",\n");
-        json.append("        \"cubeId\": \"").append(cube.getId()).append("\"\n");
-        json.append("      }\n");
+        json.append("        \"cubeId\": \"").append(cube.getId()).append("\",\n");
+        json.append("        \"observationBaseUri\": \"").append(cube.getUri()).append("/observation/\",\n");
+        json.append("        \"emitUndefined\": true,\n");
+
+        // Add dimensions
+        json.append("        \"dimensions\": {\n");
+        json.append(dimensionsJson);
+        json.append("\n        },\n");
+
+        // Add measures
+        json.append("        \"measures\": {\n");
+        json.append(measuresJson);
+        json.append("\n        }");
+
+        // Add attributes if present
+        if (attributesJson.length() > 0) {
+            json.append(",\n        \"attributes\": {\n");
+            json.append(attributesJson);
+            json.append("\n        }");
+        }
+
+        json.append("\n      }\n");
         json.append("    },\n");
 
         // Step 3: Validate (if shape exists)
@@ -348,16 +459,18 @@ public class CubeService {
             json.append("    },\n");
         }
 
-        // Step 4: Publish to triplestore
+        // Step 4: Publish to triplestore using Graph Store Protocol
         json.append("    {\n");
         json.append("      \"id\": \"step-4\",\n");
-        json.append("      \"operation\": \"publish-rdf\",\n");
+        json.append("      \"operation\": \"graph-store-put\",\n");
         json.append("      \"name\": \"Publish to Triplestore\",\n");
         json.append("      \"params\": {\n");
-        if (triplestoreId != null) {
-            json.append("        \"triplestoreId\": \"").append(triplestoreId).append("\",\n");
-        }
-        json.append("        \"graphUri\": \"").append(finalGraphUri).append("\"\n");
+
+        // Build the Graph Store endpoint URL (uses Docker network name)
+        String graphStoreEndpoint = "http://graphdb:7200/repositories/rdf-forge/statements";
+        json.append("        \"endpoint\": \"").append(graphStoreEndpoint).append("\",\n");
+        json.append("        \"graph\": \"").append(finalGraphUri).append("\",\n");
+        json.append("        \"method\": \"PUT\"\n");
         json.append("      }\n");
         json.append("    }\n");
 
@@ -365,5 +478,129 @@ public class CubeService {
         json.append("}\n");
 
         return json.toString();
+    }
+
+    /**
+     * Build JSON configuration for a column mapping (dimension/measure/attribute).
+     */
+    private String buildColumnConfigJson(String propertyUri, String datatype, boolean keyDimension) {
+        StringBuilder config = new StringBuilder();
+        config.append("{\n");
+        config.append("              \"propertyUri\": \"").append(propertyUri).append("\"");
+
+        if (datatype != null && !datatype.isEmpty()) {
+            config.append(",\n              \"datatype\": \"").append(datatype).append("\"");
+        }
+
+        if (keyDimension) {
+            config.append(",\n              \"keyDimension\": true");
+        }
+
+        config.append("\n            }");
+        return config.toString();
+    }
+
+    /**
+     * Escape special characters for JSON strings.
+     */
+    private String escapeJson(String value) {
+        if (value == null) return "";
+        return value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t");
+    }
+
+    /**
+     * Try to extract source file path from cube metadata or data service.
+     * First checks cube metadata, then looks up the data source by ID.
+     */
+    private String getSourceFilePathFromMetadata(CubeEntity cube) {
+        Map<String, Object> metadata = cube.getMetadata();
+
+        // First, check cube metadata for cached file path
+        if (metadata != null) {
+            String[] possibleKeys = {"sourceFilePath", "filePath", "file", "sourcePath"};
+            for (String key : possibleKeys) {
+                Object value = metadata.get(key);
+                if (value instanceof String str && !str.isEmpty()) {
+                    return str;
+                }
+            }
+
+            // Also check in dataSource sub-object if present
+            Object dataSource = metadata.get("dataSource");
+            if (dataSource instanceof Map<?, ?> dsMap) {
+                Object path = dsMap.get("path");
+                if (path instanceof String str && !str.isEmpty()) {
+                    return str;
+                }
+                path = dsMap.get("storagePath");
+                if (path instanceof String str && !str.isEmpty()) {
+                    return str;
+                }
+            }
+        }
+
+        // If no path in metadata, try to look up from data service
+        if (cube.getSourceDataId() != null) {
+            return lookupDataSourcePath(cube.getSourceDataId());
+        }
+
+        return null;
+    }
+
+    /**
+     * Look up the storage path for a data source by ID.
+     * Returns the path or null if not found.
+     * Converts S3/MinIO paths to local demo paths when applicable.
+     */
+    @SuppressWarnings("unchecked")
+    private String lookupDataSourcePath(UUID sourceDataId) {
+        try {
+            String url = dataServiceUrl + "/api/v1/data/" + sourceDataId;
+            Map<String, Object> dataSource = restTemplate.getForObject(url, Map.class);
+            if (dataSource != null) {
+                Object storagePath = dataSource.get("storagePath");
+                if (storagePath instanceof String str && !str.isEmpty()) {
+                    // Convert S3/MinIO paths to local paths for demo data
+                    // e.g., "rdf-forge-data/demo/file.csv" -> "demo/file.csv"
+                    return normalizeStoragePath(str);
+                }
+            }
+        } catch (Exception e) {
+            // Log but don't fail - source path can be provided as variable
+            // log.warn("Could not look up data source path: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Normalize storage paths for local execution.
+     * Converts S3/MinIO bucket paths to local mount paths.
+     */
+    private String normalizeStoragePath(String storagePath) {
+        if (storagePath == null) {
+            return null;
+        }
+
+        // Handle demo data paths: "rdf-forge-data/demo/file.csv" -> "demo/file.csv"
+        if (storagePath.contains("/demo/")) {
+            int demoIndex = storagePath.indexOf("/demo/");
+            return storagePath.substring(demoIndex + 1); // returns "demo/file.csv"
+        }
+
+        // Handle s3:// prefixed paths
+        if (storagePath.startsWith("s3://")) {
+            String withoutProtocol = storagePath.substring(5);
+            int slashIndex = withoutProtocol.indexOf('/');
+            if (slashIndex > 0) {
+                return withoutProtocol.substring(slashIndex + 1);
+            }
+        }
+
+        return storagePath;
     }
 }

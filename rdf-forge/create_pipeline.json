@@ -1,0 +1,13 @@
+{
+    "projectId": "11111111-1111-1111-1111-111111111111",
+    "name": "Full Swiss Economy Pipeline",
+    "description": "Full lifecycle: Load, Filter, Transform, Cube Observation, SHACL Validate, and GraphDB Publish.",
+    "definitionFormat": "JSON",
+    "definition": "{\"steps\":[{\"id\":\"load\",\"operation\":\"load-csv\",\"parameters\":{\"file\":\"test-data/swiss_economy.csv\",\"hasHeader\":true,\"delimiter\":\",\"}},{\"id\":\"filter\",\"operation\":\"filter\",\"parameters\":{\"condition\":\"item.population > 1000000\"},\"inputs\":[\"load\"]},{\"id\":\"map\",\"operation\":\"map\",\"parameters\":{\"function\":\"item => { item.gdp = parseFloat(item.gdp_millions); item.population = parseInt(item.population); return item; }\"},\"inputs\":[\"filter\"]},{\"id\":\"cube\",\"operation\":\"create-observation\",\"parameters\":{\"cubeUri\":\"https://example.org/cube/swiss-economy\",\"dimensions\":{\"year\":\"http://example.org/property/year\",\"canton\":\"http://example.org/property/canton\"},\"measures\":{\"population\":\"http://example.org/property/population\",\"gdp\":\"http://example.org/property/gdp\"}},\"inputs\":[\"map\"]},{\"id\":\"validate\",\"operation\":\"validate-shacl\",\"parameters\":{\"shapeContent\":\"@prefix sh: <http://www.w3.org/ns/shacl#> .\\n@prefix ex: <http://example.org/property/> .\\n@prefix cube: <http://purl.org/linked-data/cube#> .\\n\\n[] a sh:NodeShape ;\\n    sh:targetClass cube:Observation ;\\n    sh:property [\\n        sh:path ex:population ;\\n        sh:datatype <http://www.w3.org/2001/XMLSchema#integer> ;\\n        sh:minCount 1 ;\\n    ] .\"},\"inputs\":[\"cube\"]},{\"id\":\"publish\",\"operation\":\"graph-store-put\",\"parameters\":{\"endpoint\":\"http://graphdb:7200/repositories/rdf-forge/statements\",\"graph\":\"https://example.org/graph/swiss-economy\",\"format\":\"turtle\"},\"inputs\":[\"validate\"]}]}",
+    "variables": {},
+    "tags": [
+        "economy",
+        "swiss",
+        "cube"
+    ]
+}

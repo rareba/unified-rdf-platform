@@ -1,0 +1,7 @@
+{
+    "projectId": "11111111-1111-1111-1111-111111111111",
+    "name": "Minimal Pipeline",
+    "description": "Minimal test pipeline",
+    "definitionFormat": "JSON",
+    "definition": "{\"steps\":[{\"id\":\"load\",\"operation\":\"load-csv\",\"parameters\":{\"file\":\"test-data/swiss_economy.csv\"}}]}"
+}

@@ -1,0 +1,10 @@
+{
+    "name": "Minimal Mirrored",
+    "description": "Minimal test pipeline mirroring existing structure",
+    "definitionFormat": "JSON",
+    "definition": "{\"steps\":[{\"id\":\"load\",\"operation\":\"load-csv\",\"parameters\":{\"file\":\"test-data/swiss_economy.csv\"}}]}",
+    "variables": {},
+    "tags": [],
+    "version": 1,
+    "template": false
+}

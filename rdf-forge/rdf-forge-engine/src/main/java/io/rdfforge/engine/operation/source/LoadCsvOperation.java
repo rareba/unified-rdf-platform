@@ -54,10 +54,10 @@ public class LoadCsvOperation implements Operation {
     @Override
     public OperationResult execute(OperationContext context) throws OperationException {
         String filePath = (String) context.parameters().get("file");
-        char delimiter = (char) context.parameters().getOrDefault("delimiter", ',');
+        char delimiter = parseDelimiter(context.parameters().getOrDefault("delimiter", ','));
         String encoding = (String) context.parameters().getOrDefault("encoding", "UTF-8");
-        boolean hasHeader = (boolean) context.parameters().getOrDefault("hasHeader", true);
-        int skipRows = (int) context.parameters().getOrDefault("skipRows", 0);
+        boolean hasHeader = parseBoolean(context.parameters().getOrDefault("hasHeader", true));
+        int skipRows = parseInteger(context.parameters().getOrDefault("skipRows", 0));
 
         try {
             Path path = Path.of(filePath);
@@ -150,5 +150,51 @@ public class LoadCsvOperation implements Operation {
         public int characteristics() {
             return ORDERED | NONNULL;
         }
+    }
+
+    /**
+     * Parse delimiter from various input types (String, Character, char)
+     */
+    private char parseDelimiter(Object value) {
+        if (value instanceof Character) {
+            return (Character) value;
+        }
+        if (value instanceof String str) {
+            return str.isEmpty() ? ',' : str.charAt(0);
+        }
+        return ',';
+    }
+
+    /**
+     * Parse boolean from various input types (Boolean, String)
+     */
+    private boolean parseBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof String str) {
+            return Boolean.parseBoolean(str);
+        }
+        return true;
+    }
+
+    /**
+     * Parse integer from various input types (Integer, Number, String)
+     */
+    private int parseInteger(Object value) {
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof Number num) {
+            return num.intValue();
+        }
+        if (value instanceof String str) {
+            try {
+                return Integer.parseInt(str);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
 }

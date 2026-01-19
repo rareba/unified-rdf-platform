@@ -78,6 +78,7 @@ public class PipelineExecutor {
         Model inputModel = null;
 
         if (step.getInputConnections() != null && !step.getInputConnections().isEmpty()) {
+            // Explicit connections defined - use those
             for (String inputStepId : step.getInputConnections()) {
                 StepResult inputResult = context.getStepResult(inputStepId);
                 if (inputResult != null) {
@@ -90,6 +91,17 @@ public class PipelineExecutor {
                         }
                         inputModel.add(inputResult.getOutputModel());
                     }
+                }
+            }
+        } else if (operation.getType() != Operation.OperationType.SOURCE) {
+            // No explicit connections and not a SOURCE operation - use previous step's output (implicit chaining)
+            StepResult previousResult = context.getPreviousStepResult();
+            if (previousResult != null) {
+                if (previousResult.getOutputStream() != null) {
+                    inputStream = previousResult.getOutputStream();
+                }
+                if (previousResult.getOutputModel() != null) {
+                    inputModel = previousResult.getOutputModel();
                 }
             }
         }
@@ -255,13 +267,19 @@ public class PipelineExecutor {
         private final Map<String, StepResult> stepResults = new ConcurrentHashMap<>();
         private final Map<String, Object> metrics = new ConcurrentHashMap<>();
         private String currentStep;
+        private StepResult previousStepResult;
 
         public void addStepResult(String stepId, StepResult result) {
             stepResults.put(stepId, result);
+            previousStepResult = result; // Track for implicit chaining
         }
 
         public StepResult getStepResult(String stepId) {
             return stepResults.get(stepId);
+        }
+
+        public StepResult getPreviousStepResult() {
+            return previousStepResult;
         }
 
         public Map<String, StepResult> getAllStepResults() {

@@ -244,6 +244,8 @@ services:
       args:
         SERVICE_NAME: rdf-forge-job-service
     container_name: rdf-forge-job-service
+    volumes:
+      - ./demo-data:/app/demo:ro
     environment:
       SERVER_PORT: 8080
       SPRING_PROFILES_ACTIVE: noauth,graphdb

@@ -281,13 +281,14 @@ export class PipelineDesigner implements OnInit {
   navigator = navigator;
 
   ngOnInit(): void {
-    this.loadOperations();
-
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       this.isNew.set(false);
       this.pipelineId.set(id);
-      this.loadPipeline(id);
+      // Load operations first, then load pipeline to avoid race condition
+      this.loadOperationsAndPipeline(id);
+    } else {
+      this.loadOperations();
     }
   }
 
@@ -295,6 +296,24 @@ export class PipelineDesigner implements OnInit {
     this.pipelineService.getOperations().subscribe({
       next: (ops) => this.availableOperations.set(ops),
       error: () => this.snackBar.open('Failed to load operations', 'Close', { duration: 3000 })
+    });
+  }
+
+  /**
+   * Loads operations first, then loads the pipeline.
+   * This ensures operation types are available when parsing the pipeline definition.
+   */
+  loadOperationsAndPipeline(id: string): void {
+    this.loading.set(true);
+    this.pipelineService.getOperations().subscribe({
+      next: (ops) => {
+        this.availableOperations.set(ops);
+        this.loadPipeline(id);
+      },
+      error: () => {
+        this.snackBar.open('Failed to load operations', 'Close', { duration: 3000 });
+        this.loading.set(false);
+      }
     });
   }
 
@@ -319,10 +338,10 @@ export class PipelineDesigner implements OnInit {
     try {
       const parsed = JSON.parse(definition);
       const steps = parsed.steps || [];
-      const ops = this.availableOperations();
 
       const loadedNodes: PipelineNode[] = steps.map((step: any, index: number) => {
-        const op = ops.find(o => o.id === step.operation);
+        // Use getOperationById to handle the 'op:' prefix normalization
+        const op = this.getOperationById(step.operation);
         return {
           id: step.id || `step-${index}`,
           operationId: step.operation,
@@ -352,7 +371,9 @@ export class PipelineDesigner implements OnInit {
   }
 
   getOperationById(id: string): Operation | undefined {
-    return this.availableOperations().find(o => o.id === id);
+    // Normalize the ID by removing 'op:' prefix if present
+    const normalizedId = id.startsWith('op:') ? id.substring(3) : id;
+    return this.availableOperations().find(o => o.id === normalizedId || o.id === id);
   }
 
   // Drag operation from palette to canvas
@@ -432,7 +453,8 @@ export class PipelineDesigner implements OnInit {
   configureNode(node: PipelineNode, event?: Event): void {
     event?.stopPropagation();
     this.selectedNode.set({ ...node });
-    const op = this.availableOperations().find(o => o.id === node.operationId);
+    // Use getOperationById to handle the 'op:' prefix normalization
+    const op = this.getOperationById(node.operationId);
     this.selectedOperation.set(op || null);
     this.configDialogVisible.set(true);
   }

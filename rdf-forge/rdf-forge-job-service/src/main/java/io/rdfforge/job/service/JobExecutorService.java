@@ -137,11 +137,16 @@ public class JobExecutorService {
         List<PipelineStep> steps = new ArrayList<>();
         for (Map<String, Object> stepData : stepsData) {
             @SuppressWarnings("unchecked")
+            // Support both "params" (UI format) and "parameters" (API format)
+            Map<String, Object> params = (Map<String, Object>) stepData.get("params");
+            if (params == null) {
+                params = (Map<String, Object>) stepData.get("parameters");
+            }
             PipelineStep step = PipelineStep.builder()
                 .id((String) stepData.get("id"))
                 .operationType((String) stepData.get("operation"))
                 .name((String) stepData.get("name"))
-                .parameters((Map<String, Object>) stepData.get("parameters"))
+                .parameters(params)
                 .inputConnections((List<String>) stepData.get("inputs"))
                 .outputConnections((List<String>) stepData.get("outputs"))
                 .build();

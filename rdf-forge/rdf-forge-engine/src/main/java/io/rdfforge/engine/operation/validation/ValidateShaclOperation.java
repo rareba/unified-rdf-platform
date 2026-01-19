@@ -64,6 +64,18 @@ public class ValidateShaclOperation implements Operation {
         }
 
         Model shapesModel = loadShapes(shapeFile, shapeContent);
+
+        // If no shapes provided, skip validation and pass through the model
+        if (shapesModel == null) {
+            if (context.callback() != null) {
+                context.callback().onLog("WARN", "SHACL validation skipped: no shapes provided (shapeFile or shapeContent)");
+            }
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("skipped", true);
+            metadata.put("reason", "No shapes provided");
+            return new OperationResult(true, null, context.inputModel(), metadata, null);
+        }
+
         ValidationReport report = shaclValidator.validate(context.inputModel(), shapesModel);
 
         if (context.callback() != null) {
@@ -114,7 +126,8 @@ public class ValidateShaclOperation implements Operation {
                 throw new OperationException(getId(), "Error parsing shape content: " + e.getMessage(), e);
             }
         } else {
-            throw new OperationException(getId(), "No shapes provided (shapeFile or shapeContent required)");
+            // No shapes provided - return null to indicate skip validation
+            return null;
         }
 
         return shapesModel;
