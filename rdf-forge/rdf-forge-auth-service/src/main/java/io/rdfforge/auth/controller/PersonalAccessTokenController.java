@@ -8,7 +8,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,21 +18,37 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth/tokens")
-@RequiredArgsConstructor
 @Tag(name = "Personal Access Tokens", description = "Manage Personal Access Tokens for API authentication")
 public class PersonalAccessTokenController {
 
     private final PersonalAccessTokenService tokenService;
+    private final String internalServiceKey;
+
+    public PersonalAccessTokenController(
+            PersonalAccessTokenService tokenService,
+            @org.springframework.beans.factory.annotation.Value("${INTERNAL_SERVICE_KEY:}") String internalServiceKey) {
+        this.tokenService = tokenService;
+        this.internalServiceKey = internalServiceKey;
+    }
+
+    private boolean isInternalServiceKeyValid(String headerValue) {
+        return internalServiceKey != null
+                && !internalServiceKey.isBlank()
+                && internalServiceKey.equals(headerValue);
+    }
 
     @Operation(summary = "List all tokens", description = "Get all Personal Access Tokens for the current user")
     @GetMapping
     public ResponseEntity<List<PersonalAccessToken>> listTokens(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey,
             @RequestParam(defaultValue = "false") boolean includeRevoked) {
 
-        // In standalone mode, use a default user ID
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userId == null) {
-            userId = getDefaultUserId();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         List<PersonalAccessToken> tokens = tokenService.listUserTokens(userId, includeRevoked);
@@ -44,10 +59,14 @@ public class PersonalAccessTokenController {
     @PostMapping
     public ResponseEntity<CreateTokenResponse> createToken(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey,
             @Valid @RequestBody CreateTokenRequest request) {
 
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userId == null) {
-            userId = getDefaultUserId();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         try {
@@ -73,10 +92,14 @@ public class PersonalAccessTokenController {
     @GetMapping("/{tokenId}")
     public ResponseEntity<PersonalAccessToken> getToken(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey,
             @PathVariable UUID tokenId) {
 
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userId == null) {
-            userId = getDefaultUserId();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         return tokenService.getToken(tokenId, userId)
@@ -88,10 +111,14 @@ public class PersonalAccessTokenController {
     @DeleteMapping("/{tokenId}")
     public ResponseEntity<Void> revokeToken(
             @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey,
             @PathVariable UUID tokenId) {
 
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userId == null) {
-            userId = getDefaultUserId();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         boolean revoked = tokenService.revokeToken(tokenId, userId);
@@ -101,10 +128,14 @@ public class PersonalAccessTokenController {
     @Operation(summary = "Revoke all tokens", description = "Revoke all Personal Access Tokens for the current user")
     @DeleteMapping
     public ResponseEntity<RevokeAllResponse> revokeAllTokens(
-            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey) {
 
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userId == null) {
-            userId = getDefaultUserId();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         int revokedCount = tokenService.revokeAllTokens(userId);
@@ -117,8 +148,13 @@ public class PersonalAccessTokenController {
     @PostMapping("/validate")
     public ResponseEntity<PersonalAccessToken> validateToken(
             @RequestBody ValidateTokenRequest request,
+            @RequestHeader(value = "X-Internal-Service-Key", required = false) String serviceKey,
             @RequestHeader(value = "X-Forwarded-For", required = false) String forwardedFor,
             @RequestHeader(value = "X-Real-IP", required = false) String realIp) {
+
+        if (!isInternalServiceKeyValid(serviceKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         String clientIp = forwardedFor != null ? forwardedFor.split(",")[0].trim()
                 : (realIp != null ? realIp : "unknown");
@@ -128,10 +164,6 @@ public class PersonalAccessTokenController {
                 .orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
-    private UUID getDefaultUserId() {
-        // Default user ID for standalone mode
-        return UUID.fromString("00000000-0000-0000-0000-000000000001");
-    }
 
     @Data
     public static class CreateTokenRequest {

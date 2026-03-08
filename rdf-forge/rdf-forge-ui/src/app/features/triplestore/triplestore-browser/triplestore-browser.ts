@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -18,6 +18,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { OverlayModule } from '@angular/cdk/overlay';
 import { TriplestoreService, ProviderService } from '../../../core/services';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { LoggerService } from '../../../core/services/logger.service';
 import {
   TriplestoreConnection,
   ConnectionCreateRequest,
@@ -59,12 +61,15 @@ interface QueryTemplate {
   ],
   templateUrl: './triplestore-browser.html',
   styleUrl: './triplestore-browser.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TriplestoreBrowser implements OnInit {
   private readonly triplestoreService = inject(TriplestoreService);
   private readonly providerService = inject(ProviderService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly logger = inject(LoggerService);
 
   // Core data
   connections = signal<TriplestoreConnection[]>([]);
@@ -210,7 +215,7 @@ export class TriplestoreBrowser implements OnInit {
       },
       error: () => {
         // Keep fallback defaults if API is unavailable
-        console.warn('Failed to load triplestore providers, using defaults');
+        this.logger.warn('Failed to load triplestore providers, using defaults');
       }
     });
   }
@@ -367,9 +372,16 @@ export class TriplestoreBrowser implements OnInit {
   }
 
   confirmDeleteConnection(conn: TriplestoreConnection): void {
-    if (confirm(`Are you sure you want to delete "${conn.name}"?`)) {
-      this.deleteConnection(conn);
-    }
+    this.confirmationService.confirm({
+      title: 'Delete Connection',
+      message: `Are you sure you want to delete "${conn.name}"?`,
+      confirmText: 'Delete',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.deleteConnection(conn);
+      }
+    });
   }
 
   deleteConnection(conn: TriplestoreConnection): void {
@@ -464,9 +476,16 @@ export class TriplestoreBrowser implements OnInit {
   }
 
   confirmDeleteGraph(graph: Graph): void {
-    if (confirm(`Are you sure you want to delete graph "${graph.uri}"? This will remove ${this.formatNumber(graph.tripleCount)} triples.`)) {
-      this.deleteGraph(graph);
-    }
+    this.confirmationService.confirm({
+      title: 'Delete Graph',
+      message: `Are you sure you want to delete graph "${graph.uri}"? This will remove ${this.formatNumber(graph.tripleCount)} triples.`,
+      confirmText: 'Delete',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.deleteGraph(graph);
+      }
+    });
   }
 
   deleteGraph(graph: Graph): void {

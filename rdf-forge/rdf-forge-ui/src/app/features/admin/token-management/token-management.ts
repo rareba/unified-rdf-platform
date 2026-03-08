@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 
 interface PersonalAccessToken {
   id: string;
@@ -355,11 +356,13 @@ const TOKEN_EXPIRATION_OPTIONS = [
       font-family: monospace;
       word-break: break-all;
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TokenManagement implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly confirmationService = inject(ConfirmationService);
 
   readonly env = environment;
   readonly displayedColumns = ['name', 'token', 'expires', 'lastUsed', 'status', 'actions'];
@@ -467,22 +470,28 @@ export class TokenManagement implements OnInit {
   }
 
   revokeToken(token: PersonalAccessToken): void {
-    if (!confirm(`Revoke token "${token.name}"? This cannot be undone.`)) return;
-
-    this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
-      next: () => {
-        this.tokens.update(tokens =>
-          tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
-        );
-        this.snackBar.open('Token revoked', 'Close', { duration: 3000 });
-      },
-      error: () => {
-        // Demo mode
-        this.tokens.update(tokens =>
-          tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
-        );
-        this.snackBar.open('Token revoked (demo mode)', 'Close', { duration: 3000 });
-      }
+    this.confirmationService.confirm({
+      title: 'Revoke Token',
+      message: `Revoke token "${token.name}"? This cannot be undone.`,
+      confirmText: 'Revoke',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
+        next: () => {
+          this.tokens.update(tokens =>
+            tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
+          );
+          this.snackBar.open('Token revoked', 'Close', { duration: 3000 });
+        },
+        error: () => {
+          // Demo mode
+          this.tokens.update(tokens =>
+            tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)
+          );
+          this.snackBar.open('Token revoked (demo mode)', 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -8,9 +8,12 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
-import { forkJoin, catchError, of } from 'rxjs';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { forkJoin, catchError, of, Subject, retry, takeUntil, timer } from 'rxjs';
 import { PipelineService, JobService, DataService, ShaclService } from '../../core/services';
+import { LoggerService } from '../../core/services/logger.service';
 import { Job, Operation } from '../../core/models';
+import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader';
 
 interface DashboardStats {
   pipelines: number;
@@ -37,19 +40,26 @@ interface OperationGroup {
     MatTableModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatDividerModule
+    MatDividerModule,
+    MatSnackBarModule,
+    SkeletonLoaderComponent
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class Dashboard implements OnInit {
+export class Dashboard implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
   private readonly jobService = inject(JobService);
   private readonly dataService = inject(DataService);
   private readonly shaclService = inject(ShaclService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly logger = inject(LoggerService);
+  private readonly destroy$ = new Subject<void>();
 
   loading = signal(true);
+  error = signal<string | null>(null);
   stats = signal<DashboardStats>({ pipelines: 0, completedJobs: 0, shapes: 0, dataSources: 0 });
   recentJobs = signal<Job[]>([]);
   operations = signal<Operation[]>([]);
@@ -99,37 +109,72 @@ export class Dashboard implements OnInit {
     this.loadDashboardData();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadDashboardData(): void {
     this.loading.set(true);
+    this.error.set(null);
 
     forkJoin({
-      pipelines: this.pipelineService.list().pipe(catchError(() => of([]))),
-      jobs: this.jobService.list().pipe(catchError(() => of([]))),
-      shapes: this.shaclService.list().pipe(catchError(() => of([]))),
-      dataSources: this.dataService.list().pipe(catchError(() => of([]))),
-      operations: this.pipelineService.getOperations().pipe(catchError(() => of([])))
-    }).subscribe(({ pipelines, jobs, shapes, dataSources, operations }) => {
-      this.stats.set({
-        pipelines: pipelines.length,
-        completedJobs: jobs.filter(j => j.status?.toLowerCase() === 'completed').length,
-        shapes: shapes.length,
-        dataSources: dataSources.length
-      });
+      pipelines: this.pipelineService.list().pipe(
+        catchError(() => of([])),
+        retry({ count: 2, delay: 1000 })
+      ),
+      jobs: this.jobService.list().pipe(
+        catchError(() => of([])),
+        retry({ count: 2, delay: 1000 })
+      ),
+      shapes: this.shaclService.list().pipe(
+        catchError(() => of([])),
+        retry({ count: 2, delay: 1000 })
+      ),
+      dataSources: this.dataService.list().pipe(
+        catchError(() => of([])),
+        retry({ count: 2, delay: 1000 })
+      ),
+      operations: this.pipelineService.getOperations().pipe(
+        catchError(() => of([])),
+        retry({ count: 2, delay: 1000 })
+      )
+    }).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: ({ pipelines, jobs, shapes, dataSources, operations }) => {
+        this.stats.set({
+          pipelines: pipelines.length,
+          completedJobs: jobs.filter(j => j.status?.toLowerCase() === 'completed').length,
+          shapes: shapes.length,
+          dataSources: dataSources.length
+        });
 
-      this.operations.set(operations);
+        this.operations.set(operations);
 
-      // Create pipeline name lookup map
-      const pipelineNameMap = new Map(pipelines.map(p => [p.id, p.name]));
+        // Create pipeline name lookup map
+        const pipelineNameMap = new Map(pipelines.map(p => [p.id, p.name]));
 
-      // Enrich jobs with pipeline names
-      const enrichedJobs = jobs.slice(0, 5).map(job => ({
-        ...job,
-        pipelineName: pipelineNameMap.get(job.pipelineId) || 'Unknown Pipeline'
-      }));
+        // Enrich jobs with pipeline names
+        const enrichedJobs = jobs.slice(0, 5).map(job => ({
+          ...job,
+          pipelineName: pipelineNameMap.get(job.pipelineId) || 'Unknown Pipeline'
+        }));
 
-      this.recentJobs.set(enrichedJobs);
-      this.loading.set(false);
+        this.recentJobs.set(enrichedJobs);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.logger.error('Failed to load dashboard data:', err);
+        this.error.set('Failed to load dashboard data. Please try again.');
+        this.loading.set(false);
+        this.snackBar.open('Failed to load dashboard data', 'Close', { duration: 5000 });
+      }
     });
+  }
+
+  retryLoad(): void {
+    this.loadDashboardData();
   }
 
   startWorkflow(workflowType: string): void {
@@ -170,9 +215,16 @@ export class Dashboard implements OnInit {
     return map[status?.toLowerCase()] || '';
   }
 
+  formatNumber(value: number): string {
+    if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+    return value.toString();
+  }
+
   formatDate(date: Date | undefined): string {
     if (!date) return '-';
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(undefined, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

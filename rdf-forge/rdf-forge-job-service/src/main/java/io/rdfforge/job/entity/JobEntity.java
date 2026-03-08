@@ -8,7 +8,12 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "jobs")
+@Table(name = "jobs", indexes = {
+    @Index(name = "idx_jobs_status", columnList = "status"),
+    @Index(name = "idx_jobs_pipeline_id", columnList = "pipeline_id"),
+    @Index(name = "idx_jobs_created_by", columnList = "created_by"),
+    @Index(name = "idx_jobs_status_started_at", columnList = "status, started_at")
+})
 public class JobEntity {
 
     @Id
@@ -27,6 +32,9 @@ public class JobEntity {
 
     @Column
     private Integer priority = 5;
+    
+    @Column
+    private Integer progress = 0;
 
     @Column(name = "is_dry_run")
     private boolean dryRun = false;
@@ -87,6 +95,9 @@ public class JobEntity {
     
     public Integer getPriority() { return priority; }
     public void setPriority(Integer priority) { this.priority = priority; }
+    
+    public Integer getProgress() { return progress; }
+    public void setProgress(Integer progress) { this.progress = progress; }
 
     public boolean isDryRun() { return dryRun; }
     public void setDryRun(boolean dryRun) { this.dryRun = dryRun; }

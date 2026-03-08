@@ -1,4 +1,5 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, DestroyRef, inject } from '@angular/core';
+import { LoggerService } from './logger.service';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
 
@@ -93,6 +94,7 @@ export const RESULT_LIMIT_CONSTRAINTS = {
   providedIn: 'root'
 })
 export class SettingsService {
+  private readonly logger = inject(LoggerService);
   // Core settings state
   private readonly _settings = signal<AppSettings>({ ...DEFAULT_SETTINGS });
   private readonly _prefixes = signal<PrefixMapping[]>([...BUILTIN_PREFIXES]);
@@ -131,21 +133,35 @@ export class SettingsService {
   // Auto-save debounce
   private autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // Store cleanup functions for event listeners
+  private cleanupFns: (() => void)[] = [];
+
   constructor() {
     // Set up effect to listen for system theme changes when theme is 'system'
     if (typeof window !== 'undefined') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQuery.addEventListener('change', () => {
+      const mediaHandler = () => {
         if (this._settings().theme === 'system') {
           this.applyTheme();
         }
-      });
+      };
+      mediaQuery.addEventListener('change', mediaHandler);
+      this.cleanupFns.push(() => mediaQuery.removeEventListener('change', mediaHandler));
 
       // Listen for storage events from other tabs
-      window.addEventListener('storage', (event) => {
+      const storageHandler = (event: StorageEvent) => {
         if (event.key === STORAGE_KEY && event.newValue) {
           this.loadFromStorageData(event.newValue);
         }
+      };
+      window.addEventListener('storage', storageHandler);
+      this.cleanupFns.push(() => window.removeEventListener('storage', storageHandler));
+
+      // Register cleanup on destroy
+      const destroyRef = inject(DestroyRef);
+      destroyRef.onDestroy(() => {
+        this.cleanupFns.forEach(fn => fn());
+        this.cleanupFns = [];
       });
     }
   }
@@ -269,7 +285,7 @@ export class SettingsService {
         this.loadFromStorageData(saved);
       }
     } catch (e) {
-      console.error('Failed to load settings from localStorage', e);
+      this.logger.error('Failed to load settings from localStorage', e);
     }
   }
 
@@ -286,7 +302,7 @@ export class SettingsService {
         ]);
       }
     } catch (e) {
-      console.error('Failed to parse settings data', e);
+      this.logger.error('Failed to parse settings data', e);
     }
   }
 
@@ -303,7 +319,7 @@ export class SettingsService {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error('Failed to save settings to localStorage', e);
+      this.logger.error('Failed to save settings to localStorage', e);
     }
   }
 
@@ -455,7 +471,7 @@ export class SettingsService {
       this.applyTheme();
       return true;
     } catch (e) {
-      console.error('Failed to import settings', e);
+      this.logger.error('Failed to import settings', e);
       return false;
     }
   }

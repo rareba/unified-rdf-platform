@@ -43,9 +43,9 @@ public class PipelineEntity {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> variables;
 
-    // @JdbcTypeCode(SqlTypes.JSON)
-    // @Column(columnDefinition = "jsonb")
-    // private List<String> tags;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<String> tags;
 
     @Column
     private Integer version;
@@ -55,6 +55,9 @@ public class PipelineEntity {
 
     @Column(name = "created_by")
     private UUID createdBy;
+
+    @Column(name = "updated_by")
+    private UUID updatedBy;
 
     @Column(name = "created_at")
     private Instant createdAt;

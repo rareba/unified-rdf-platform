@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/data")
 @Tag(name = "Data", description = "Data source management API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class DataController {
 
     private final DataService dataService;

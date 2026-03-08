@@ -24,7 +24,7 @@ import java.util.Set;
 @RequestMapping("/api/v1/destinations")
 @RequiredArgsConstructor
 @Tag(name = "Destinations", description = "RDF destination provider discovery API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class DestinationController {
 
     private final DestinationRegistry destinationRegistry;

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -25,6 +25,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { DataService, DimensionService, PipelineService, CubeService } from '../../../core/services';
 import { DataSource, Dimension, ColumnInfo, DimensionType, UploadOptions, Cube } from '../../../core/models';
 import { DataPreviewComponent } from '../../data/data-preview/data-preview';
+import { LoggerService } from '../../../core/services/logger.service';
 
 interface ColumnMapping {
   name: string;
@@ -104,6 +105,7 @@ interface CubeDefinition {
   ],
   templateUrl: './cube-wizard.html',
   styleUrl: './cube-wizard.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CubeWizard implements OnInit {
   private readonly dataService = inject(DataService);
@@ -112,6 +114,7 @@ export class CubeWizard implements OnInit {
   private readonly cubeService = inject(CubeService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+  private readonly logger = inject(LoggerService);
 
   // Existing cubes
   existingCubes = signal<Cube[]>([]);
@@ -1173,7 +1176,7 @@ export class CubeWizard implements OnInit {
         }
       },
       error: (err) => {
-        console.warn('Failed to generate SHACL shape:', err);
+        this.logger.warn('Failed to generate SHACL shape:', err);
         this.snackBar.open('Failed to generate SHACL shape. Continuing with other steps...', 'Close', { duration: 4000 });
         // Continue with pipeline generation even if shape fails
         if (alsoGeneratePipeline) {
@@ -1200,7 +1203,7 @@ export class CubeWizard implements OnInit {
         this.finishSave();
       },
       error: (err) => {
-        console.warn('Failed to generate pipeline:', err);
+        this.logger.warn('Failed to generate pipeline:', err);
         this.snackBar.open('Failed to generate pipeline. Cube definition was saved successfully.', 'Close', { duration: 4000 });
         this.finishSave();
       }

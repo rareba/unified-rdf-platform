@@ -279,11 +279,30 @@ public class CreateObservationOperation implements Operation {
             return Collections.emptyMap();
         }
 
-        Map<String, Object> rawMap = (Map<String, Object>) dimensionsParam;
+        // Defensive type check - must be a Map
+        if (!(dimensionsParam instanceof Map)) {
+            log.warn("Dimensions parameter must be a Map, got: {}",
+                dimensionsParam.getClass().getSimpleName());
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap;
+        try {
+            rawMap = (Map<String, Object>) dimensionsParam;
+        } catch (ClassCastException e) {
+            log.warn("Dimensions parameter has invalid Map structure");
+            return Collections.emptyMap();
+        }
+
         Map<String, DimensionConfig> result = new LinkedHashMap<>();
 
-        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
-            String columnName = entry.getKey();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            // Ensure key is a String
+            if (!(entry.getKey() instanceof String columnName)) {
+                log.warn("Dimension config key must be a String, got: {}",
+                    entry.getKey().getClass().getSimpleName());
+                continue;
+            }
             Object value = entry.getValue();
 
             DimensionConfig config;
@@ -295,13 +314,17 @@ public class CreateObservationOperation implements Operation {
                     .build();
             } else if (value instanceof Map) {
                 // Full format: nested object with configuration
-                Map<String, Object> configMap = (Map<String, Object>) value;
+                Map<?, ?> configMap = (Map<?, ?>) value;
+                Object propertyUriObj = configMap.get("propertyUri");
+                if (propertyUriObj == null) {
+                    propertyUriObj = configMap.get("uri");
+                }
                 config = DimensionConfig.builder()
-                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
-                    .valueUri((String) configMap.get("valueUri"))
-                    .datatype((String) configMap.get("datatype"))
-                    .keyDimension(parseBoolean(configMap.getOrDefault("keyDimension", true)))
-                    .sharedDimensionUri((String) configMap.get("sharedDimensionUri"))
+                    .propertyUri(propertyUriObj instanceof String ? (String) propertyUriObj : null)
+                    .valueUri(configMap.get("valueUri") instanceof String ? (String) configMap.get("valueUri") : null)
+                    .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
+                    .keyDimension(parseBoolean(configMap.get("keyDimension")))
+                    .sharedDimensionUri(configMap.get("sharedDimensionUri") instanceof String ? (String) configMap.get("sharedDimensionUri") : null)
                     .build();
             } else {
                 log.warn("Unknown dimension config format for column {}: {}", columnName, value);
@@ -325,11 +348,30 @@ public class CreateObservationOperation implements Operation {
             return Collections.emptyMap();
         }
 
-        Map<String, Object> rawMap = (Map<String, Object>) measuresParam;
+        // Defensive type check - must be a Map
+        if (!(measuresParam instanceof Map)) {
+            log.warn("Measures parameter must be a Map, got: {}",
+                measuresParam.getClass().getSimpleName());
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap;
+        try {
+            rawMap = (Map<String, Object>) measuresParam;
+        } catch (ClassCastException e) {
+            log.warn("Measures parameter has invalid Map structure");
+            return Collections.emptyMap();
+        }
+
         Map<String, MeasureConfig> result = new LinkedHashMap<>();
 
-        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
-            String columnName = entry.getKey();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            // Ensure key is a String
+            if (!(entry.getKey() instanceof String columnName)) {
+                log.warn("Measure config key must be a String, got: {}",
+                    entry.getKey().getClass().getSimpleName());
+                continue;
+            }
             Object value = entry.getValue();
 
             MeasureConfig config;
@@ -340,11 +382,15 @@ public class CreateObservationOperation implements Operation {
                     .build();
             } else if (value instanceof Map) {
                 // Full format: nested object with configuration
-                Map<String, Object> configMap = (Map<String, Object>) value;
+                Map<?, ?> configMap = (Map<?, ?>) value;
+                Object propertyUriObj = configMap.get("propertyUri");
+                if (propertyUriObj == null) {
+                    propertyUriObj = configMap.get("uri");
+                }
                 config = MeasureConfig.builder()
-                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
-                    .datatype((String) configMap.get("datatype"))
-                    .unit((String) configMap.get("unit"))
+                    .propertyUri(propertyUriObj instanceof String ? (String) propertyUriObj : null)
+                    .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
+                    .unit(configMap.get("unit") instanceof String ? (String) configMap.get("unit") : null)
                     .build();
             } else {
                 log.warn("Unknown measure config format for column {}: {}", columnName, value);
@@ -368,11 +414,30 @@ public class CreateObservationOperation implements Operation {
             return Collections.emptyMap();
         }
 
-        Map<String, Object> rawMap = (Map<String, Object>) attributesParam;
+        // Defensive type check - must be a Map
+        if (!(attributesParam instanceof Map)) {
+            log.warn("Attributes parameter must be a Map, got: {}",
+                attributesParam.getClass().getSimpleName());
+            return Collections.emptyMap();
+        }
+
+        Map<String, Object> rawMap;
+        try {
+            rawMap = (Map<String, Object>) attributesParam;
+        } catch (ClassCastException e) {
+            log.warn("Attributes parameter has invalid Map structure");
+            return Collections.emptyMap();
+        }
+
         Map<String, AttributeConfig> result = new LinkedHashMap<>();
 
-        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
-            String columnName = entry.getKey();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            // Ensure key is a String
+            if (!(entry.getKey() instanceof String columnName)) {
+                log.warn("Attribute config key must be a String, got: {}",
+                    entry.getKey().getClass().getSimpleName());
+                continue;
+            }
             Object value = entry.getValue();
 
             AttributeConfig config;
@@ -383,10 +448,14 @@ public class CreateObservationOperation implements Operation {
                     .build();
             } else if (value instanceof Map) {
                 // Full format: nested object with configuration
-                Map<String, Object> configMap = (Map<String, Object>) value;
+                Map<?, ?> configMap = (Map<?, ?>) value;
+                Object propertyUriObj = configMap.get("propertyUri");
+                if (propertyUriObj == null) {
+                    propertyUriObj = configMap.get("uri");
+                }
                 config = AttributeConfig.builder()
-                    .propertyUri((String) configMap.getOrDefault("propertyUri", configMap.get("uri")))
-                    .datatype((String) configMap.get("datatype"))
+                    .propertyUri(propertyUriObj instanceof String ? (String) propertyUriObj : null)
+                    .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
                     .build();
             } else {
                 log.warn("Unknown attribute config format for column {}: {}", columnName, value);

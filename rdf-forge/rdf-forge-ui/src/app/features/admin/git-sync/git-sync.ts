@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { GitSyncService, GitSyncConfig, GitSyncStatus, GitProvider } from '../../../core/services/git-sync.service';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 
 @Component({
   selector: 'app-git-sync',
@@ -442,12 +443,14 @@ import { GitSyncService, GitSyncConfig, GitSyncStatus, GitProvider } from '../..
       color: #c62828;
       margin-bottom: 8px;
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GitSyncComponent implements OnInit {
   readonly gitSyncService = inject(GitSyncService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly confirmationService = inject(ConfirmationService);
 
   readonly testing = signal(false);
   readonly editingConfig = signal<GitSyncConfig | null>(null);
@@ -534,15 +537,21 @@ export class GitSyncComponent implements OnInit {
   }
 
   deleteConfig(config: GitSyncConfig): void {
-    if (!confirm(`Delete configuration "${config.name}"?`)) return;
-
-    this.gitSyncService.deleteConfig(config.id!).subscribe({
-      next: () => {
-        this.snackBar.open('Configuration deleted', 'Close', { duration: 3000 });
-      },
-      error: () => {
-        this.snackBar.open('Failed to delete configuration', 'Close', { duration: 3000 });
-      }
+    this.confirmationService.confirm({
+      title: 'Delete Configuration',
+      message: `Delete configuration "${config.name}"?`,
+      confirmText: 'Delete',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.gitSyncService.deleteConfig(config.id!).subscribe({
+        next: () => {
+          this.snackBar.open('Configuration deleted', 'Close', { duration: 3000 });
+        },
+        error: () => {
+          this.snackBar.open('Failed to delete configuration', 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 

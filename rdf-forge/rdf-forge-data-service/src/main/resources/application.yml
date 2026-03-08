@@ -1,87 +1,85 @@
 server:
   port: 8004
+  shutdown: graceful
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   application:
     name: rdf-forge-data-service
-  
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/rdfforge
-    username: rdfforge
-    password: rdfforge
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/rdfforge}
+    username: ${DB_USERNAME:rdfforge}
+    password: ${DB_PASSWORD:rdfforge}
     driver-class-name: org.postgresql.Driver
-  
+    hikari:
+      pool-name: DataHikariPool
+      schema: data
+      minimum-idle: 3
+      maximum-pool-size: 10
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+      validation-timeout: 5000
+
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
+        default_schema: data
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
     table: flyway_schema_history_data
-  
+    schemas: data
+    default-schema: data
+
   servlet:
     multipart:
+      enabled: true
       max-file-size: 500MB
       max-request-size: 500MB
-
-# Storage provider configuration
-# Set storage.provider to select the active provider: minio, aws-s3, azure-blob, gcs, local
-storage:
-  provider: minio
-
-# MinIO / S3-compatible storage (default)
-minio:
-  endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
-  bucket-name: rdf-forge-data
-  region: us-east-1
-  secure: false
-
-# Local filesystem storage (for development)
-#storage:
-#  provider: local
-#  local:
-#    base-path: ./data/storage
-#    create-dirs: true
-
-# AWS S3 (uncomment and configure to use)
-#aws:
-#  s3:
-#    access-key-id: YOUR_ACCESS_KEY
-#    secret-access-key: YOUR_SECRET_KEY
-#    region: us-east-1
-#    bucket: your-bucket-name
-#    storage-class: STANDARD
-
-# Azure Blob Storage (uncomment and configure to use)
-#azure:
-#  storage:
-#    connection-string: YOUR_CONNECTION_STRING
-#    container-name: rdf-forge
-#    access-tier: Hot
-
-# Google Cloud Storage (uncomment and configure to use)
-#gcs:
-#  project-id: your-project-id
-#  bucket-name: your-bucket-name
-#  credentials-path: /path/to/service-account.json
-#  location: US
-#  storage-class: STANDARD
+      file-size-threshold: 10MB
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    enable:
+      jdbc: true
+      jvm: true
+      process: true
+      system: true
 
 logging:
   level:
     io.rdfforge: DEBUG
     org.springframework: INFO
+    com.zaxxer.hikari: INFO
+
+# MinIO Configuration
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: rdf-forge-data
+  connect-timeout: 5000
+  write-timeout: 60000
+  read-timeout: 30000

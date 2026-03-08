@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { LoggerService } from './logger.service';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -56,6 +57,7 @@ export interface ConnectionTestResult {
 })
 export class GitSyncService {
   private readonly http = inject(HttpClient);
+  private readonly logger = inject(LoggerService);
   private readonly baseUrl = `${environment.apiBaseUrl}/git-sync`;
 
   readonly configs = signal<GitSyncConfig[]>([]);
@@ -78,7 +80,7 @@ export class GitSyncService {
         this.loading.set(false);
       }),
       catchError(err => {
-        console.error('Failed to load Git sync configs', err);
+        this.logger.error('Failed to load Git sync configs', err);
         this.loading.set(false);
         return of([]);
       })
@@ -147,7 +149,7 @@ export class GitSyncService {
         this.syncing.set(false);
       }),
       catchError(err => {
-        console.error('Push failed', err);
+        this.logger.error('Push failed', err);
         this.syncing.set(false);
         throw err;
       })
@@ -169,7 +171,7 @@ export class GitSyncService {
         this.syncing.set(false);
       }),
       catchError(err => {
-        console.error('Pull failed', err);
+        this.logger.error('Pull failed', err);
         this.syncing.set(false);
         throw err;
       })

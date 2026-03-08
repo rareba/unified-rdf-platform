@@ -6,9 +6,11 @@ global:
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets:
+            - 'alertmanager:9093'
 
-rule_files: []
+rule_files:
+  - '/etc/prometheus/alert-rules.yml'
 
 scrape_configs:
   # Prometheus self-monitoring
@@ -21,13 +23,13 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
-          - 'gateway:8080'
-          - 'pipeline-service:8080'
-          - 'shacl-service:8080'
-          - 'job-service:8080'
-          - 'data-service:8080'
-          - 'dimension-service:8080'
-          - 'triplestore-service:8080'
+          - 'gateway:8000'
+          - 'pipeline-service:8001'
+          - 'shacl-service:8002'
+          - 'job-service:8003'
+          - 'data-service:8004'
+          - 'dimension-service:8005'
+          - 'triplestore-service:8006'
         labels:
           group: 'backend'
 

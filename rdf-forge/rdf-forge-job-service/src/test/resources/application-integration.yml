@@ -1,0 +1,49 @@
+# Configuration for @DataJpaTest / @SpringBootTest integration tests that use
+# a PostgreSQLContainer via Testcontainers.
+#
+# Most properties here are overridden at runtime by the @DynamicPropertySource
+# in each IT class.  This file exists to disable infrastructure that is not
+# available in the test environment (Redis, batch schema init, Hikari schema
+# routing, etc.) and to make Flyway aware of where migrations live.
+
+spring:
+  datasource:
+    # Placeholder values — overridden at runtime by @DynamicPropertySource
+    url: jdbc:postgresql://localhost:5432/rdfforge_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # No schema routing in integration tests — Testcontainer uses the public schema
+      schema:
+      pool-name: IntegrationTestPool
+      maximum-pool-size: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema:
+
+  flyway:
+    enabled: false
+
+  # Disable Redis auto-configuration to avoid connection errors
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+  batch:
+    jdbc:
+      initialize-schema: never
+
+logging:
+  level:
+    root: WARN
+    io.rdfforge: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.testcontainers: INFO

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, KeyValuePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,28 +18,29 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatListModule } from '@angular/material/list';
+import { NgxGraphModule, GraphComponent, NgxGraphZoomOptions } from '@swimlane/ngx-graph';
+import { Subject, Observable } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { PipelineService } from '../../../core/services';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { LoggerService } from '../../../core/services/logger.service';
 import {
   Pipeline,
   PipelineCreateRequest,
   Operation,
   OperationType,
   OperationParameter,
-  PipelineNode,
-  PipelineEdge,
   PipelineDefinition
 } from '../../../core/models';
+import * as dagre from 'dagre';
 
 interface OperationGroup {
   type: OperationType;
   label: string;
   icon: string;
   operations: Operation[];
-}
-
-interface RunVariable {
-  key: string;
-  value: string;
 }
 
 interface PipelineTemplate {
@@ -49,6 +50,27 @@ interface PipelineTemplate {
   icon: string;
   category: 'cube' | 'validation' | 'etl' | 'publish';
   steps: { operation: string; params: Record<string, unknown> }[];
+}
+
+// Graph node structure for ngx-graph
+interface GraphNode {
+  id: string;
+  label?: string;
+  operationId: string;
+  operationName: string;
+  operationType: OperationType;
+  params: Record<string, unknown>;
+  dimension?: { width: number; height: number };
+  x?: number;
+  y?: number;
+}
+
+// Graph link structure for ngx-graph
+interface GraphLink {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
 }
 
 @Component({
@@ -71,18 +93,26 @@ interface PipelineTemplate {
     MatMenuModule,
     MatProgressSpinnerModule,
     MatToolbarModule,
+    MatSidenavModule,
+    MatListModule,
+    NgxGraphModule,
     KeyValuePipe
   ],
   templateUrl: './pipeline-designer.html',
   styleUrl: './pipeline-designer.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PipelineDesigner implements OnInit {
+export class PipelineDesigner implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly logger = inject(LoggerService);
+  private readonly destroy$ = new Subject<void>();
 
-  @ViewChild('canvas') canvasRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('graph') graphComponent!: GraphComponent;
+  @ViewChild('graphContainer', { static: false }) graphContainer!: ElementRef<HTMLDivElement>;
 
   // State
   loading = signal(false);
@@ -113,33 +143,6 @@ export class PipelineDesigner implements OnInit {
     return groups.filter(g => g.operations.length > 0);
   });
 
-  // Visual Editor
-  nodes = signal<PipelineNode[]>([]);
-  edges = signal<PipelineEdge[]>([]);
-  selectedNode = signal<PipelineNode | null>(null);
-  selectedOperation = signal<Operation | null>(null);
-
-  // Dialogs
-  configDialogVisible = signal(false);
-  runDialogVisible = signal(false);
-  jsonDialogVisible = signal(false);
-
-  // Drag state
-  isDraggingNode = false;
-  draggedNodeId: string | null = null;
-  dragOffset = { x: 0, y: 0 };
-  private draggedOp: any = null;
-
-  // Edge drawing state
-  isDrawingEdge = false;
-  edgeStartNodeId: string | null = null;
-  mousePos = { x: 0, y: 0 };
-
-  // Run variables
-  runVariables = signal<Record<string, string>>({});
-  newVarKey = signal('');
-  newVarValue = signal('');
-
   // Search and filter
   operationSearch = signal('');
   filteredOperationGroups = computed(() => {
@@ -156,12 +159,37 @@ export class PipelineDesigner implements OnInit {
     })).filter(g => g.operations.length > 0);
   });
 
-  // Zoom and pan
-  zoom = signal(1);
-  panOffset = signal({ x: 0, y: 0 });
+  // Graph Data for ngx-graph
+  nodes = signal<GraphNode[]>([]);
+  links = signal<GraphLink[]>([]);
+  selectedNode = signal<GraphNode | null>(null);
+  selectedOperation = signal<Operation | null>(null);
 
-  // Templates dialog
+  // Graph configuration
+  graphWidth = 1200;
+  graphHeight = 800;
+  autoZoom = true;
+  panningEnabled = true;
+  zoomLevel = signal(1);
+
+  // Center$ and zoom$ observables required by ngx-graph
+  center$: Subject<boolean> = new Subject();
+  zoomToFit$: Subject<NgxGraphZoomOptions> = new Subject<NgxGraphZoomOptions>();
+  update$: Subject<boolean> = new Subject();
+
+  // Dialogs
+  runDialogVisible = signal(false);
+  jsonDialogVisible = signal(false);
   templatesDialogVisible = signal(false);
+  propertiesPanelOpen = signal(false);
+
+  // Drag state
+  private draggedOp: Operation | null = null;
+
+  // Run variables
+  runVariables = signal<Record<string, string>>({});
+  newVarKey = signal('');
+  newVarValue = signal('');
 
   // Pipeline templates for common cube workflows
   pipelineTemplates: PipelineTemplate[] = [
@@ -258,7 +286,25 @@ export class PipelineDesigner implements OnInit {
       errors.push('Pipeline should start with a source operation');
     }
 
+    const hasOutput = nodeList.some(n => n.operationType === 'OUTPUT');
+    if (!hasOutput) {
+      errors.push('Pipeline should have at least one output operation');
+    }
+
+    // Check for disconnected nodes
+    const connectedNodeIds = new Set<string>();
+    this.links().forEach(link => {
+      connectedNodeIds.add(link.source);
+      connectedNodeIds.add(link.target);
+    });
+    
     nodeList.forEach(node => {
+      // Check if node has connections (except for single node pipelines)
+      if (nodeList.length > 1 && !connectedNodeIds.has(node.id)) {
+        errors.push(`${node.operationName}: Node is not connected to the pipeline`);
+      }
+
+      // Check required parameters
       const op = ops.find(o => o.id === node.operationId);
       if (op) {
         Object.entries(op.parameters).forEach(([key, param]) => {
@@ -277,35 +323,35 @@ export class PipelineDesigner implements OnInit {
 
   isValid = computed(() => this.validationErrors().length === 0);
 
-  // For template access to navigator
-  navigator = navigator;
-
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       this.isNew.set(false);
       this.pipelineId.set(id);
-      // Load operations first, then load pipeline to avoid race condition
       this.loadOperationsAndPipeline(id);
     } else {
       this.loadOperations();
     }
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.center$.complete();
+    this.zoomToFit$.complete();
+    this.update$.complete();
+  }
+
   loadOperations(): void {
-    this.pipelineService.getOperations().subscribe({
+    this.pipelineService.getOperations().pipe(takeUntil(this.destroy$)).subscribe({
       next: (ops) => this.availableOperations.set(ops),
       error: () => this.snackBar.open('Failed to load operations', 'Close', { duration: 3000 })
     });
   }
 
-  /**
-   * Loads operations first, then loads the pipeline.
-   * This ensures operation types are available when parsing the pipeline definition.
-   */
   loadOperationsAndPipeline(id: string): void {
     this.loading.set(true);
-    this.pipelineService.getOperations().subscribe({
+    this.pipelineService.getOperations().pipe(takeUntil(this.destroy$)).subscribe({
       next: (ops) => {
         this.availableOperations.set(ops);
         this.loadPipeline(id);
@@ -319,7 +365,7 @@ export class PipelineDesigner implements OnInit {
 
   loadPipeline(id: string): void {
     this.loading.set(true);
-    this.pipelineService.get(id).subscribe({
+    this.pipelineService.get(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (pipeline) => {
         this.name.set(pipeline.name);
         this.description.set(pipeline.description || '');
@@ -339,59 +385,61 @@ export class PipelineDesigner implements OnInit {
       const parsed = JSON.parse(definition);
       const steps = parsed.steps || [];
 
-      const loadedNodes: PipelineNode[] = steps.map((step: any, index: number) => {
-        // Use getOperationById to handle the 'op:' prefix normalization
+      const loadedNodes: GraphNode[] = steps.map((step: any, index: number) => {
         const op = this.getOperationById(step.operation);
-        return {
+        const node: GraphNode = {
           id: step.id || `step-${index}`,
           operationId: step.operation,
           operationName: op?.name || step.operation,
           operationType: op?.type || 'TRANSFORM',
-          x: step.ui?.x ?? (100 + (index % 3) * 320),
-          y: step.ui?.y ?? (100 + Math.floor(index / 3) * 160),
-          params: step.params || step.parameters || {}
+          params: step.params || step.parameters || {},
+          dimension: { width: 200, height: 100 }
         };
+        return node;
       });
 
       this.nodes.set(loadedNodes);
 
       // Create sequential edges if no explicit connections
-      const loadedEdges: PipelineEdge[] = [];
+      const loadedLinks: GraphLink[] = [];
       for (let i = 1; i < loadedNodes.length; i++) {
-        loadedEdges.push({
+        loadedLinks.push({
           id: `edge-${i}`,
-          sourceId: loadedNodes[i - 1].id,
-          targetId: loadedNodes[i].id
+          source: loadedNodes[i - 1].id,
+          target: loadedNodes[i].id
         });
       }
-      this.edges.set(loadedEdges);
+      this.links.set(loadedLinks);
+
+      // Auto layout after loading
+      setTimeout(() => this.autoLayout(), 100);
     } catch (e) {
-      console.warn('Failed to parse pipeline definition', e);
+      this.logger.warn('Failed to parse pipeline definition', e);
     }
   }
 
   getOperationById(id: string): Operation | undefined {
-    // Normalize the ID by removing 'op:' prefix if present
     const normalizedId = id.startsWith('op:') ? id.substring(3) : id;
     return this.availableOperations().find(o => o.id === normalizedId || o.id === id);
   }
 
-  // Drag operation from palette to canvas
+  // Drag operation from palette
   onDragStart(event: DragEvent, op: Operation): void {
     this.draggedOp = op;
     event.dataTransfer?.setData('application/json', JSON.stringify(op));
     event.dataTransfer!.effectAllowed = 'copy';
   }
 
-  onDragOver(event: DragEvent): void {
-    event.preventDefault();
-    event.dataTransfer!.dropEffect = 'copy';
+  onDragEnd(): void {
+    this.draggedOp = null;
   }
 
-  onDrop(event: DragEvent): void {
+  // Handle drop on graph
+  onGraphDrop(event: DragEvent): void {
     event.preventDefault();
+    event.stopPropagation();
 
-    let op: any = this.draggedOp;
+    let op: Operation | null = this.draggedOp;
 
     if (!op) {
       const data = event.dataTransfer?.getData('application/json');
@@ -399,8 +447,7 @@ export class PipelineDesigner implements OnInit {
         try {
           op = JSON.parse(data);
         } catch (e) {
-          console.warn('Failed to parse dropped operation data:', e);
-          this.snackBar.open('Invalid operation data', 'Close', { duration: 3000 });
+          this.logger.warn('Failed to parse dropped operation data:', e);
           return;
         }
       }
@@ -408,33 +455,42 @@ export class PipelineDesigner implements OnInit {
 
     if (!op) return;
 
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Get drop position relative to graph container
+    if (this.graphContainer) {
+      const rect = this.graphContainer.nativeElement.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / this.zoomLevel();
+      const y = (event.clientY - rect.top) / this.zoomLevel();
+      this.addNode(op, x, y);
+    } else {
+      // Fallback: add at center
+      this.addNode(op, 400, 300);
+    }
 
-    this.addNode(op, x, y);
-    this.draggedOp = null; // Reset
+    this.draggedOp = null;
   }
 
   addNode(op: Operation, x: number, y: number): void {
-    const newNode: PipelineNode = {
+    const newNode: GraphNode = {
       id: `node-${Date.now()}`,
       operationId: op.id,
       operationName: op.name,
       operationType: op.type,
+      params: this.getDefaultParams(op),
+      dimension: { width: 200, height: 100 },
       x,
-      y,
-      params: this.getDefaultParams(op)
+      y
     };
 
     this.nodes.update(n => [...n, newNode]);
 
-    // Auto-connect to last node
+    // Auto-connect to last node if exists
     const nodeList = this.nodes();
     if (nodeList.length > 1) {
       const lastNode = nodeList[nodeList.length - 2];
-      this.addEdge(lastNode.id, newNode.id);
+      this.addLink(lastNode.id, newNode.id);
     }
+
+    this.update$.next(true);
   }
 
   getDefaultParams(op: Operation): Record<string, unknown> {
@@ -449,113 +505,55 @@ export class PipelineDesigner implements OnInit {
     return params;
   }
 
-  // Node interaction
-  configureNode(node: PipelineNode, event?: Event): void {
-    event?.stopPropagation();
-    this.selectedNode.set({ ...node });
-    // Use getOperationById to handle the 'op:' prefix normalization
-    const op = this.getOperationById(node.operationId);
-    this.selectedOperation.set(op || null);
-    this.configDialogVisible.set(true);
+  addLink(sourceId: string, targetId: string): void {
+    // Prevent duplicate links
+    const exists = this.links().some(l => l.source === sourceId && l.target === targetId);
+    if (exists) return;
+
+    // Prevent self-loops
+    if (sourceId === targetId) return;
+
+    const newLink: GraphLink = {
+      id: `link-${Date.now()}`,
+      source: sourceId,
+      target: targetId
+    };
+
+    this.links.update(l => [...l, newLink]);
+    this.update$.next(true);
   }
 
-  removeNode(id: string, event: Event): void {
-    event.stopPropagation();
+  removeNode(id: string): void {
     const node = this.nodes().find(n => n.id === id);
     if (!node) return;
 
-    // Remove the node and its connections
     this.nodes.update(n => n.filter(n => n.id !== id));
-    this.edges.update(e => e.filter(edge => edge.sourceId !== id && edge.targetId !== id));
+    this.links.update(l => l.filter(link => link.source !== id && link.target !== id));
 
     if (this.selectedNode()?.id === id) {
       this.selectedNode.set(null);
-      this.configDialogVisible.set(false);
-    }
-  }
-
-  // Node dragging
-  startNodeDrag(event: MouseEvent, node: PipelineNode): void {
-    if ((event.target as HTMLElement).classList.contains('node-connector')) return;
-    event.stopPropagation();
-    this.isDraggingNode = true;
-    this.draggedNodeId = node.id;
-    const rect = (event.target as HTMLElement).closest('.pipeline-node')?.getBoundingClientRect();
-    if (rect) {
-      this.dragOffset = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      };
-    }
-  }
-
-  @HostListener('document:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent): void {
-    if (this.isDraggingNode && this.draggedNodeId && this.canvasRef) {
-      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = event.clientX - rect.left - this.dragOffset.x;
-      const y = event.clientY - rect.top - this.dragOffset.y;
-
-      this.nodes.update(nodes => nodes.map(n =>
-        n.id === this.draggedNodeId ? { ...n, x: Math.max(0, x), y: Math.max(0, y) } : n
-      ));
+      this.propertiesPanelOpen.set(false);
     }
 
-    if (this.isDrawingEdge && this.canvasRef) {
-      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      this.mousePos = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-      };
-    }
+    this.update$.next(true);
   }
 
-  @HostListener('document:mouseup')
-  onMouseUp(): void {
-    this.isDraggingNode = false;
-    this.draggedNodeId = null;
-    if (this.isDrawingEdge) {
-      this.isDrawingEdge = false;
-      this.edgeStartNodeId = null;
-    }
+  removeLink(id: string): void {
+    this.links.update(l => l.filter(link => link.id !== id));
+    this.update$.next(true);
   }
 
-  // Edge creation
-  startEdgeDraw(event: MouseEvent, nodeId: string): void {
-    event.stopPropagation();
-    event.preventDefault();
-    this.isDrawingEdge = true;
-    this.edgeStartNodeId = nodeId;
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    this.mousePos = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
+  // Node selection
+  onNodeSelect(node: GraphNode): void {
+    this.selectedNode.set({ ...node });
+    const op = this.getOperationById(node.operationId);
+    this.selectedOperation.set(op || null);
+    this.propertiesPanelOpen.set(true);
   }
 
-  finishEdgeDraw(event: MouseEvent, targetNodeId: string): void {
-    event.stopPropagation();
-    if (this.isDrawingEdge && this.edgeStartNodeId && this.edgeStartNodeId !== targetNodeId) {
-      this.addEdge(this.edgeStartNodeId, targetNodeId);
-    }
-    this.isDrawingEdge = false;
-    this.edgeStartNodeId = null;
-  }
-
-  addEdge(sourceId: string, targetId: string): void {
-    const exists = this.edges().some(e => e.sourceId === sourceId && e.targetId === targetId);
-    if (exists) return;
-
-    this.edges.update(e => [...e, {
-      id: `edge-${Date.now()}`,
-      sourceId,
-      targetId
-    }]);
-  }
-
-  removeEdge(id: string, event: Event): void {
-    event.stopPropagation();
-    this.edges.update(e => e.filter(edge => edge.id !== id));
+  onBackgroundClick(): void {
+    this.selectedNode.set(null);
+    this.propertiesPanelOpen.set(false);
   }
 
   // Parameter editing
@@ -566,10 +564,6 @@ export class PipelineDesigner implements OnInit {
     const updatedNode = { ...node, params: { ...node.params, [key]: value } };
     this.nodes.update(nodes => nodes.map(n => n.id === node.id ? updatedNode : n));
     this.selectedNode.set(updatedNode);
-  }
-
-  saveNodeConfig(): void {
-    this.configDialogVisible.set(false);
   }
 
   // Type helpers
@@ -601,41 +595,51 @@ export class PipelineDesigner implements OnInit {
     }
   }
 
-  // Path calculations
-  getNodeCenter(nodeId: string): { x: number; y: number } {
-    const node = this.nodes().find(n => n.id === nodeId);
-    if (!node) return { x: 0, y: 0 };
-    return { x: node.x + 150, y: node.y + 50 };
-  }
+  // Auto layout using dagre
+  autoLayout(): void {
+    const nodes = this.nodes();
+    const links = this.links();
 
-  getPathForEdge(edge: PipelineEdge): string {
-    const start = this.getNodeCenter(edge.sourceId);
-    const end = this.getNodeCenter(edge.targetId);
-    const dx = Math.abs(end.x - start.x) * 0.4;
-    return `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
-  }
+    if (nodes.length === 0) return;
 
-  getDrawingPath(): string {
-    if (!this.isDrawingEdge || !this.edgeStartNodeId) return '';
-    const start = this.getNodeCenter(this.edgeStartNodeId);
-    const end = this.mousePos;
-    const dx = Math.abs(end.x - start.x) * 0.4;
-    return `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'LR', ranksep: 100, nodesep: 50 });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    // Add nodes
+    nodes.forEach(node => {
+      g.setNode(node.id, { width: 200, height: 100 });
+    });
+
+    // Add edges
+    links.forEach(link => {
+      g.setEdge(link.source, link.target);
+    });
+
+    // Calculate layout
+    dagre.layout(g);
+
+    // Update node positions
+    const updatedNodes = nodes.map(node => {
+      const graphNode = g.node(node.id);
+      if (graphNode) {
+        return {
+          ...node,
+          x: graphNode.x,
+          y: graphNode.y
+        };
+      }
+      return node;
+    });
+
+    this.nodes.set(updatedNodes);
+    this.center$.next(true);
+    this.update$.next(true);
   }
 
   // Type colors
-  getTypeColor(type: OperationType): 'success' | 'info' | 'warn' | 'danger' | 'secondary' {
-    switch (type) {
-      case 'SOURCE': return 'info';
-      case 'TRANSFORM': return 'success';
-      case 'CUBE': return 'warn';
-      case 'VALIDATION': return 'secondary';
-      case 'OUTPUT': return 'danger';
-      default: return 'secondary';
-    }
-  }
-
-  getNodeBorderColor(type: OperationType): string {
+  getTypeColor(type: OperationType | undefined | null): string {
+    if (!type) return '#6b7280';
     switch (type) {
       case 'SOURCE': return '#3b82f6';
       case 'TRANSFORM': return '#22c55e';
@@ -643,6 +647,18 @@ export class PipelineDesigner implements OnInit {
       case 'VALIDATION': return '#6b7280';
       case 'OUTPUT': return '#ef4444';
       default: return '#6b7280';
+    }
+  }
+
+  getTypeBgColor(type: OperationType | undefined | null): string {
+    if (!type) return '#f3f4f6';
+    switch (type) {
+      case 'SOURCE': return '#e0f2fe';
+      case 'TRANSFORM': return '#dcfce7';
+      case 'CUBE': return '#ffedd5';
+      case 'VALIDATION': return '#f3f4f6';
+      case 'OUTPUT': return '#fee2e2';
+      default: return '#f3f4f6';
     }
   }
 
@@ -669,7 +685,7 @@ export class PipelineDesigner implements OnInit {
       ? this.pipelineService.create(data)
       : this.pipelineService.update(this.pipelineId()!, data);
 
-    request.subscribe({
+    request.pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.snackBar.open('Pipeline saved successfully', 'Close', { duration: 3000 });
         this.saving.set(false);
@@ -698,7 +714,7 @@ export class PipelineDesigner implements OnInit {
       return;
     }
 
-    this.pipelineService.run(id, this.runVariables()).subscribe({
+    this.pipelineService.run(id, this.runVariables()).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.snackBar.open(`Job started: ${result.jobId}`, 'Close', { duration: 3000 });
         this.runDialogVisible.set(false);
@@ -754,78 +770,109 @@ export class PipelineDesigner implements OnInit {
   }
 
   clearCanvas(): void {
-    if (confirm('Clear all nodes from the canvas?')) {
-      this.nodes.set([]);
-      this.edges.set([]);
-      this.selectedNode.set(null);
-    }
+    this.confirmationService.confirm({
+      title: 'Clear Canvas',
+      message: 'Clear all nodes from the canvas?',
+      confirmText: 'Clear',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.nodes.set([]);
+        this.links.set([]);
+        this.selectedNode.set(null);
+        this.propertiesPanelOpen.set(false);
+        this.update$.next(true);
+      }
+    });
   }
 
-  // Template methods
   openTemplates(): void {
     this.templatesDialogVisible.set(true);
   }
 
   applyTemplate(template: PipelineTemplate): void {
     if (this.nodes().length > 0) {
-      if (!confirm('This will replace your current pipeline. Continue?')) {
-        return;
-      }
+      this.confirmationService.confirm({
+        title: 'Replace Pipeline',
+        message: 'This will replace your current pipeline. Continue?',
+        confirmText: 'Replace',
+        confirmColor: 'warn'
+      }).subscribe(confirmed => {
+        if (confirmed) {
+          this.doApplyTemplate(template);
+        }
+      });
+      return;
     }
 
+    this.doApplyTemplate(template);
+  }
+
+  private doApplyTemplate(template: PipelineTemplate): void {
+
     const ops = this.availableOperations();
-    const newNodes: PipelineNode[] = [];
-    const newEdges: PipelineEdge[] = [];
+    const newNodes: GraphNode[] = [];
+    const newLinks: GraphLink[] = [];
 
     template.steps.forEach((step, index) => {
       const op = ops.find(o => o.id === step.operation);
       if (op) {
-        const node: PipelineNode = {
+        const node: GraphNode = {
           id: `node-${Date.now()}-${index}`,
           operationId: op.id,
           operationName: op.name,
           operationType: op.type,
-          x: 150 + (index % 3) * 350,
-          y: 100 + Math.floor(index / 3) * 180,
-          params: { ...this.getDefaultParams(op), ...step.params }
+          params: { ...this.getDefaultParams(op), ...step.params },
+          dimension: { width: 200, height: 100 }
         };
         newNodes.push(node);
       }
     });
 
-    // Create sequential edges
+    // Create sequential links
     for (let i = 1; i < newNodes.length; i++) {
-      newEdges.push({
-        id: `edge-${Date.now()}-${i}`,
-        sourceId: newNodes[i - 1].id,
-        targetId: newNodes[i].id
+      newLinks.push({
+        id: `link-${Date.now()}-${i}`,
+        source: newNodes[i - 1].id,
+        target: newNodes[i].id
       });
     }
 
     this.nodes.set(newNodes);
-    this.edges.set(newEdges);
+    this.links.set(newLinks);
     this.name.set(template.name);
     this.description.set(template.description);
     this.templatesDialogVisible.set(false);
+
+    // Auto layout after applying template
+    setTimeout(() => this.autoLayout(), 100);
+
     this.snackBar.open(`Applied template: ${template.name}`, 'Close', { duration: 3000 });
   }
 
-  // Zoom methods
   zoomIn(): void {
-    this.zoom.update(z => Math.min(z + 0.1, 2));
+    this.zoomLevel.update(z => Math.min(z + 0.1, 2));
   }
 
   zoomOut(): void {
-    this.zoom.update(z => Math.max(z - 0.1, 0.5));
+    this.zoomLevel.update(z => Math.max(z - 0.1, 0.5));
   }
 
   resetZoom(): void {
-    this.zoom.set(1);
-    this.panOffset.set({ x: 0, y: 0 });
+    this.zoomLevel.set(1);
+    this.center$.next(true);
   }
 
-  // Check if operation is cube-link related
-  isCubeLinkOperation(opId: string): boolean {
+  fitToScreen(): void {
+    this.zoomToFit$.next({});
+  }
+
+  cancel(): void {
+    this.router.navigate(['/pipelines']);
+  }
+
+  isCubeLinkOperation(opId: string | undefined | null): boolean {
+    if (!opId) return false;
     return ['fetch-cube', 'fetch-metadata', 'fetch-observations', 'fetch-constraint',
             'build-cube-shape', 'create-observation', 'validate-shacl'].includes(opId);
   }
@@ -838,10 +885,6 @@ export class PipelineDesigner implements OnInit {
       case 'publish': return '#8b5cf6';
       default: return '#64748b';
     }
-  }
-
-  cancel(): void {
-    this.router.navigate(['/pipelines']);
   }
 
   // Helper methods for operation parameters
@@ -875,5 +918,10 @@ export class PipelineDesigner implements OnInit {
     };
 
     return examples[operationId] || 'Configure parameters below';
+  }
+
+  // Handle zoom change from graph
+  onZoomChange(zoom: number): void {
+    this.zoomLevel.set(zoom);
   }
 }

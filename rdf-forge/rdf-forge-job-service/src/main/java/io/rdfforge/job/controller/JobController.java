@@ -18,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/jobs")
 @Tag(name = "Jobs", description = "Job execution and monitoring API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class JobController {
     
     private final JobService jobService;

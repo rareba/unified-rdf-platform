@@ -5,6 +5,7 @@ import io.rdfforge.dimension.entity.HierarchyEntity;
 import io.rdfforge.dimension.entity.HierarchyEntity.HierarchyScheme;
 import io.rdfforge.dimension.repository.DimensionValueRepository;
 import io.rdfforge.dimension.repository.HierarchyRepository;
+import io.rdfforge.common.exception.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,31 +30,55 @@ public class HierarchyService {
     
     public HierarchyEntity create(HierarchyEntity hierarchy) {
         log.info("Creating hierarchy: {} for dimension {}", hierarchy.getName(), hierarchy.getDimensionId());
-        
-        if (hierarchyRepository.existsByDimensionIdAndUri(hierarchy.getDimensionId(), hierarchy.getUri())) {
+
+        // Validate dimension ID
+        if (hierarchy.getDimensionId() == null) {
+            throw new IllegalArgumentException("Dimension ID is required");
+        }
+
+        // Check for duplicate name in same dimension
+        if (hierarchy.getName() != null) {
+            hierarchyRepository.findByDimensionIdAndName(
+                    hierarchy.getDimensionId(), hierarchy.getName())
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException(
+                        "Hierarchy with name '" + hierarchy.getName() + "' already exists in this dimension");
+                });
+        }
+
+        // Check for duplicate URI
+        if (hierarchy.getUri() != null &&
+            hierarchyRepository.existsByDimensionIdAndUri(hierarchy.getDimensionId(), hierarchy.getUri())) {
             throw new IllegalArgumentException("Hierarchy with URI already exists: " + hierarchy.getUri());
         }
-        
-        if (hierarchy.getIsDefault()) {
+
+        // Handle default hierarchy logic
+        if (Boolean.TRUE.equals(hierarchy.getIsDefault())) {
             hierarchyRepository.findByDimensionIdAndIsDefaultTrue(hierarchy.getDimensionId())
                 .ifPresent(existing -> {
                     existing.setIsDefault(false);
                     hierarchyRepository.save(existing);
                 });
         }
-        
+
         hierarchy.setCreatedAt(Instant.now());
-        return hierarchyRepository.save(hierarchy);
+        HierarchyEntity saved = hierarchyRepository.save(hierarchy);
+        log.info("Created hierarchy: {} ({}) for dimension {}",
+            saved.getName(), saved.getId(), saved.getDimensionId());
+        return saved;
     }
     
+    @Transactional(readOnly = true)
     public Optional<HierarchyEntity> findById(UUID id) {
         return hierarchyRepository.findById(id);
     }
-    
+
+    @Transactional(readOnly = true)
     public List<HierarchyEntity> findByDimension(UUID dimensionId) {
         return hierarchyRepository.findByDimensionIdOrderedByDefault(dimensionId);
     }
-    
+
+    @Transactional(readOnly = true)
     public Optional<HierarchyEntity> findDefault(UUID dimensionId) {
         return hierarchyRepository.findByDimensionIdAndIsDefaultTrue(dimensionId);
     }
@@ -62,7 +87,7 @@ public class HierarchyService {
         log.info("Updating hierarchy: {}", id);
         
         HierarchyEntity existing = hierarchyRepository.findById(id)
-            .orElseThrow(() -> new NoSuchElementException("Hierarchy not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Hierarchy", id.toString()));
         
         if (updates.getName() != null) existing.setName(updates.getName());
         if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
@@ -92,11 +117,11 @@ public class HierarchyService {
     
     public void setParent(UUID valueId, UUID parentId) {
         DimensionValueEntity value = valueRepository.findById(valueId)
-            .orElseThrow(() -> new NoSuchElementException("Value not found: " + valueId));
+            .orElseThrow(() -> new ResourceNotFoundException("DimensionValue", valueId.toString()));
         
         if (parentId != null) {
             DimensionValueEntity parent = valueRepository.findById(parentId)
-                .orElseThrow(() -> new NoSuchElementException("Parent not found: " + parentId));
+                .orElseThrow(() -> new ResourceNotFoundException("DimensionValue", parentId.toString()));
             
             if (!value.getDimensionId().equals(parent.getDimensionId())) {
                 throw new IllegalArgumentException("Parent must be in the same dimension");
@@ -146,14 +171,17 @@ public class HierarchyService {
         }
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getRoots(UUID dimensionId) {
         return valueRepository.findByDimensionIdAndParentIdIsNull(dimensionId);
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getChildren(UUID parentId) {
         return valueRepository.findByParentId(parentId);
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getAncestors(UUID valueId) {
         List<DimensionValueEntity> ancestors = new ArrayList<>();
         DimensionValueEntity current = valueRepository.findById(valueId).orElse(null);
@@ -168,6 +196,7 @@ public class HierarchyService {
         return ancestors;
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getDescendants(UUID valueId) {
         List<DimensionValueEntity> descendants = new ArrayList<>();
         collectDescendants(valueId, descendants);
@@ -182,11 +211,12 @@ public class HierarchyService {
         }
     }
     
+    @Transactional(readOnly = true)
     public String exportHierarchyToSkos(UUID dimensionId, UUID hierarchyId) {
         log.info("Exporting hierarchy {} to SKOS", hierarchyId);
         
         HierarchyEntity hierarchy = hierarchyRepository.findById(hierarchyId)
-            .orElseThrow(() -> new NoSuchElementException("Hierarchy not found: " + hierarchyId));
+            .orElseThrow(() -> new ResourceNotFoundException("Hierarchy", hierarchyId.toString()));
         
         List<DimensionValueEntity> values = valueRepository.findActiveValuesByDimensionId(dimensionId);
         

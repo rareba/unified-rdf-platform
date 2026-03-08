@@ -1,44 +1,29 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
+import { from, switchMap } from 'rxjs';
 import { AuthService } from '../services/auth.service';
-import { catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-
-// Flag to prevent multiple concurrent login redirects
-let isRedirecting = false;
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
 
-  if (environment.auth.enabled) {
-    const token = authService.getToken();
-
-    if (token) {
-      req = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-    }
+  if (!environment.auth.enabled) {
+    return next(req);
   }
 
-  return next(req).pipe(
-    catchError((error) => {
-      // Only redirect to login on 401 if:
-      // 1. Auth is enabled
-      // 2. We're not already redirecting
-      // 3. User is not authenticated (prevents loop when token is just expired)
-      if (environment.auth.enabled &&
-          error.status === 401 &&
-          !isRedirecting &&
-          !authService.isAuthenticated) {
-        isRedirecting = true;
-        // Small delay to batch multiple 401s before redirecting
-        setTimeout(() => {
-          authService.login();
-        }, 100);
+  // Refresh the token if it is about to expire (within 30 seconds),
+  // then attach it to the outgoing request.
+  // 401 handling is delegated entirely to the error interceptor.
+  return from(authService.getTokenRefreshed(30)).pipe(
+    switchMap((token) => {
+      if (token) {
+        req = req.clone({
+          setHeaders: {
+            Authorization: `Bearer ${token}`
+          }
+        });
       }
-      return throwError(() => error);
+      return next(req);
     })
   );
 };

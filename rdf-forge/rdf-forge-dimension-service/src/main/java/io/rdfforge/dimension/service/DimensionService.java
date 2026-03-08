@@ -6,6 +6,7 @@ import io.rdfforge.dimension.entity.DimensionValueEntity;
 import io.rdfforge.dimension.repository.DimensionRepository;
 import io.rdfforge.dimension.repository.DimensionValueRepository;
 import io.rdfforge.dimension.repository.HierarchyRepository;
+import io.rdfforge.common.exception.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -59,24 +60,29 @@ public class DimensionService {
         return dimensionRepository.save(dimension);
     }
     
+    @Transactional(readOnly = true)
     @Cacheable(value = "dimensions", key = "#id")
     public Optional<DimensionEntity> findById(UUID id) {
         return dimensionRepository.findById(id);
     }
-    
+
+    @Transactional(readOnly = true)
     public Optional<DimensionEntity> findByProjectAndUri(UUID projectId, String uri) {
         return dimensionRepository.findByProjectIdAndUri(projectId, uri);
     }
-    
+
+    @Transactional(readOnly = true)
     public Page<DimensionEntity> findByProject(UUID projectId, Pageable pageable) {
         return dimensionRepository.findByProjectId(projectId, pageable);
     }
-    
+
+    @Transactional(readOnly = true)
     public Page<DimensionEntity> search(UUID projectId, DimensionType type, String search, Pageable pageable) {
         String typeStr = type != null ? type.name() : null;
         return dimensionRepository.findByFilters(projectId, typeStr, search, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Page<DimensionEntity> findShared(DimensionType type, String search, Pageable pageable) {
         String typeStr = type != null ? type.name() : null;
         return dimensionRepository.findSharedByFilters(typeStr, search, pageable);
@@ -87,7 +93,7 @@ public class DimensionService {
         log.info("Updating dimension: {}", id);
         
         DimensionEntity existing = dimensionRepository.findById(id)
-            .orElseThrow(() -> new NoSuchElementException("Dimension not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("Dimension", id.toString()));
         
         if (updates.getName() != null) existing.setName(updates.getName());
         if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
@@ -105,18 +111,34 @@ public class DimensionService {
     }
     
     @CacheEvict(value = "dimensions", key = "#id")
+    @Transactional
     public void delete(UUID id) {
-        log.info("Deleting dimension: {}", id);
-        
-        hierarchyRepository.deleteByDimensionId(id);
-        valueRepository.deleteByDimensionId(id);
+        log.info("Deleting dimension: {} and all associated data", id);
+
+        // Check if dimension exists
+        DimensionEntity dimension = dimensionRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Dimension", id.toString()));
+
+        // Delete hierarchies first (cascade)
+        long hierarchiesDeleted = hierarchyRepository.deleteByDimensionId(id);
+        log.debug("Deleted {} hierarchies for dimension {}", hierarchiesDeleted, id);
+
+        // Delete all dimension values (cascade)
+        long valuesDeleted = valueRepository.deleteByDimensionId(id);
+        log.debug("Deleted {} values for dimension {}", valuesDeleted, id);
+
+        // Finally delete the dimension
         dimensionRepository.deleteById(id);
+        log.info("Successfully deleted dimension: {} ({} hierarchies, {} values)",
+            id, hierarchiesDeleted, valuesDeleted);
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getValues(UUID dimensionId) {
         return valueRepository.findByDimensionId(dimensionId);
     }
-    
+
+    @Transactional(readOnly = true)
     public Page<DimensionValueEntity> getValues(UUID dimensionId, String search, Pageable pageable) {
         return valueRepository.searchValues(dimensionId, search, pageable);
     }
@@ -155,7 +177,7 @@ public class DimensionService {
     
     public DimensionValueEntity updateValue(UUID valueId, DimensionValueEntity updates) {
         DimensionValueEntity existing = valueRepository.findById(valueId)
-            .orElseThrow(() -> new NoSuchElementException("Value not found: " + valueId));
+            .orElseThrow(() -> new ResourceNotFoundException("DimensionValue", valueId.toString()));
         
         if (updates.getLabel() != null) existing.setLabel(updates.getLabel());
         if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
@@ -175,7 +197,7 @@ public class DimensionService {
     
     public void deleteValue(UUID valueId) {
         DimensionValueEntity value = valueRepository.findById(valueId)
-            .orElseThrow(() -> new NoSuchElementException("Value not found: " + valueId));
+            .orElseThrow(() -> new ResourceNotFoundException("DimensionValue", valueId.toString()));
         
         UUID dimensionId = value.getDimensionId();
         valueRepository.deleteById(valueId);
@@ -243,11 +265,12 @@ public class DimensionService {
         return null;
     }
     
+    @Transactional(readOnly = true)
     public String exportToTurtle(UUID dimensionId) {
         log.info("Exporting dimension {} to Turtle", dimensionId);
         
         DimensionEntity dimension = dimensionRepository.findById(dimensionId)
-            .orElseThrow(() -> new NoSuchElementException("Dimension not found: " + dimensionId));
+            .orElseThrow(() -> new ResourceNotFoundException("Dimension", dimensionId.toString()));
         
         List<DimensionValueEntity> values = valueRepository.findActiveValuesByDimensionId(dimensionId);
         
@@ -298,6 +321,7 @@ public class DimensionService {
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
     }
     
+    @Transactional(readOnly = true)
     public List<DimensionValueEntity> getHierarchyTree(UUID dimensionId) {
         List<DimensionValueEntity> rootValues = valueRepository.findByDimensionIdAndParentIdIsNull(dimensionId);
         return buildTree(rootValues);
@@ -313,12 +337,14 @@ public class DimensionService {
         return values;
     }
     
+    @Transactional(readOnly = true)
     public Optional<DimensionValueEntity> lookupValue(UUID dimensionId, String codeOrUri) {
         Optional<DimensionValueEntity> byCode = valueRepository.findByDimensionIdAndCode(dimensionId, codeOrUri);
         if (byCode.isPresent()) return byCode;
         return valueRepository.findByDimensionIdAndUri(dimensionId, codeOrUri);
     }
     
+    @Transactional(readOnly = true)
     public Map<String, Object> getStats(UUID projectId) {
         Map<String, Object> stats = new HashMap<>();
         stats.put("dimensionCount", dimensionRepository.countByProjectId(projectId));

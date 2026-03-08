@@ -1,4 +1,4 @@
-import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpEvent, HttpContextToken } from '@angular/common/http';
+import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpEvent, HttpContextToken, HttpContext } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Observable, timeout, TimeoutError, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -66,8 +66,8 @@ export const timeoutInterceptor: HttpInterceptorFn = (
 /**
  * Helper function to create request context with pipeline timeout
  */
-export function withPipelineTimeout(): { context: any } {
-  const context = new (HttpRequest as any).HttpContext();
+export function withPipelineTimeout(): { context: HttpContext } {
+  const context = new HttpContext();
   context.set(OPERATION_TYPE, 'pipeline');
   return { context };
 }
@@ -75,8 +75,8 @@ export function withPipelineTimeout(): { context: any } {
 /**
  * Helper function to create request context with SPARQL timeout
  */
-export function withSparqlTimeout(): { context: any } {
-  const context = new (HttpRequest as any).HttpContext();
+export function withSparqlTimeout(): { context: HttpContext } {
+  const context = new HttpContext();
   context.set(OPERATION_TYPE, 'sparql');
   return { context };
 }
@@ -84,8 +84,8 @@ export function withSparqlTimeout(): { context: any } {
 /**
  * Helper function to create request context with custom timeout
  */
-export function withCustomTimeout(timeoutMs: number): { context: any } {
-  const context = new (HttpRequest as any).HttpContext();
+export function withCustomTimeout(timeoutMs: number): { context: HttpContext } {
+  const context = new HttpContext();
   context.set(CUSTOM_TIMEOUT, timeoutMs);
   return { context };
 }

@@ -14,7 +14,7 @@ import java.util.List;
 @RequestMapping("/api/v1/operations")
 @RequiredArgsConstructor
 @Tag(name = "Operations", description = "Operation discovery API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class OperationController {
     private final OperationRegistry operationRegistry;
 

@@ -81,6 +81,17 @@ public interface DestinationProvider {
     ValidationResult validateConfig(Map<String, Object> config);
 
     /**
+     * Sanitize destination config by redacting sensitive fields (e.g., access tokens, passwords)
+     * before returning config through API responses.
+     * Providers with sensitive config fields should override this method.
+     * @param config The raw configuration
+     * @return A copy of the config with sensitive values redacted
+     */
+    default Map<String, Object> sanitizeConfig(Map<String, Object> config) {
+        return config;
+    }
+
+    /**
      * Result of a publish operation.
      */
     record PublishResult(

@@ -445,4 +445,312 @@ class DataServiceTest {
             assertEquals("boolean", columns.get(0).get("type"));
         }
     }
+
+    @Nested
+    @DisplayName("File Size Limit Tests")
+    class FileSizeLimitTests {
+
+        @Test
+        @DisplayName("Should reject file exceeding maximum size")
+        void uploadDataSource_FileTooLarge_ThrowsException() {
+            // Create a file larger than 100MB (100 * 1024 * 1024 = 104857600 bytes)
+            byte[] largeContent = new byte[104857601];
+            MockMultipartFile largeFile = new MockMultipartFile(
+                "file", "large.csv", "text/csv", largeContent
+            );
+
+            IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                dataService.uploadDataSource(largeFile, "UTF-8", false, userId)
+            );
+
+            assertTrue(exception.getMessage().contains("exceeds maximum"));
+        }
+
+        @Test
+        @DisplayName("Should accept file at maximum size limit")
+        void uploadDataSource_FileAtMaxSize_Accepts() throws IOException {
+            // Create a file exactly at 100MB
+            byte[] maxContent = new byte[104857600];
+            MockMultipartFile maxFile = new MockMultipartFile(
+                "file", "max-size.csv", "text/csv", maxContent
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/max-size.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(maxFile, "UTF-8", false, userId);
+
+            assertNotNull(result);
+            assertEquals(104857600L, result.getSizeBytes());
+        }
+
+        @Test
+        @DisplayName("Should accept small files")
+        void uploadDataSource_SmallFile_Accepts() throws IOException {
+            MockMultipartFile smallFile = new MockMultipartFile(
+                "file", "small.csv", "text/csv", "a,b,c".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/small.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(smallFile, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+    }
+
+    @Nested
+    @DisplayName("MIME Type Validation Tests")
+    class MimeTypeValidationTests {
+
+        @Test
+        @DisplayName("Should accept allowed MIME type - CSV")
+        void uploadDataSource_AllowedMimeTypeCsv_Accepts() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.csv", "text/csv", "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should accept allowed MIME type - JSON")
+        void uploadDataSource_AllowedMimeTypeJson_Accepts() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.json", "application/json", "[]".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.json");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should accept allowed MIME type - Excel")
+        void uploadDataSource_AllowedMimeTypeExcel_Accepts() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                new byte[100]
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.xlsx");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should reject disallowed MIME type")
+        void uploadDataSource_DisallowedMimeType_ThrowsException() {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "malicious.exe", "application/x-msdownload", "MZ".getBytes()
+            );
+
+            IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                dataService.uploadDataSource(file, "UTF-8", false, userId)
+            );
+
+            assertTrue(exception.getMessage().contains("not allowed"));
+        }
+
+        @Test
+        @DisplayName("Should accept file based on extension when MIME type is octet-stream")
+        void uploadDataSource_OctetStreamWithValidExtension_Accepts() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.csv", "application/octet-stream", "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+            assertEquals(DataFormat.CSV, result.getFormat());
+        }
+
+        @Test
+        @DisplayName("Should accept null content type")
+        void uploadDataSource_NullContentType_Accepts() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.csv", null, "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+    }
+
+    @Nested
+    @DisplayName("Path Traversal Protection Tests")
+    class PathTraversalProtectionTests {
+
+        @Test
+        @DisplayName("Should sanitize filename with path traversal")
+        void uploadDataSource_PathTraversalFilename_Sanitizes() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "../../../etc/passwd", "text/csv", "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/sanitized.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            // The filename should be sanitized
+            assertNotNull(result);
+            assertFalse(result.getOriginalFilename().contains("../"));
+            assertFalse(result.getOriginalFilename().contains("/etc/"));
+        }
+
+        @Test
+        @DisplayName("Should sanitize filename with backslash path traversal")
+        void uploadDataSource_BackslashPathTraversal_Sanitizes() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "..\\..\\windows\\system32\\config", "text/csv", "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/sanitized.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+            assertFalse(result.getOriginalFilename().contains("\\"));
+        }
+
+        @Test
+        @DisplayName("Should sanitize filename with null bytes")
+        void uploadDataSource_FilenameWithNullBytes_Sanitizes() throws IOException {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "file\0.txt", "text/csv", "a,b\n1,2".getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/sanitized.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+            assertFalse(result.getOriginalFilename().contains("\0"));
+        }
+    }
+
+    @Nested
+    @DisplayName("analyzeDataSource Tests")
+    class AnalyzeDataSourceTests {
+
+        @Test
+        @DisplayName("Should analyze existing data source")
+        void analyzeDataSource_Existing_ReturnsAnalysis() throws IOException {
+            String csvContent = "name,age\nJohn,30\nJane,25";
+            InputStream csvStream = new ByteArrayInputStream(csvContent.getBytes());
+
+            when(dataSourceRepository.findById(dataSourceId)).thenReturn(Optional.of(sampleEntity));
+            when(fileStorageService.downloadFile(sampleEntity.getStoragePath())).thenReturn(csvStream);
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Map<String, Object> result = dataService.analyzeDataSource(dataSourceId);
+
+            assertNotNull(result);
+            assertTrue(result.containsKey("columns"));
+            assertTrue(result.containsKey("rowCount"));
+        }
+
+        @Test
+        @DisplayName("Should use cached metadata if available")
+        void analyzeDataSource_WithCachedMetadata_UsesCache() throws IOException {
+            sampleEntity.setMetadata(Map.of(
+                "columns", List.of(Map.of("name", "col1", "type", "string")),
+                "rowCount", 100L
+            ));
+            sampleEntity.setRowCount(100L);
+
+            when(dataSourceRepository.findById(dataSourceId)).thenReturn(Optional.of(sampleEntity));
+
+            Map<String, Object> result = dataService.analyzeDataSource(dataSourceId);
+
+            assertNotNull(result);
+            verify(fileStorageService, never()).downloadFile(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when data source not found")
+        void analyzeDataSource_NotFound_ThrowsException() {
+            when(dataSourceRepository.findById(dataSourceId)).thenReturn(Optional.empty());
+
+            assertThrows(RuntimeException.class, () ->
+                dataService.analyzeDataSource(dataSourceId)
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("Encoding Tests")
+    class EncodingTests {
+
+        @Test
+        @DisplayName("Should handle UTF-8 encoding")
+        void uploadDataSource_Utf8Encoding_HandlesCorrectly() throws IOException {
+            String csvContent = "name\nJos\u00e9"; // José with accented é
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "utf8.csv", "text/csv", csvContent.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/utf8.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "UTF-8", false, userId);
+
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should handle Latin-1 encoding")
+        void uploadDataSource_Latin1Encoding_HandlesCorrectly() throws IOException {
+            String csvContent = "name\nJos\u00e9";
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "latin1.csv", "text/csv", csvContent.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1)
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/latin1.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, "ISO-8859-1", false, userId);
+
+            assertNotNull(result);
+        }
+
+        @Test
+        @DisplayName("Should default to UTF-8 when encoding is null")
+        void uploadDataSource_NullEncoding_UsesUtf8() throws IOException {
+            String csvContent = "name\nJohn";
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.csv", "text/csv", csvContent.getBytes()
+            );
+
+            when(fileStorageService.uploadFile(any(), any())).thenReturn("/storage/data.csv");
+            when(dataSourceRepository.save(any(DataSourceEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            DataSourceEntity result = dataService.uploadDataSource(file, null, false, userId);
+
+            assertNotNull(result);
+        }
+    }
 }

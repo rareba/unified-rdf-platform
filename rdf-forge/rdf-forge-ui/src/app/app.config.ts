@@ -6,6 +6,7 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { timeoutInterceptor } from './core/interceptors/timeout.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { SettingsService } from './core/services/settings.service';
 import { AuthService } from './core/services/auth.service';
 import { GlobalErrorHandlerService } from './core/services/global-error-handler.service';
@@ -34,7 +35,11 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, timeoutInterceptor])),
+    provideHttpClient(withInterceptors([
+      errorInterceptor,    // Error handling interceptor (first to catch all errors)
+      authInterceptor,     // Auth token interceptor
+      timeoutInterceptor   // Request timeout interceptor
+    ])),
     provideAnimations(),
     {
       provide: ErrorHandler,

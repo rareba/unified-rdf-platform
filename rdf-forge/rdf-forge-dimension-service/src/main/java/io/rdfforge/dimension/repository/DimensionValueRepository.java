@@ -57,7 +57,7 @@ public interface DimensionValueRepository extends JpaRepository<DimensionValueEn
            "AND v.isDeprecated = false ORDER BY v.sortOrder, v.label")
     List<DimensionValueEntity> findActiveValuesByDimensionId(@Param("dimensionId") UUID dimensionId);
     
-    void deleteByDimensionId(UUID dimensionId);
+    long deleteByDimensionId(UUID dimensionId);
     
     boolean existsByDimensionIdAndCode(UUID dimensionId, String code);
     

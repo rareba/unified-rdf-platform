@@ -1,260 +1,643 @@
-<div class="dashboard">
-  <!-- Getting Started Banner (shown when no data) -->
-  @if (!loading() && isNewUser()) {
-    <mat-card class="getting-started-card">
-      <mat-card-content>
-        <div class="getting-started">
-          <div class="welcome-section">
-            <mat-icon class="welcome-icon">rocket_launch</mat-icon>
-            <div class="welcome-text">
-              <h2>Welcome to RDF Forge</h2>
-              <p>Transform your CSV data into RDF Data Cubes with just a few clicks. Follow the steps below to get started.</p>
-            </div>
-          </div>
-          <div class="steps-grid">
-            <div class="step-card" (click)="navigateTo('/data')">
-              <div class="step-number">1</div>
-              <mat-icon>upload_file</mat-icon>
-              <h4>Upload Data</h4>
-              <p>Upload CSV, JSON, or other tabular data files</p>
-            </div>
-            <div class="step-card" (click)="navigateTo('/cubes/new')">
-              <div class="step-number">2</div>
-              <mat-icon>view_in_ar</mat-icon>
-              <h4>Create Cube</h4>
-              <p>Map your columns to dimensions and measures</p>
-            </div>
-            <div class="step-card" (click)="navigateTo('/pipelines/new')">
-              <div class="step-number">3</div>
-              <mat-icon>account_tree</mat-icon>
-              <h4>Build Pipeline</h4>
-              <p>Create automated transformation workflows</p>
-            </div>
-            <div class="step-card" (click)="navigateTo('/triplestore')">
-              <div class="step-number">4</div>
-              <mat-icon>storage</mat-icon>
-              <h4>Query Data</h4>
-              <p>Browse and query your RDF data with SPARQL</p>
-            </div>
+<div class="dashboard-container" role="main" aria-label="Dashboard">
+  <header class="dashboard-header">
+    <h1 id="dashboard-title">{{ 'i18n.dashboard.title' | translate }}</h1>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="refreshData()"
+        [disabled]="isLoading()"
+        aria-label="Refresh dashboard data"
+        attr.aria-describedby="refresh-status"
+      >
+        <i class="fa fa-refresh" [class.fa-spin]="isLoading()" aria-hidden="true"></i>
+        <span>{{ 'i18n.common.refresh' | translate }}</span>
+      </button>
+    </div>
+  </header>
+
+  <span id="refresh-status" class="sr-only">
+    {{ isLoading() ? 'Loading data' : 'Data refreshed' }}
+  </span>
+
+  <!-- Error State -->
+  @if (error()) {
+    <div
+      class="alert alert-danger"
+      role="alert"
+      aria-live="polite"
+      @slideInOut
+    >
+      <div class="alert-content">
+        <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+        <div>
+          <strong>{{ 'i18n.common.error' | translate }}</strong>
+          <p>{{ error() }}</p>
+        </div>
+      </div>
+      <div class="alert-actions">
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm"
+          (click)="refreshData()"
+          [disabled]="isRetrying()"
+          [attr.aria-label]="'Retry loading data, attempt ' + retryCount + ' of ' + maxRetries"
+        >
+          <i class="fa fa-refresh" [class.fa-spin]="isRetrying()" aria-hidden="true"></i>
+          {{ 'i18n.common.retry' | translate }}
+          @if (retryCount > 0) {
+            <span class="retry-count">
+              ({{ retryCount }}/{{ maxRetries }})
+            </span>
+          }
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Loading Skeleton -->
+  @if (isLoading() && !error()) {
+    <div class="stats-grid" role="status" aria-live="polite" aria-label="Loading statistics">
+      @for (_ of [1,2,3,4,5,6]; track $index) {
+        <div class="stat-card skeleton">
+          <div class="stat-icon skeleton-icon"></div>
+          <div class="stat-content">
+            <div class="skeleton-title"></div>
+            <div class="skeleton-value"></div>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      }
+    </div>
   }
 
   <!-- Stats Grid -->
-  <div class="stats-grid">
-    <mat-card class="stat-card clickable" (click)="navigateTo('/pipelines')">
-      <mat-card-content>
-        <div class="stat-content">
-          <div class="stat-icon blue">
-            <mat-icon>account_tree</mat-icon>
-          </div>
-          <div class="stat-info">
-            @if (loading()) {
-              <mat-spinner diameter="24"></mat-spinner>
-            } @else {
-              <span class="stat-value">{{ stats().pipelines }}</span>
-              <span class="stat-label">Pipelines</span>
-            }
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card clickable" (click)="navigateTo('/jobs')">
-      <mat-card-content>
-        <div class="stat-content">
-          <div class="stat-icon green">
-            <mat-icon>check_circle</mat-icon>
-          </div>
-          <div class="stat-info">
-            @if (loading()) {
-              <mat-spinner diameter="24"></mat-spinner>
-            } @else {
-              <span class="stat-value">{{ stats().completedJobs }}</span>
-              <span class="stat-label">Completed Jobs</span>
-            }
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card clickable" (click)="navigateTo('/shacl')">
-      <mat-card-content>
-        <div class="stat-content">
-          <div class="stat-icon purple">
-            <mat-icon>check_box</mat-icon>
-          </div>
-          <div class="stat-info">
-            @if (loading()) {
-              <mat-spinner diameter="24"></mat-spinner>
-            } @else {
-              <span class="stat-value">{{ stats().shapes }}</span>
-              <span class="stat-label">SHACL Shapes</span>
-            }
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="stat-card clickable" (click)="navigateTo('/data')">
-      <mat-card-content>
-        <div class="stat-content">
-          <div class="stat-icon orange">
-            <mat-icon>storage</mat-icon>
-          </div>
-          <div class="stat-info">
-            @if (loading()) {
-              <mat-spinner diameter="24"></mat-spinner>
-            } @else {
-              <span class="stat-value">{{ stats().dataSources }}</span>
-              <span class="stat-label">Data Sources</span>
-            }
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-
-  <div class="content-grid">
-    <!-- Recent Jobs -->
-    <mat-card class="jobs-card">
-      <mat-card-header>
-        <mat-card-title>Recent Jobs</mat-card-title>
-        <button mat-icon-button (click)="navigateTo('/jobs')" class="view-all-btn">
-          <mat-icon>open_in_new</mat-icon>
-        </button>
-      </mat-card-header>
-      <mat-card-content>
-        @if (loading()) {
-          <div class="loading-container">
-            <mat-spinner diameter="40"></mat-spinner>
-          </div>
-        } @else if (recentJobs().length === 0) {
-          <div class="empty-state">
-            <mat-icon>work_off</mat-icon>
-            <p>No jobs yet</p>
-            <button mat-stroked-button (click)="navigateTo('/pipelines')">
-              Run your first pipeline
-            </button>
-          </div>
-        } @else {
-          <table mat-table [dataSource]="recentJobs()" class="jobs-table">
-            <ng-container matColumnDef="pipelineName">
-              <th mat-header-cell *matHeaderCellDef>Pipeline</th>
-              <td mat-cell *matCellDef="let job">{{ job.pipelineName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let job">
-                <span class="status-chip" [class]="'status-' + job.status">{{ job.status }}</span>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="startedAt">
-              <th mat-header-cell *matHeaderCellDef>Started</th>
-              <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt) }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="duration">
-              <th mat-header-cell *matHeaderCellDef>Duration</th>
-              <td mat-cell *matCellDef="let job">{{ formatDuration(job.duration) }}</td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="navigateTo('/jobs/' + row.id)"></tr>
-          </table>
-        }
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Quick Actions -->
-    <mat-card class="actions-card">
-      <mat-card-header>
-        <mat-card-title>Quick Actions</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="quick-actions">
-          <button mat-raised-button color="primary" (click)="navigateTo('/pipelines/new')">
-            <mat-icon>add</mat-icon>
-            New Pipeline
-          </button>
-          <button mat-stroked-button (click)="navigateTo('/cubes/new')">
-            <mat-icon>view_in_ar</mat-icon>
-            Create Cube
-          </button>
-          <button mat-stroked-button color="accent" (click)="navigateTo('/data')">
-            <mat-icon>upload</mat-icon>
-            Upload Data
-          </button>
-          <button mat-stroked-button (click)="navigateTo('/shacl/new')">
-            <mat-icon>check_box</mat-icon>
-            Create Shape
-          </button>
-        </div>
-
-        <mat-divider class="action-divider"></mat-divider>
-
-        <!-- Common Workflows -->
-        <h4 class="workflows-title">Common Workflows</h4>
-        <div class="workflow-list">
-          <div class="workflow-item" (click)="startWorkflow('csv-to-cube')">
-            <mat-icon>table_chart</mat-icon>
-            <div class="workflow-info">
-              <span class="workflow-name">CSV to RDF Cube</span>
-              <span class="workflow-desc">Transform CSV data into a linked data cube</span>
-            </div>
-            <mat-icon class="arrow">arrow_forward</mat-icon>
-          </div>
-          <div class="workflow-item" (click)="startWorkflow('validate-cube')">
-            <mat-icon>verified</mat-icon>
-            <div class="workflow-info">
-              <span class="workflow-name">Validate Cube</span>
-              <span class="workflow-desc">Check cube against cube-link profiles</span>
-            </div>
-            <mat-icon class="arrow">arrow_forward</mat-icon>
-          </div>
-          <div class="workflow-item" (click)="startWorkflow('publish-graphdb')">
-            <mat-icon>cloud_upload</mat-icon>
-            <div class="workflow-info">
-              <span class="workflow-name">Publish to GraphDB</span>
-              <span class="workflow-desc">Store RDF data in the triplestore</span>
-            </div>
-            <mat-icon class="arrow">arrow_forward</mat-icon>
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-
-  <!-- Operations Overview -->
-  <mat-card class="operations-card">
-    <mat-card-header>
-      <mat-card-title>Available Operations</mat-card-title>
-      <span class="operations-count">{{ operationsCount() }} operations</span>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="operations-grid">
-        @for (group of operationGroups(); track group.type) {
-          <div class="operation-group">
-            <div class="group-header">
-              <mat-icon [style.color]="getGroupColor(group.type)">{{ group.icon }}</mat-icon>
-              <span>{{ group.label }}</span>
-              <span class="count-badge">{{ group.count }}</span>
-            </div>
-            <div class="group-items">
-              @for (op of group.operations.slice(0, 3); track op.id) {
-                <span class="op-chip">{{ op.name }}</span>
-              }
-              @if (group.operations.length > 3) {
-                <span class="more-chip">+{{ group.operations.length - 3 }} more</span>
-              }
-            </div>
-          </div>
+  @if (!isLoading() && stats() && !error()) {
+  <div class="stats-grid" role="region" aria-labelledby="dashboard-title" @slideInOut>    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Total datasets: ' + formatNumber(stats()?.totalDatasets)">
+      <div class="stat-icon success">
+        <i class="fa fa-database" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.datasets' | translate }}</span>
+        <span class="stat-value">{{ formatNumber(stats()?.totalDatasets) }}</span>
+        @if (stats()?.datasetsChange) {
+        <span class="stat-change" [class.positive]="stats()!.datasetsChange! >= 0" [class.negative]="stats()!.datasetsChange! < 0">
+          <i class="fa" [class.fa-arrow-up]="stats()!.datasetsChange! >= 0" [class.fa-arrow-down]="stats()!.datasetsChange! < 0" aria-hidden="true"></i>
+          {{ formatNumber(stats()?.datasetsChange, true) }}
+        </span>
         }
       </div>
-    </mat-card-content>
-  </mat-card>
+    </div>
+
+    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Total pipelines: ' + formatNumber(stats()?.totalPipelines)">
+      <div class="stat-icon info">
+        <i class="fa fa-project-diagram" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.pipelines' | translate }}</span>
+        <span class="stat-value">{{ formatNumber(stats()?.totalPipelines) }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Running jobs: ' + formatNumber(stats()?.runningJobs)">
+      <div class="stat-icon warning">
+        <i class="fa fa-play-circle" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.running' | translate }}</span>
+        <span class="stat-value">{{ formatNumber(stats()?.runningJobs) }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Completed pipelines: ' + formatNumber(stats()?.completedPipelines)">
+      <div class="stat-icon success">
+        <i class="fa fa-check-circle" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.completed' | translate }}</span>
+        <span class="stat-value">{{ formatNumber(stats()?.completedPipelines) }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Failed jobs: ' + formatNumber(stats()?.failedJobs)" (click)="navigateToFailedJobs()" (keydown.enter)="navigateToFailedJobs()">
+      <div class="stat-icon danger">
+        <i class="fa fa-times-circle" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.failed' | translate }}</span>
+        <span class="stat-value">{{ formatNumber(stats()?.failedJobs) }}</span>
+        @if (stats()!.failedJobs! > 0) {
+          <span class="stat-action">{{ 'i18n.dashboard.view' | translate }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="stat-card" tabindex="0" role="article" [attr.aria-label]="'Storage usage: ' + formatNumber(stats()?.storageUsage)">
+      <div class="stat-icon info">
+        <i class="fa fa-hdd-o" aria-hidden="true"></i>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">{{ 'i18n.dashboard.storage' | translate }}</span>
+        <span class="stat-value">{{ formatStorage(stats()?.storageUsage) }}</span>
+        @if (stats()?.storageUsage) {
+        <div class="storage-bar" role="img" [attr.aria-label]="'Storage usage ' + (getStoragePercentage() | number:'1.0-0') + '%'">
+          <div class="storage-fill" [style.width.%]="getStoragePercentage()" [class.warning]="getStoragePercentage() > 80" [class.danger]="getStoragePercentage() > 95"></div>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Empty State -->
+  @if (!isLoading() && !error() && !hasData()) {
+  <div
+    class="empty-state"
+    role="status"
+    aria-live="polite"
+    @slideInOut
+  >
+    <div class="empty-icon">
+      <i class="fa fa-inbox" aria-hidden="true"></i>
+    </div>
+    <h2>{{ 'i18n.dashboard.empty.title' | translate }}</h2>
+    <p>{{ 'i18n.dashboard.empty.message' | translate }}</p>
+    <div class="empty-actions">
+      <button
+        type="button"
+        class="btn btn-primary"
+        routerLink="/pipelines/create"
+        aria-label="Create your first pipeline"
+      >
+        <i class="fa fa-plus" aria-hidden="true"></i>
+        {{ 'i18n.dashboard.createPipeline' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        routerLink="/data/upload"
+        aria-label="Upload data"
+      >
+        <i class="fa fa-upload" aria-hidden="true"></i>
+        {{ 'i18n.dashboard.uploadData' | translate }}
+      </button>
+    </div>
+  </div>
+  }
+
+  <!-- Quick Actions -->
+  @if (!isLoading() && hasData()) {
+  <section class="quick-actions" role="region" aria-labelledby="quick-actions-title">
+    <h2 id="quick-actions-title">{{ 'i18n.dashboard.quickActions' | translate }}</h2>
+    <div class="actions-grid">
+      <a
+        routerLink="/pipelines/create"
+        class="action-card"
+        role="button"
+        tabindex="0"
+        attr.aria-label="Create new pipeline"
+        (keydown.enter)="$event.target.click()"
+      >
+        <i class="fa fa-plus-circle" aria-hidden="true"></i>
+        <span>{{ 'i18n.dashboard.createPipeline' | translate }}</span>
+      </a>
+      <a
+        routerLink="/data/upload"
+        class="action-card"
+        role="button"
+        tabindex="0"
+        attr.aria-label="Upload data"
+        (keydown.enter)="$event.target.click()"
+      >
+        <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+        <span>{{ 'i18n.dashboard.uploadData' | translate }}</span>
+      </a>
+      <a
+        routerLink="/jobs"
+        class="action-card"
+        role="button"
+        tabindex="0"
+        attr.aria-label="View all jobs"
+        (keydown.enter)="$event.target.click()"
+      >
+        <i class="fa fa-tasks" aria-hidden="true"></i>
+        <span>{{ 'i18n.dashboard.viewJobs' | translate }}</span>
+      </a>
+      <a
+        routerLink="/shacl"
+        class="action-card"
+        role="button"
+        tabindex="0"
+        attr.aria-label="Validate SHACL shapes"
+        (keydown.enter)="$event.target.click()"
+      >
+        <i class="fa fa-check-square-o" aria-hidden="true"></i>
+        <span>{{ 'i18n.dashboard.validateShapes' | translate }}</span>
+      </a>
+    </div>
+  </section>
+  }
+
+  <!-- Recent Activity -->
+  @if (!isLoading() && recentActivity().length > 0) {
+  <section class="recent-activity" role="region" aria-labelledby="recent-activity-title">
+    <div class="section-header">
+      <h2 id="recent-activity-title">{{ 'i18n.dashboard.recentActivity' | translate }}</h2>
+      <a routerLink="/jobs" class="view-all">{{ 'i18n.common.viewAll' | translate }}</a>
+    </div>
+    <div class="activity-list" role="list">
+      @for (activity of recentActivity(); track $index) {
+      <div
+        class="activity-item"
+        role="listitem"
+        tabindex="0"
+        [attr.aria-label]="activity.description"
+      >
+        <div class="activity-icon" [class]="getStatusClass(activity.status)">
+          <i class="fa" [class]="getStatusIcon(activity.status)" aria-hidden="true"></i>
+        </div>
+        <div class="activity-content">
+          <p class="activity-title">{{ activity.title }}</p>
+          <p class="activity-description">{{ activity.description }}</p>
+          <time class="activity-time" [attr.datetime]="activity.timestamp">{{ formatRelativeTime(activity.timestamp) }}</time>
+        </div>
+      </div>
+      }
+    </div>
+  </section>
+  }
 </div>
+
+<style>
+  :host {
+    display: block;
+    padding: 1.5rem;
+  }
+
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .dashboard-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+
+  .stat-card[tabindex]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .stat-icon.success { background: var(--green-100); color: var(--green-700); }
+  .stat-icon.info { background: var(--blue-100); color: var(--blue-700); }
+  .stat-icon.warning { background: var(--yellow-100); color: var(--yellow-700); }
+  .stat-icon.danger { background: var(--red-100); color: var(--red-700); }
+
+  .stat-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-label {    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .stat-change {
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .stat-change.positive { color: var(--green-600); }
+  .stat-change.negative { color: var(--red-600); }
+
+  .stat-action {
+    font-size: 0.75rem;
+    color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .storage-bar {
+    height: 4px;
+    background: var(--surface-border);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+  }
+
+  .storage-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s ease;
+  }
+
+  .storage-fill.warning { background: var(--yellow-500); }
+  .storage-fill.danger { background: var(--red-500); }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .empty-state h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .empty-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .quick-actions {
+    margin-bottom: 2rem;
+  }
+
+  .quick-actions h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 1rem;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.2s;
+  }
+
+  .action-card:hover {
+    background: var(--surface-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .action-card:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .action-card i {
+    font-size: 1.5rem;
+    color: var(--primary);
+  }
+
+  .recent-activity {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .view-all {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .view-all:hover {
+    text-decoration: underline;
+  }
+
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .activity-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+
+  .activity-item:hover {
+    background: var(--surface-hover);
+  }
+
+  .activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .activity-icon.completed { background: var(--green-100); color: var(--green-700); }
+  .activity-icon.failed { background: var(--red-100); color: var(--red-700); }
+  .activity-icon.running { background: var(--blue-100); color: var(--blue-700); }
+  .activity-icon.pending { background: var(--yellow-100); color: var(--yellow-700); }
+
+  .activity-content {
+    flex: 1;
+  }
+
+  .activity-title {
+    font-weight: 500;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .activity-description {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .activity-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+  }
+
+  .alert-danger {
+    background: var(--red-50);
+    border: 1px solid var(--red-200);
+  }
+
+  .alert-content {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .alert-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--red-200);
+  }
+
+  .retry-count {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-ground) 25%,
+      var(--surface-card) 50%,
+      var(--surface-ground) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .skeleton-icon {
+    background: var(--surface-border);
+    border-radius: 8px;
+  }
+
+  .skeleton-title {
+    width: 60%;
+    height: 0.875rem;
+    background: var(--surface-border);
+    border-radius: 2px;
+    margin-bottom: 0.5rem;
+  }
+
+  .skeleton-value {
+    width: 40%;
+    height: 1.5rem;
+    background: var(--surface-border);
+    border-radius: 2px;
+  }
+
+  /* Screen Reader Only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    :host {
+      padding: 1rem;
+    }
+
+    .dashboard-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 
 interface ServiceHealth {
   name: string;
@@ -264,11 +265,13 @@ interface SystemInfo {
     .storage-info h4 {
       margin: 0 0 8px 0;
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SystemSettings implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly confirmationService = inject(ConfirmationService);
 
   readonly env = environment;
 
@@ -377,24 +380,36 @@ export class SystemSettings implements OnInit {
   }
 
   restartServices(): void {
-    if (!confirm('Restart all services? This may cause temporary downtime.')) return;
-
-    this.http.post(`${this.env.apiBaseUrl}/admin/restart`, {}).subscribe({
-      next: () => {
-        this.snackBar.open('Restart initiated', 'Close', { duration: 3000 });
-        setTimeout(() => this.checkHealth(), 5000);
-      },
-      error: () => {
-        this.snackBar.open('Restart not available in this environment', 'Close', { duration: 3000 });
-      }
+    this.confirmationService.confirm({
+      title: 'Restart Services',
+      message: 'Restart all services? This may cause temporary downtime.',
+      confirmText: 'Restart',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.post(`${this.env.apiBaseUrl}/admin/restart`, {}).subscribe({
+        next: () => {
+          this.snackBar.open('Restart initiated', 'Close', { duration: 3000 });
+          setTimeout(() => this.checkHealth(), 5000);
+        },
+        error: () => {
+          this.snackBar.open('Restart not available in this environment', 'Close', { duration: 3000 });
+        }
+      });
     });
   }
 
   clearLocalStorage(): void {
-    if (!confirm('Clear all local storage? This will reset your settings.')) return;
-
-    localStorage.clear();
-    this.snackBar.open('Local storage cleared', 'Close', { duration: 3000 });
+    this.confirmationService.confirm({
+      title: 'Clear Local Storage',
+      message: 'Clear all local storage? This will reset your settings.',
+      confirmText: 'Clear',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+      localStorage.clear();
+      this.snackBar.open('Local storage cleared', 'Close', { duration: 3000 });
+    });
   }
 
   getStorageUsage(): string {

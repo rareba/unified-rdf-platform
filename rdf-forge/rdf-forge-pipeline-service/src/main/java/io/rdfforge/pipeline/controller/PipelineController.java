@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/pipelines")
 @RequiredArgsConstructor
 @Tag(name = "Pipelines", description = "Pipeline management API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class PipelineController {
     private final PipelineService pipelineService;
     private final OperationRegistry operationRegistry;
@@ -30,6 +30,15 @@ public class PipelineController {
     @Operation(summary = "Create a new pipeline")
     public ResponseEntity<Pipeline> create(@Valid @RequestBody Pipeline pipeline) {
         Pipeline created = pipelineService.create(pipeline);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PostMapping("/batch")
+    @Operation(summary = "Create multiple pipelines")
+    public ResponseEntity<List<Pipeline>> createBatch(@Valid @RequestBody List<Pipeline> pipelines) {
+        List<Pipeline> created = pipelines.stream()
+            .map(pipelineService::create)
+            .toList();
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 

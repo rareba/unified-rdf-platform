@@ -1,141 +1,599 @@
-<div class="job-monitor">
-  @if (loading()) {
-    <div class="loading">Loading job details...</div>
-  } @else if (job()) {
-    <div class="header">
-      <div>
-        <h1>Job {{ job()!.id.substring(0, 8) }}</h1>
-        <p class="pipeline-name">{{ job()!.pipelineName }} v{{ job()!.pipelineVersion }}</p>
+<div class="job-monitor-container" role="main" aria-label="Job monitor">
+  <!-- Header -->
+  <header class="monitor-header">
+    <div class="job-info">
+      <h1 id="job-title">
+        @if (isLoading()) {
+          <span class="skeleton-text skeleton-title"></span>
+        } @else {
+          {{ job()?.name }}
+        }
+      </h1>
+      <div class="job-meta">
+        @if (!isLoading()) {
+          <span class="job-id">ID: {{ jobId() }}</span>
+        }
+        @if (!isLoading() && job()) {
+          <span
+            class="status-badge"
+            [class]="getStatusClass(job()!.status)"
+            role="status">
+            <i class="fa" [class]="getStatusIcon(job()!.status)" aria-hidden="true"></i>
+            {{ 'i18n.job.status.' + job()!.status.toLowerCase() | translate }}
+          </span>
+        }
       </div>
-      <div class="actions">
-        <button mat-button (click)="goBack()">
-          <mat-icon>arrow_back</mat-icon>
-          Back
+    </div>
+    <div class="header-actions">
+      @if (canCancel()) {
+        <button
+          type="button"
+          class="btn btn-danger"
+          (click)="cancelJob()"
+          [disabled]="isCancelling()">
+          <i class="fa fa-stop" [class.fa-spin]="isCancelling()" aria-hidden="true"></i>
+          {{ 'i18n.job.action.cancel' | translate }}
         </button>
-        @if (job()!.status === 'running') {
-          <button mat-raised-button color="warn" (click)="cancelJob()">
-            <mat-icon>stop</mat-icon>
-            Cancel
+      }
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="downloadLogs()"
+        [disabled]="logs().length === 0">
+        <i class="fa fa-download" aria-hidden="true"></i>
+        {{ 'i18n.job.monitor.downloadLogs' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="toggleAutoScroll()"
+        [class.active]="autoScroll()"
+        [attr.aria-pressed]="autoScroll()">
+        <i class="fa" [class.fa-lock]="autoScroll()" [class.fa-unlock]="!autoScroll()" aria-hidden="true"></i>
+        {{ autoScroll() ? ('i18n.job.monitor.autoScrollOn' | translate) : ('i18n.job.monitor.autoScrollOff' | translate) }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Connection Status -->
+  @if (connectionStatus() !== 'connected') {
+    <div
+      class="connection-status"
+      [class.reconnecting]="connectionStatus() === 'reconnecting'"
+      [class.disconnected]="connectionStatus() === 'disconnected'"
+      role="alert"
+      aria-live="polite">
+      <i class="fa" [class.fa-refresh]="connectionStatus() === 'reconnecting'" [class.fa-times-circle]="connectionStatus() === 'disconnected'" aria-hidden="true"></i>
+      @if (connectionStatus() === 'reconnecting') {
+        <span>
+          {{ 'i18n.job.monitor.reconnecting' | translate }}
+          <span class="attempt-info">({{ reconnectAttempts() }}/{{ maxReconnectAttempts }})</span>
+        </span>
+      }
+      @if (connectionStatus() === 'disconnected') {
+        <span>
+          {{ 'i18n.job.monitor.disconnected' | translate }}
+          <button type="button" class="btn btn-link" (click)="reconnect()">
+            {{ 'i18n.job.monitor.reconnect' | translate }}
           </button>
-        }
-        @if (job()!.status === 'failed') {
-          <button mat-raised-button color="accent" (click)="retryJob()">
-            <mat-icon>refresh</mat-icon>
-            Retry
-          </button>
-        }
-      </div>
+        </span>
+      }
+    </div>
+  }
+
+  <!-- Progress Bar -->
+  @if (!isLoading() && job() && job()!.status === 'RUNNING') {
+  <div
+    class="progress-section"
+    role="region"
+    aria-label="Job progress">
+    <div class="progress-info">
+      <span class="progress-label">{{ job()!.progressMessage || ('i18n.job.monitor.processing' | translate) }}</span>
+      <span class="progress-percent">{{ job()!.progress || 0 }}%</span>
+    </div>
+    <div class="progress-bar" role="progressbar" [attr.aria-valuenow]="job()!.progress || 0" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-fill" [style.width.%]="job()!.progress || 0" [class.indeterminate]="!job()!.progress"></div>
+    </div>
+  </div>
+  }
+
+  <!-- Log Controls -->
+  <div class="log-controls" role="toolbar" aria-label="Log filter controls">
+    <div class="search-box">
+      <i class="fa fa-search search-icon" aria-hidden="true"></i>
+      <input
+        type="text"
+        class="form-control"
+        [(ngModel)]="logSearch"
+        (input)="onSearchChange()"
+        [placeholder]="'i18n.job.monitor.searchLogs' | translate"
+        aria-label="Search logs" />
     </div>
 
-    <div class="grid mt-4">
-      <div class="col-12 lg:col-4">
-        <mat-card>
-          <mat-card-header>
-            <mat-card-title>Status</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="status-info">
-              <mat-chip-set>
-                <mat-chip [class]="getStatusClass(job()!.status)">
-                  {{ job()!.status }}
-                </mat-chip>
-              </mat-chip-set>
-              @if (job()!.status === 'running') {
-                <mat-progress-bar mode="determinate" [value]="job()!.progress" class="mt-3"></mat-progress-bar>
-                <div class="progress-text">{{ job()!.progress }}%</div>
-              }
-            </div>
-            <div class="info-row mt-3">
-              <span class="label">Started</span>
-              <span class="value">{{ formatDate(job()!.startedAt) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Completed</span>
-              <span class="value">{{ formatDate(job()!.completedAt) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Duration</span>
-              <span class="value">{{ formatDuration(job()!.duration) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Triggered By</span>
-              <span class="value">{{ job()!.triggeredBy }}</span>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        @if (job()!.metrics) {
-          <mat-card class="mt-3">
-            <mat-card-header>
-              <mat-card-title>Metrics</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="info-row">
-                <span class="label">Rows Processed</span>
-                <span class="value">{{ job()!.metrics!.rowsProcessed | number }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Quads Generated</span>
-                <span class="value">{{ job()!.metrics!.quadsGenerated | number }}</span>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        }
-
-        @if (job()!.errorMessage) {
-          <mat-card class="mt-3">
-            <mat-card-header>
-              <mat-card-title>Error</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="error-message">{{ job()!.errorMessage }}</div>
-            </mat-card-content>
-          </mat-card>
-        }
-      </div>
-
-      <div class="col-12 lg:col-8">
-        <mat-card>
-          <mat-card-header>
-            <mat-card-title>Logs</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="logs-container">
-              @if (logs().length > 0) {
-                <table mat-table [dataSource]="logs()" class="logs-table">
-                  <ng-container matColumnDef="timestamp">
-                    <th mat-header-cell *matHeaderCellDef>Time</th>
-                    <td mat-cell *matCellDef="let log" class="log-time">{{ formatDate(log.timestamp) }}</td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="level">
-                    <th mat-header-cell *matHeaderCellDef>Level</th>
-                    <td mat-cell *matCellDef="let log">
-                      <mat-chip-set>
-                        <mat-chip [class]="getLogClass(log.level)" class="log-chip">
-                          {{ log.level }}
-                        </mat-chip>
-                      </mat-chip-set>
-                    </td>
-                  </ng-container>
-
-                  <ng-container matColumnDef="message">
-                    <th mat-header-cell *matHeaderCellDef>Message</th>
-                    <td mat-cell *matCellDef="let log" class="log-message">{{ log.message }}</td>
-                  </ng-container>
-
-                  <tr mat-header-row *matHeaderRowDef="['timestamp', 'level', 'message']"></tr>
-                  <tr mat-row *matRowDef="let row; columns: ['timestamp', 'level', 'message']"></tr>
-                </table>
-              } @else {
-                <div class="text-center text-muted">No logs available</div>
-              }
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
+    <div class="level-filters" role="group" aria-label="Filter by log level">
+      <button
+        type="button"
+        class="level-btn"
+        [class.active]="isLevelEnabled('DEBUG')"
+        [class.disabled]="!isLevelEnabled('DEBUG')"
+        [attr.aria-pressed]="isLevelEnabled('DEBUG')"
+        (click)="toggleLevel('DEBUG')">
+        DEBUG
+      </button>
+      <button
+        type="button"
+        class="level-btn"
+        [class.active]="isLevelEnabled('INFO')"
+        [class.disabled]="!isLevelEnabled('INFO')"
+        [attr.aria-pressed]="isLevelEnabled('INFO')"
+        (click)="toggleLevel('INFO')">
+        INFO
+      </button>
+      <button
+        type="button"
+        class="level-btn warning"
+        [class.active]="isLevelEnabled('WARN')"
+        [class.disabled]="!isLevelEnabled('WARN')"
+        [attr.aria-pressed]="isLevelEnabled('WARN')"
+        (click)="toggleLevel('WARN')">
+        WARN
+      </button>
+      <button
+        type="button"
+        class="level-btn error"
+        [class.active]="isLevelEnabled('ERROR')"
+        [class.disabled]="!isLevelEnabled('ERROR')"
+        [attr.aria-pressed]="isLevelEnabled('ERROR')"
+        (click)="toggleLevel('ERROR')">
+        ERROR
+      </button>
     </div>
-  } @else {
-    <div class="not-found">Job not found</div>
+
+    <div class="log-stats" role="region" aria-label="Log statistics">
+      <span class="stats-item">
+        <i class="fa fa-list" aria-hidden="true"></i>
+        {{ filteredLogs().length }} {{ 'i18n.job.monitor.lines' | translate }}
+      </span>
+      @if (errorCount() > 0) {
+    <span class="stats-item error">
+        <i class="fa fa-times-circle" aria-hidden="true"></i>
+        {{ errorCount() }} {{ 'i18n.job.monitor.errors' | translate }}
+      </span>
+    }
+    </div>
+  </div>
+
+  <!-- Log Output -->
+  <div
+    class="log-container"
+    #logContainer
+    (scroll)="onScroll()"
+    role="log"
+    aria-live="polite"
+    aria-atomic="false"
+    aria-relevant="additions"
+    aria-label="Job execution logs">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ 'i18n.common.loading' | translate }}</span>
+      </div>
+    } @else if (filteredLogs().length === 0) {
+      <div class="empty-logs">
+        <i class="fa fa-file-text-o" aria-hidden="true"></i>
+        <p>{{ 'i18n.job.monitor.noLogs' | translate }}</p>
+      </div>
+    } @else {
+      <div class="log-entries">
+        @for (log of filteredLogs(); track $index) {
+          <div
+            class="log-entry"
+            [class]="'level-' + log.level.toLowerCase()"
+            [class.highlighted]="isHighlighted(log)"
+            role="listitem"
+            [attr.aria-label]="log.level + ' log at ' + formatTimestamp(log.timestamp)">
+            <span class="log-timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+            <span class="log-level">{{ log.level }}</span>
+            <span class="log-message">{{ log.message }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Jump to Bottom Button -->
+  @if (showScrollButton()) {
+    <button
+      type="button"
+      class="scroll-button"
+      (click)="scrollToBottom()"
+      aria-label="Scroll to bottom">
+      <i class="fa fa-arrow-down" aria-hidden="true"></i>
+    </button>
   }
 </div>
+
+<style>
+  :host {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .job-monitor-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .monitor-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--surface-border);
+    background: var(--surface-card);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .job-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  #job-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+
+  .skeleton-text {
+    background: linear-gradient(90deg, var(--surface-border) 25%, var(--surface-hover) 50%, var(--surface-border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .skeleton-title {
+    width: 300px;
+    height: 1.5rem;
+    border-radius: 2px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .job-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .job-id {
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-badge.pending { background: var(--yellow-100); color: var(--yellow-800); }
+  .status-badge.running { background: var(--blue-100); color: var(--blue-800); }
+  .status-badge.completed { background: var(--green-100); color: var(--green-800); }
+  .status-badge.failed { background: var(--red-100); color: var(--red-800); }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .connection-status {
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .connection-status.reconnecting {
+    background: var(--yellow-50);
+    color: var(--yellow-700);
+  }
+
+  .connection-status.disconnected {
+    background: var(--red-50);
+    color: var(--red-700);
+  }
+
+  .attempt-info {
+    color: var(--text-secondary);
+  }
+
+  .connection-status .btn-link {
+    padding: 0;
+    font-size: 0.875rem;
+  }
+
+  .progress-section {
+    padding: 0.75rem 1.5rem;
+    background: var(--surface-ground);
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .progress-percent {
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--surface-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s ease;
+  }
+
+  .progress-fill.indeterminate {
+    width: 30%;
+    animation: indeterminate 1.5s infinite;
+  }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+
+  .log-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--surface-border);
+    align-items: center;
+  }
+
+  .search-box {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+  }
+
+  .search-box input {
+    padding-left: 2.5rem;
+  }
+
+  .level-filters {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .level-btn {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--surface-border);
+    background: var(--surface-card);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .level-btn:hover {
+    background: var(--surface-hover);
+  }
+
+  .level-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .level-btn.warning.active {
+    background: var(--yellow-500);
+    border-color: var(--yellow-500);
+  }
+
+  .level-btn.error.active {
+    background: var(--red-500);
+    border-color: var(--red-500);
+  }
+
+  .level-btn.disabled {
+    opacity: 0.5;
+  }
+
+  .log-stats {
+    display: flex;
+    gap: 1rem;
+    margin-left: auto;
+  }
+
+  .stats-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .stats-item.error {
+    color: var(--red-600);
+    font-weight: 500;
+  }
+
+  .log-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    background: #1e1e1e;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .loading-state,
+  .empty-logs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6e6e6e;
+    gap: 1rem;
+  }
+
+  .empty-logs i {
+    font-size: 3rem;
+  }
+
+  .log-entries {
+    padding: 0;
+  }
+
+  .log-entry {
+    display: flex;
+    padding: 0.25rem 1rem;
+    border-bottom: 1px solid #2d2d2d;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #d4d4d4;
+  }
+
+  .log-entry:hover {
+    background: #2d2d2d;
+  }
+
+  .log-entry.highlighted {
+    background: #3d3d3d;
+    animation: highlight 1s ease;
+  }
+
+  @keyframes highlight {
+    0% { background: #4a4a00; }
+    100% { background: #3d3d3d; }
+  }
+
+  .log-timestamp {
+    color: #858585;
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .log-level {
+    min-width: 50px;
+    text-align: center;
+    padding: 0 0.5rem;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  .level-debug .log-level { color: #6e6e6e; }
+  .level-info .log-level { color: #569cd6; }
+  .level-warn .log-level { color: #dcdcaa; }
+  .level-error .log-level { color: #f44747; }
+
+  .level-info { color: #d4d4d4; }
+  .level-warn { color: #dcdcaa; }
+  .level-error { color: #f44747; }
+
+  .log-message {
+    flex: 1;
+    margin-left: 0.5rem;
+  }
+
+  .scroll-button {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 100;
+  }
+
+  .scroll-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .scroll-button:focus {
+    outline: 2px solid white;
+    outline-offset: -2px;
+  }
+
+  @media (max-width: 768px) {
+    .monitor-header {
+      flex-direction: column;
+    }
+
+    .header-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    .log-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .search-box {
+      max-width: none;
+    }
+
+    .log-entry {
+      flex-direction: column;
+    }
+
+    .log-timestamp {
+      min-width: 0;
+    }
+
+    .log-level {
+      text-align: left;
+      padding-left: 0;
+    }
+  }
+</style>

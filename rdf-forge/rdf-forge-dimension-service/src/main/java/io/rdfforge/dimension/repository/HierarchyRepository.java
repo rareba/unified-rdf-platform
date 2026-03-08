@@ -27,6 +27,8 @@ public interface HierarchyRepository extends JpaRepository<HierarchyEntity, UUID
     List<HierarchyEntity> findByDimensionIdOrderedByDefault(@Param("dimensionId") UUID dimensionId);
     
     boolean existsByDimensionIdAndUri(UUID dimensionId, String uri);
-    
-    void deleteByDimensionId(UUID dimensionId);
+
+    Optional<HierarchyEntity> findByDimensionIdAndName(UUID dimensionId, String name);
+
+    long deleteByDimensionId(UUID dimensionId);
 }

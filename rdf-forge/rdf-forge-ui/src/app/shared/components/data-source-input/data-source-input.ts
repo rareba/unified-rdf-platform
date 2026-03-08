@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -525,7 +525,8 @@ export interface ExistingDataSource {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DataSourceInputComponent {
   @Input() acceptedFormats = '.csv,.json,.xml,.parquet,.tsv,.xlsx';

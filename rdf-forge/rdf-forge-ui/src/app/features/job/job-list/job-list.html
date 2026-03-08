@@ -1,436 +1,702 @@
-<div class="job-list">
-  <div class="header">
-    <div class="header-left">
-      <h1>Jobs</h1>
-      <span class="job-count">{{ filteredJobs().length }} jobs</span>
-    </div>
-    <div class="actions">
-      <mat-form-field appearance="outline" class="search-field">
-        <mat-icon matPrefix>search</mat-icon>
-        <input matInput placeholder="Search jobs..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </mat-form-field>
-      <mat-form-field appearance="outline" class="status-filter">
-        <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" placeholder="Status">
-          @for (option of statusOptions; track option.value) {
-            <mat-option [value]="option.value">{{ option.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <button mat-icon-button (click)="loadJobs()" matTooltip="Refresh">
-        <mat-icon [class.spinning]="loading()">refresh</mat-icon>
-      </button>
-      <button mat-raised-button color="primary" (click)="openNewJobDialog()">
-        <mat-icon>play_arrow</mat-icon>
-        Run Pipeline
+<div class="job-list-container" role="main" aria-label="Job list">
+  <header class="page-header">
+    <h1 id="job-list-title">{{ 'i18n.job.list.title' | translate }}</h1>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="refreshJobs()"
+        [disabled]="isLoading()"
+        attr.aria-describedby="refresh-status"
+      >
+        <i class="fa fa-refresh" [class.fa-spin]="isLoading()" aria-hidden="true"></i>
+        <span class="d-none d-sm-inline">{{ 'i18n.common.refresh' | translate }}</span>
       </button>
     </div>
-  </div>
+  </header>
 
-  @if (!backendAvailable()) {
-    <div class="backend-unavailable">
-      <mat-icon>warning</mat-icon>
-      <span>Backend service is unavailable. Please check that the API server is running.</span>
-      <button mat-stroked-button (click)="loadJobs()">
-        <mat-icon>refresh</mat-icon>
-        Retry
+  <span id="refresh-status" class="sr-only">
+    {{ isLoading() ? 'Loading jobs' : 'Jobs refreshed' }}
+  </span>
+
+  <!-- Error State -->
+  @if (error()) {
+    <div
+      class="alert alert-danger"
+      role="alert"
+      aria-live="polite"
+      @slideInOut
+    >
+      <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+      <span>{{ error() }}</span>
+      <button type="button" class="btn btn-outline-primary btn-sm" (click)="refreshJobs()">
+        {{ 'i18n.common.retry' | translate }}
       </button>
     </div>
   }
 
-  <div class="stats-row" [class.stats-disabled]="!backendAvailable()">
-    <div class="stat-card running">
-      <div class="stat-icon">
-        @if (runningCount() > 0) {
-          <mat-icon class="spinning">sync</mat-icon>
-        } @else {
-          <mat-icon>play_arrow</mat-icon>
-        }
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ runningCount() }}</span>
-        <span class="stat-label">Running</span>
-      </div>
+  <!-- Filters -->
+  <div class="filters-section" role="search" aria-label="Job filters">
+    <div class="search-box">
+      <i class="fa fa-search search-icon" aria-hidden="true"></i>
+      <input
+        type="text"
+        class="form-control"
+        [placeholder]="'i18n.job.list.searchPlaceholder' | translate"
+        [(ngModel)]="filterText"
+        (input)="onFilterChange()"
+        aria-label="Search jobs"
+      />
     </div>
-    <div class="stat-card pending">
-      <div class="stat-icon">
-        <mat-icon>schedule</mat-icon>
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ pendingCount() }}</span>
-        <span class="stat-label">Pending</span>
-      </div>
-    </div>
-    <div class="stat-card success">
-      <div class="stat-icon">
-        <mat-icon>check_circle</mat-icon>
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ completedToday() }}</span>
-        <span class="stat-label">Completed Today</span>
-      </div>
-    </div>
-    <div class="stat-card danger">
-      <div class="stat-icon">
-        <mat-icon>cancel</mat-icon>
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ failedToday() }}</span>
-        <span class="stat-label">Failed Today</span>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">
-        <mat-icon>timer</mat-icon>
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ avgDuration() }}</span>
-        <span class="stat-label">Avg Duration</span>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">
-        <mat-icon>storage</mat-icon>
-      </div>
-      <div class="stat-info">
-        <span class="stat-value">{{ formatNumber(totalRowsProcessed()) }}</span>
-        <span class="stat-label">Rows Processed</span>
-      </div>
+
+    <div class="status-filters" role="group" aria-label="Filter by status">
+      <button
+        type="button"
+        class="status-chip"
+        [class.active]="hasStatusFilter('PENDING')"
+        [attr.aria-pressed]="hasStatusFilter('PENDING')"
+        (click)="toggleStatusFilter('PENDING')"
+      >
+        <span class="status-dot pending"></span>
+        <span class="d-none d-sm-inline">{{ 'i18n.job.status.pending' | translate }}</span>
+        <span class="d-inline d-sm-none">{{ 'i18n.job.status.pending.short' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="status-chip"
+        [class.active]="hasStatusFilter('RUNNING')"
+        [attr.aria-pressed]="hasStatusFilter('RUNNING')"
+        (click)="toggleStatusFilter('RUNNING')"
+      >
+        <span class="status-dot running"></span>
+        <span class="d-none d-sm-inline">{{ 'i18n.job.status.running' | translate }}</span>
+        <span class="d-inline d-sm-none">{{ 'i18n.job.status.running.short' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="status-chip"
+        [class.active]="hasStatusFilter('COMPLETED')"
+        [attr.aria-pressed]="hasStatusFilter('COMPLETED')"
+        (click)="toggleStatusFilter('COMPLETED')"
+      >
+        <span class="status-dot completed"></span>
+        <span class="d-none d-sm-inline">{{ 'i18n.job.status.completed' | translate }}</span>
+        <span class="d-inline d-sm-none">{{ 'i18n.job.status.completed.short' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="status-chip"
+        [class.active]="hasStatusFilter('FAILED')"
+        [attr.aria-pressed]="hasStatusFilter('FAILED')"
+        (click)="toggleStatusFilter('FAILED')"
+      >
+        <span class="status-dot failed"></span>
+        <span class="d-none d-sm-inline">{{ 'i18n.job.status.failed' | translate }}</span>
+        <span class="d-inline d-sm-none">{{ 'i18n.job.status.failed.short' | translate }}</span>
+      </button>
     </div>
   </div>
 
-  <mat-card class="table-card">
-    <div class="table-caption">
-      <span>Pipeline execution jobs with real-time status updates</span>
-      <span class="auto-refresh-indicator">
-        <mat-icon>sync</mat-icon> Auto-refresh every 5s
+  <!-- Bulk Actions -->
+  @if (selectedJobs().length > 0) {
+    <div class="bulk-actions" role="region" aria-label="Bulk actions">
+      <span class="selection-count">
+        {{ selectedJobs().length }} {{ 'i18n.job.list.selected' | translate }}
       </span>
-    </div>
-
-    @if (loading() && !initialLoadComplete()) {
-      <div class="loading-container">
-        <mat-spinner diameter="40"></mat-spinner>
-      </div>
-    } @else if (filteredJobs().length === 0) {
-      <div class="empty-state">
-        <mat-icon>schedule</mat-icon>
-        <h3>No jobs found</h3>
-        <p>Run a pipeline to create your first job</p>
-        <button mat-raised-button color="primary" (click)="openNewJobDialog()">
-          <mat-icon>play_arrow</mat-icon>
-          Run Pipeline
+      <div class="bulk-action-buttons">
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="cancelSelected()" [disabled]="!canCancelSelected()">
+          <i class="fa fa-stop" aria-hidden="true"></i>
+          {{ 'i18n.job.action.cancel' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteSelected()">
+          <i class="fa fa-trash" aria-hidden="true"></i>
+          {{ 'i18n.common.delete' | translate }}
         </button>
       </div>
-    } @else {
-      <table mat-table [dataSource]="pagedJobs()" class="jobs-table">
-        <ng-container matColumnDef="id">
-          <th mat-header-cell *matHeaderCellDef>Job ID</th>
-          <td mat-cell *matCellDef="let job">
-            <div class="job-id-cell">
-              <code class="job-id">{{ job.id.substring(0, 8) }}</code>
-              <button mat-icon-button class="copy-btn" (click)="copyJobId(job, $event)" matTooltip="Copy ID">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-            </div>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="pipeline">
-          <th mat-header-cell *matHeaderCellDef>Pipeline</th>
-          <td mat-cell *matCellDef="let job">
-            <div class="pipeline-info">
-              <span class="pipeline-name">{{ job.pipelineName }}</span>
-              <div class="pipeline-meta">
-                <span class="pipeline-version">v{{ job.pipelineVersion }}</span>
-                <span class="trigger-chip" [class]="'trigger-' + job.triggeredBy">{{ job.triggeredBy }}</span>
-              </div>
-            </div>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let job">
-            <span class="status-chip" [class]="getStatusClass(job.status)">{{ job.status }}</span>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="progress">
-          <th mat-header-cell *matHeaderCellDef>Progress</th>
-          <td mat-cell *matCellDef="let job">
-            @if (job.status === 'running') {
-              <div class="progress-cell">
-                <mat-progress-bar mode="determinate" [value]="job.progress"></mat-progress-bar>
-                <span class="progress-text">{{ job.progress }}%</span>
-              </div>
-            } @else if (job.status === 'completed') {
-              <span class="text-success"><mat-icon>check</mat-icon> Complete</span>
-            } @else if (job.status === 'failed') {
-              <span class="text-danger"><mat-icon>close</mat-icon> Failed</span>
-            } @else {
-              <span class="text-muted">-</span>
-            }
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="metrics">
-          <th mat-header-cell *matHeaderCellDef>Metrics</th>
-          <td mat-cell *matCellDef="let job">
-            @if (job.metrics) {
-              <div class="metrics-cell">
-                <span class="metric"><mat-icon>storage</mat-icon> {{ formatNumber(job.metrics.rowsProcessed) }}</span>
-                <span class="metric"><mat-icon>share</mat-icon> {{ formatNumber(job.metrics.quadsGenerated) }}</span>
-              </div>
-            } @else {
-              <span class="text-muted">-</span>
-            }
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="startedAt">
-          <th mat-header-cell *matHeaderCellDef>Started</th>
-          <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt) }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="duration">
-          <th mat-header-cell *matHeaderCellDef>Duration</th>
-          <td mat-cell *matCellDef="let job">
-            @if (job.duration) {
-              <span class="duration">{{ formatDuration(job.duration) }}</span>
-            } @else if (job.status === 'running') {
-              <span class="running-timer"><mat-icon>timer</mat-icon> {{ getRunningTime(job.startedAt) }}</span>
-            } @else {
-              <span class="text-muted">-</span>
-            }
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Actions</th>
-          <td mat-cell *matCellDef="let job">
-            <div class="row-actions">
-              <button mat-icon-button (click)="viewDetails(job, $event)" matTooltip="Details">
-                <mat-icon>info</mat-icon>
-              </button>
-              <button mat-icon-button (click)="viewLogs(job, $event)" matTooltip="Logs">
-                <mat-icon>description</mat-icon>
-              </button>
-              @if (job.status === 'running') {
-                <button mat-icon-button color="warn" (click)="cancelJob(job, $event)" matTooltip="Cancel">
-                  <mat-icon>stop</mat-icon>
-                </button>
-              }
-              @if (job.status === 'failed') {
-                <button mat-icon-button color="accent" (click)="retryJob(job, $event)" matTooltip="Retry">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              }
-            </div>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="job-row" (click)="openJob(row)"></tr>
-      </table>
-
-      <mat-paginator
-        [length]="filteredJobs().length"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[15, 30, 50]"
-        (page)="onPageChange($event)"
-        showFirstLastButtons>
-      </mat-paginator>
-    }
-  </mat-card>
-
-  @if (detailsDialogVisible()) {
-    <div class="dialog-overlay" (click)="closeDetailsDialog()">
-      <div class="dialog-content details-dialog" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h2>Job Details: {{ selectedJob()?.id?.substring(0, 8) }}</h2>
-          <button mat-icon-button (click)="closeDetailsDialog()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-        @if (selectedJob(); as job) {
-          <div class="dialog-body">
-            <div class="details-grid">
-              <div class="detail-item">
-                <label>Job ID</label>
-                <code>{{ job.id }}</code>
-              </div>
-              <div class="detail-item">
-                <label>Pipeline</label>
-                <span>{{ job.pipelineName }} <span class="version-badge">v{{ job.pipelineVersion }}</span></span>
-              </div>
-              <div class="detail-item">
-                <label>Status</label>
-                <span class="status-chip" [class]="getStatusClass(job.status)">{{ job.status }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Triggered By</label>
-                <span class="trigger-chip" [class]="'trigger-' + job.triggeredBy">{{ job.triggeredBy }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Created</label>
-                <span>{{ formatFullDate(job.createdAt) }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Started</label>
-                <span>{{ formatFullDate(job.startedAt) }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Completed</label>
-                <span>{{ formatFullDate(job.completedAt) }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Duration</label>
-                <span>{{ formatDuration(job.duration) }}</span>
-              </div>
-            </div>
-
-            @if (job.metrics) {
-              <div class="metrics-section">
-                <h4>Metrics</h4>
-                <div class="metrics-grid">
-                  <div class="metric-item">
-                    <span class="metric-value">{{ job.metrics.rowsProcessed | number }}</span>
-                    <span class="metric-label">Rows Processed</span>
-                  </div>
-                  <div class="metric-item">
-                    <span class="metric-value">{{ job.metrics.quadsGenerated | number }}</span>
-                    <span class="metric-label">Quads Generated</span>
-                  </div>
-                </div>
-              </div>
-            }
-
-            @if (job.errorMessage) {
-              <div class="error-section">
-                <h4><mat-icon>warning</mat-icon> Error</h4>
-                <div class="error-message">{{ job.errorMessage }}</div>
-              </div>
-            }
-
-            @if (job.variables && hasVariables(job.variables)) {
-              <div class="variables-section">
-                <h4>Variables</h4>
-                <div class="variables-list">
-                  @for (key of getVariableKeys(job.variables); track key) {
-                    <div class="variable-item">
-                      <span class="var-key">{{ key }}</span>
-                      <span class="var-value">{{ job.variables[key] }}</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
-        <div class="dialog-footer">
-          <button mat-stroked-button (click)="viewLogs(selectedJob()!, $event); closeDetailsDialog()">
-            <mat-icon>description</mat-icon>
-            View Logs
-          </button>
-          <button mat-button (click)="closeDetailsDialog()">Close</button>
-        </div>
-      </div>
     </div>
   }
 
-  @if (logsDialogVisible()) {
-    <div class="dialog-overlay" (click)="closeLogsDialog()">
-      <div class="dialog-content logs-dialog" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h2>Logs: {{ selectedJob()?.pipelineName }}</h2>
-          <button mat-icon-button (click)="closeLogsDialog()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-        <div class="dialog-body">
-          @if (logsLoading()) {
-            <div class="logs-loading">
-              <mat-spinner diameter="40"></mat-spinner>
-              <p>Loading logs...</p>
-            </div>
-          } @else {
-            <div class="logs-container">
-              <div class="logs-header">
-                <span class="logs-count">{{ jobLogs().length }} log entries</span>
-                <button mat-icon-button (click)="loadLogs(selectedJob()!.id)" matTooltip="Refresh logs">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              </div>
-              <div class="logs-content">
-                @if (jobLogs().length === 0) {
-                  <div class="no-logs">
-                    <mat-icon>inbox</mat-icon>
-                    <p>No logs available for this job</p>
-                  </div>
-                } @else {
-                  @for (log of jobLogs(); track log.id) {
-                    <div class="log-entry" [class]="getLogClass(log.level)">
-                      <span class="log-time">{{ formatFullDate(log.timestamp) }}</span>
-                      <span class="log-level" [class]="'level-' + log.level">{{ log.level }}</span>
-                      @if (log.step) {
-                        <span class="log-step">[{{ log.step }}]</span>
-                      }
-                      <span class="log-message">{{ log.message }}</span>
-                    </div>
-                  }
-                }
-              </div>
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="table-skeleton" role="status" aria-live="polite">
+      <div class="skeleton-row header">
+        <div class="skeleton-cell checkbox"></div>
+        @for (_ of [1,2,3,4,5]; track $index) {
+          <div class="skeleton-cell"></div>
+        }
+      </div>
+      @for (_ of [1,2,3,4,5]; track $index) {
+        <div class="skeleton-row">
+          <div class="skeleton-cell checkbox"></div>
+          @for (_ of [1,2,3,4,5]; track $index) {
+            <div class="skeleton-cell">
+              <div class="skeleton-line"></div>
             </div>
           }
         </div>
-        <div class="dialog-footer">
-          <button mat-button (click)="closeLogsDialog()">Close</button>
-        </div>
-      </div>
+      }
     </div>
   }
 
-  @if (newJobDialogVisible()) {
-    <div class="dialog-overlay" (click)="closeNewJobDialog()">
-      <div class="dialog-content new-job-dialog" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h2>Run Pipeline</h2>
-          <button mat-icon-button (click)="closeNewJobDialog()">
-            <mat-icon>close</mat-icon>
+  <!-- Jobs Table -->
+  @if (!isLoading() && paginatedJobs().content.length > 0) {
+  <div class="table-container">
+    <table class="data-table" role="grid" aria-label="Jobs">
+      <thead>
+        <tr role="row">
+          <th role="columnheader" scope="col" class="checkbox-cell">
+            <input
+              type="checkbox"
+              [checked]="isAllSelected()"
+              [indeterminate]="isIndeterminate()"
+              (change)="toggleSelectAll($event)"
+              [attr.aria-label]="'Select all ' + paginatedJobs().content.length + ' jobs'"
+            />
+          </th>
+          <th role="columnheader" scope="col" [class.sorted]="sortField() === 'name'" (click)="setSort('name')" [attr.aria-sort]="sortField() === 'name' ? sortDirection() : 'none'">
+            {{ 'i18n.job.name' | translate }}
+            <i class="fa" [class.fa-sort-asc]="sortField() === 'name' && sortDirection() === 'asc'" [class.fa-sort-desc]="sortField() === 'name' && sortDirection() === 'desc'" [class.fa-sort]="sortField() !== 'name'" aria-hidden="true"></i>
+          </th>
+          <th role="columnheader" scope="col" [class.sorted]="sortField() === 'status'" (click)="setSort('status')" [attr.aria-sort]="sortField() === 'status' ? sortDirection() : 'none'">
+            {{ 'i18n.job.status.label' | translate }}
+            <i class="fa" [class.fa-sort-asc]="sortField() === 'status' && sortDirection() === 'asc'" [class.fa-sort-desc]="sortField() === 'status' && sortDirection() === 'desc'" [class.fa-sort]="sortField() !== 'status'" aria-hidden="true"></i>
+          </th>
+          <th role="columnheader" scope="col" [class.sorted]="sortField() === 'startTime'" (click)="setSort('startTime')" [attr.aria-sort]="sortField() === 'startTime' ? sortDirection() : 'none'">
+            {{ 'i18n.job.startTime' | translate }}
+            <i class="fa" [class.fa-sort-asc]="sortField() === 'startTime' && sortDirection() === 'asc'" [class.fa-sort-desc]="sortField() === 'startTime' && sortDirection() === 'desc'" [class.fa-sort]="sortField() !== 'startTime'" aria-hidden="true"></i>
+          </th>
+          <th role="columnheader" scope="col" [class.sorted]="sortField() === 'duration'" (click)="setSort('duration')" [attr.aria-sort]="sortField() === 'duration' ? sortDirection() : 'none'">
+            {{ 'i18n.job.duration' | translate }}
+            <i class="fa" [class.fa-sort-asc]="sortField() === 'duration' && sortDirection() === 'asc'" [class.fa-sort-desc]="sortField() === 'duration' && sortDirection() === 'desc'" [class.fa-sort]="sortField() !== 'duration'" aria-hidden="true"></i>
+          </th>
+          <th role="columnheader" scope="col">{{ 'i18n.common.actions' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (job of displayedJobs(); track job.id; let i = $index) {
+        <tr
+          role="row"
+          [class.selected]="isSelected(job.id)"
+          (click)="onRowClick($event, job)"
+        >
+          <td role="gridcell" class="checkbox-cell" (click)="$event.stopPropagation()">
+            <input
+              type="checkbox"
+              [checked]="isSelected(job.id)"
+              (change)="toggleSelection(job.id)"
+              [attr.aria-label]="'Select job ' + job.name"
+            />
+          </td>
+          <td role="gridcell">
+            <a [routerLink]="['/jobs', job.id]" class="job-link">{{ job.name }}</a>
+          </td>
+          <td role="gridcell">
+            <span class="status-badge" [class]="getStatusClass(job.status)">
+              <i class="fa" [class]="getStatusIcon(job.status)" aria-hidden="true"></i>
+              {{ 'i18n.job.status.' + job.status.toLowerCase() | translate }}
+            </span>
+          </td>
+          <td role="gridcell">
+            <time [attr.datetime]="job.startTime">
+              {{ formatDateTime(job.startTime) }}
+            </time>
+          </td>
+          <td role="gridcell">{{ formatDuration(job.startTime, job.endTime) }}</td>
+          <td role="gridcell">
+            <div class="action-buttons">
+              @if (job.status === 'RUNNING' || job.status === 'PENDING') {
+                <button
+                  type="button"
+                  class="btn btn-icon btn-sm"
+                  (click)="cancelJob(job.id); $event.stopPropagation()"
+                  [title]="'i18n.job.action.cancel' | translate"
+                  [attr.aria-label]="'Cancel job ' + job.name"
+                >
+                  <i class="fa fa-stop" aria-hidden="true"></i>
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn-icon btn-sm"
+                [routerLink]="['/jobs', job.id]"
+                [title]="'i18n.common.view' | translate"
+                [attr.aria-label]="'View job ' + job.name"
+              >
+                <i class="fa fa-eye" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-icon btn-sm"
+                (click)="deleteJob(job.id); $event.stopPropagation()"
+                [title]="'i18n.common.delete' | translate"
+                [attr.aria-label]="'Delete job ' + job.name"
+              >
+                <i class="fa fa-trash" aria-hidden="true"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+
+  <!-- Pagination -->
+  @if (!isLoading() && jobs().length > pageSize()) {
+  <div class="pagination-container">
+    <div class="page-info">
+      {{ 'i18n.common.showing' | translate }}
+      {{ ((currentPage() - 1) * pageSize()) + 1 }}
+      {{ 'i18n.common.to' | translate }}
+      {{ Math.min(currentPage() * pageSize(), paginatedJobs().totalElements) }}
+      {{ 'i18n.common.of' | translate }}
+      {{ paginatedJobs().totalElements }}
+      {{ 'i18n.common.items' | translate }}
+    </div>
+    <div class="page-size-selector">
+      <label for="page-size">{{ 'i18n.common.perPage' | translate }}</label>
+      <select id="page-size" [(ngModel)]="pageSize" (change)="setPageSize($any($event.target).value)" class="form-control form-control-sm">
+        <option [ngValue]="10">10</option>
+        <option [ngValue]="25">25</option>
+        <option [ngValue]="50">50</option>
+        <option [ngValue]="100">100</option>
+      </select>
+    </div>
+    <div class="page-controls" role="navigation" aria-label="Pagination">
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        [disabled]="currentPage() === 1"
+        (click)="previousPage()"
+        aria-label="Previous page"
+      >
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
+      </button>
+      @for (page of visiblePages(); track $index) {
+        @if (page !== '...') {
+          <button
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="page === currentPage()"
+            [class.btn-outline-primary]="page !== currentPage()"
+            (click)="goToPage(+page)"
+            [attr.aria-label]="'Go to page ' + page"
+            [attr.aria-current]="page === currentPage() ? 'page' : null"
+          >
+            {{ page }}
           </button>
-        </div>
-        <div class="dialog-body">
-          <div class="new-job-form">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Select Pipeline</mat-label>
-              <mat-select [ngModel]="selectedPipelineId()" (ngModelChange)="selectedPipelineId.set($event)" placeholder="Choose a pipeline to run">
-                @for (pipeline of pipelines(); track pipeline.id) {
-                  <mat-option [value]="pipeline.id">
-                    <div class="pipeline-option">
-                      <span class="pipeline-option-name">{{ pipeline.name }}</span>
-                      <span class="pipeline-option-version">{{ pipeline.status }}</span>
-                    </div>
-                  </mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <p class="form-hint">
-              <mat-icon>info</mat-icon>
-              The pipeline will run with default variables. You can configure variables in the pipeline designer.
-            </p>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button mat-button (click)="closeNewJobDialog()">Cancel</button>
-          <button mat-raised-button color="primary" (click)="createJob()" [disabled]="!selectedPipelineId() || creatingJob()">
-            @if (creatingJob()) {
-              <mat-spinner diameter="20"></mat-spinner>
-            } @else {
-              <mat-icon>play_arrow</mat-icon>
-              Run Pipeline
-            }
-          </button>
-        </div>
+        } @else {
+          <span class="page-ellipsis">...</span>
+        }
+      }
+      <button
+        type="button"
+        class="btn btn-outline-primary btn-sm"
+        [disabled]="currentPage() === totalPages()"
+        (click)="nextPage()"
+        aria-label="Next page"
+      >
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+  }
+
+  <!-- Empty State -->
+  @if (!isLoading() && displayedJobs().length === 0) {
+    <div
+      class="empty-state"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="empty-icon">
+        <i class="fa fa-tasks" aria-hidden="true"></i>
       </div>
+      <h3>{{ 'i18n.job.list.empty.title' | translate }}</h3>
+      <p>{{ 'i18n.job.list.empty.message' | translate }}</p>
+      @if (filterText || selectedStatusFilters().length > 0) {
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          (click)="clearFilters()"
+        >
+          <i class="fa fa-filter" aria-hidden="true"></i>
+          {{ 'i18n.common.clearFilters' | translate }}
+        </button>
+      }
     </div>
   }
 </div>
+
+<style>
+  :host {
+    display: block;
+    padding: 1.5rem;
+  }
+
+  .job-list-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* Alert */
+  .alert {
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .alert-danger {
+    background: var(--red-50);
+    border: 1px solid var(--red-200);
+    color: var(--red-800);
+  }
+
+  /* Filters */
+  .filters-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+  }
+
+  .search-box {
+    position: relative;
+    flex: 1;
+    min-width: 250px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+  }
+
+  .search-box input {
+    padding-left: 2.5rem;
+  }
+
+  .status-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .status-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--surface-border);
+    border-radius: 20px;
+    background: var(--surface-card);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .status-chip:hover {
+    background: var(--surface-hover);
+  }
+
+  .status-chip.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .status-chip:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .status-dot.pending { background: var(--yellow-500); }
+  .status-dot.running { background: var(--blue-500); }
+  .status-dot.completed { background: var(--green-500); }
+  .status-dot.failed { background: var(--red-500); }
+
+  /* Bulk Actions */
+  .bulk-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--primary-light);
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .selection-count {
+    font-weight: 500;
+    color: var(--primary);
+  }
+
+  .bulk-action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* Table */
+  .table-container {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .data-table th {
+    background: var(--surface-ground);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .data-table th:hover {
+    background: var(--surface-hover);
+  }
+
+  .data-table th.sorted {
+    color: var(--primary);
+  }
+
+  .data-table tbody tr:hover {
+    background: var(--surface-hover);
+  }
+
+  .data-table tbody tr.selected {
+    background: var(--primary-light);
+  }
+
+  .checkbox-cell {
+    width: 40px;
+    text-align: center;
+  }
+
+  .job-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .job-link:hover {
+    text-decoration: underline;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-badge.pending { background: var(--yellow-100); color: var(--yellow-800); }
+  .status-badge.running { background: var(--blue-100); color: var(--blue-800); }
+  .status-badge.completed { background: var(--green-100); color: var(--green-800); }
+  .status-badge.failed { background: var(--red-100); color: var(--red-800); }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Skeleton */
+  .table-skeleton {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .skeleton-row {
+    display: flex;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .skeleton-row.header {
+    background: var(--surface-ground);
+  }
+
+  .skeleton-cell {
+    flex: 1;
+    padding: 0 0.5rem;
+  }
+
+  .skeleton-cell.checkbox {
+    flex: 0 0 40px;
+    text-align: center;
+  }
+
+  .skeleton-line {
+    height: 1rem;
+    background: linear-gradient(90deg, var(--surface-border) 25%, var(--surface-hover) 50%, var(--surface-border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 2px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Pagination */
+  .pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .page-info {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .page-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .page-size-selector label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .page-controls {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .page-ellipsis {
+    padding: 0.25rem 0.5rem;
+    color: var(--text-secondary);
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .empty-state h3 {
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+  }
+
+  /* Utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    :host {
+      padding: 1rem;
+    }
+
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .pagination-container {
+      flex-direction: column;
+      align-items: stretch;
+      text-align: center;
+    }
+
+    .page-controls {
+      justify-content: center;
+    }
+  }
+</style>

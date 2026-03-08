@@ -59,9 +59,13 @@ public class LoadCsvOperation implements Operation {
         boolean hasHeader = parseBoolean(context.parameters().getOrDefault("hasHeader", true));
         int skipRows = parseInteger(context.parameters().getOrDefault("skipRows", 0));
 
+        if (filePath == null || filePath.trim().isEmpty()) {
+            throw new OperationException(getId(), "File path is required");
+        }
+
         try {
-            Path path = Path.of(filePath);
-            if (!Files.exists(path)) {
+            Path path = resolveFilePath(filePath);
+            if (path == null || !Files.exists(path)) {
                 throw new OperationException(getId(), "File not found: " + filePath);
             }
 
@@ -153,16 +157,61 @@ public class LoadCsvOperation implements Operation {
     }
 
     /**
+     * Resolve file path - handles relative paths by checking multiple locations
+     */
+    private Path resolveFilePath(String filePath) {
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+
+        // Allowed base directories for file resolution
+        String[] allowedDataDirs = {
+            "demo-data",
+            "docker/demo-data",
+            "data",
+            "src/main/resources/data",
+            "src/test/resources/data"
+        };
+
+        // Try each allowed directory
+        for (String dataDir : allowedDataDirs) {
+            Path baseDir = workingDir.resolve(dataDir).normalize();
+            Path resolved = baseDir.resolve(filePath).normalize();
+            if (resolved.startsWith(baseDir) && Files.exists(resolved)) {
+                return resolved;
+            }
+            // Also try just the filename
+            String fileName = Path.of(filePath).getFileName().toString();
+            Path fileNameResolved = baseDir.resolve(fileName).normalize();
+            if (fileNameResolved.startsWith(baseDir) && Files.exists(fileNameResolved)) {
+                return fileNameResolved;
+            }
+        }
+
+        // Also try relative to working directory, but enforce containment
+        Path resolved = workingDir.resolve(filePath).normalize();
+        if (resolved.startsWith(workingDir) && Files.exists(resolved)) {
+            return resolved;
+        }
+
+        // Return path under working dir for error message (guaranteed contained)
+        return workingDir.resolve(Path.of(filePath).getFileName().toString());
+    }
+
+    /**
      * Parse delimiter from various input types (String, Character, char)
      */
     private char parseDelimiter(Object value) {
+        if (value == null) {
+            return ',';
+        }
         if (value instanceof Character) {
             return (Character) value;
         }
         if (value instanceof String str) {
             return str.isEmpty() ? ',' : str.charAt(0);
         }
-        return ',';
+        // Defensive: try to convert to string and get first char
+        String strValue = value.toString();
+        return strValue.isEmpty() ? ',' : strValue.charAt(0);
     }
 
     /**

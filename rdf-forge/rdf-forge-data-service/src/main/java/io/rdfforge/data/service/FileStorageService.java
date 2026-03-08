@@ -50,7 +50,8 @@ public class FileStorageService {
      * @return The object path/key
      */
     public String uploadFile(MultipartFile file, String prefix) throws IOException {
-        String objectName = prefix + "/" + UUID.randomUUID() + "-" + file.getOriginalFilename();
+        String sanitizedFilename = sanitizeFilename(file.getOriginalFilename());
+        String objectName = sanitizePath(prefix) + "/" + UUID.randomUUID() + "-" + sanitizedFilename;
 
         getProvider().upload(
             file.getInputStream(),
@@ -60,6 +61,50 @@ public class FileStorageService {
         );
 
         return objectName;
+    }
+
+    /**
+     * Sanitize filename to prevent path traversal attacks.
+     */
+    private String sanitizeFilename(String filename) {
+        if (filename == null) {
+            return "unnamed";
+        }
+        // Remove path components, keeping only the filename
+        String sanitized = filename.replaceAll(".*[/\\\\]", "");
+        // Remove any control characters
+        sanitized = sanitized.replaceAll("[\\x00-\\x1f\\x7f]", "");
+        // Remove dangerous characters
+        sanitized = sanitized.replaceAll("[^a-zA-Z0-9._-]", "_");
+        // Limit length
+        if (sanitized.length() > 255) {
+            int lastDot = sanitized.lastIndexOf('.');
+            if (lastDot > 0 && lastDot > sanitized.length() - 20) {
+                // Keep extension if reasonable
+                String ext = sanitized.substring(lastDot);
+                sanitized = sanitized.substring(0, 255 - ext.length()) + ext;
+            } else {
+                sanitized = sanitized.substring(0, 255);
+            }
+        }
+        return sanitized;
+    }
+
+    /**
+     * Sanitize path prefix to prevent path traversal.
+     */
+    private String sanitizePath(String path) {
+        if (path == null || path.isBlank()) {
+            return "uploads";
+        }
+        // Remove parent directory references and normalize
+        String sanitized = path.replaceAll("\\.\\./", "")
+                              .replaceAll("\\.\\\\", "")
+                              .replaceAll("//+", "/")
+                              .replaceAll("^/+", "");
+        // Ensure no leading/trailing slashes cause issues
+        sanitized = sanitized.trim();
+        return sanitized;
     }
 
     /**

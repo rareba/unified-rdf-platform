@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,6 +19,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ShaclService, TriplestoreService } from '../../../core/services';
 import { ShapeCreateRequest, ContentFormat, ValidationResult, TriplestoreConnection, Graph } from '../../../core/models';
+import { LoggerService } from '../../../core/services/logger.service';
 
 interface PropertyShape {
   id: string;
@@ -187,6 +188,7 @@ const CONSTRAINT_PRESETS: ConstraintPreset[] = [
   ],
   templateUrl: './shape-editor.html',
   styleUrl: './shape-editor.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ShapeEditor implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -194,6 +196,7 @@ export class ShapeEditor implements OnInit {
   private readonly shaclService = inject(ShaclService);
   private readonly triplestoreService = inject(TriplestoreService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly logger = inject(LoggerService);
 
   loading = signal(false);
   saving = signal(false);
@@ -460,7 +463,7 @@ export class ShapeEditor implements OnInit {
         }
       }
     } catch (e) {
-      console.warn('Failed to parse SHACL properties:', e);
+      this.logger.warn('Failed to parse SHACL properties:', e);
     }
 
     return properties;

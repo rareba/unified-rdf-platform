@@ -17,7 +17,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/uri-templates")
 @RequiredArgsConstructor
 @Tag(name = "URI Templates", description = "CSVW URI Template operations")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class UriTemplateController {
     
     private final UriTemplateService uriTemplateService;

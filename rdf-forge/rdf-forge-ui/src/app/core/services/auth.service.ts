@@ -1,11 +1,13 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import Keycloak, { KeycloakProfile } from 'keycloak-js';
 import { environment } from '../../../environments/environment';
+import { LoggerService } from './logger.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+  private readonly logger = inject(LoggerService);
   private keycloak: Keycloak | undefined;
   private _isAuthenticated = false;
   private _userProfile: KeycloakProfile | undefined;
@@ -67,7 +69,7 @@ export class AuthService {
           try {
             this._userProfile = await this.keycloak.loadUserProfile();
           } catch (profileError) {
-            console.warn('Failed to load user profile, using token claims instead', profileError);
+            this.logger.warn('Failed to load user profile, using token claims instead', profileError);
             // Extract basic profile from token if available
             const tokenParsed = this.keycloak.tokenParsed;
             if (tokenParsed) {
@@ -92,7 +94,7 @@ export class AuthService {
 
         return authenticated;
       } catch (error) {
-        console.error('Failed to initialize Keycloak', error);
+        this.logger.error('Failed to initialize Keycloak', error);
         this._initialized = true;
         return false;
       }
@@ -112,6 +114,33 @@ export class AuthService {
 
   getToken(): string | undefined {
     return this.keycloak?.token;
+  }
+
+  /**
+   * Get token with automatic refresh. If the token expires within the given
+   * number of seconds, it will be refreshed before returning.
+   * On refresh failure, the user is redirected to the login page.
+   *
+   * @param minValidity Minimum remaining validity in seconds (default: 30)
+   * @returns A promise that resolves with the token string, or undefined
+   */
+  async getTokenRefreshed(minValidity = 30): Promise<string | undefined> {
+    if (!this.keycloak || !environment.auth.enabled) {
+      return this.keycloak?.token;
+    }
+
+    try {
+      const refreshed = await this.keycloak.updateToken(minValidity);
+      if (refreshed) {
+        console.debug('Token was refreshed');
+      }
+      return this.keycloak.token;
+    } catch (error) {
+      this.logger.error('Failed to refresh token, redirecting to login', error);
+      this._isAuthenticated = false;
+      this.keycloak.login();
+      return undefined;
+    }
   }
 
   get isAuthenticated(): boolean {

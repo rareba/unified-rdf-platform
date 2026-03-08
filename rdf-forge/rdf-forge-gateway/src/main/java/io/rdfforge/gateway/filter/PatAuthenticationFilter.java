@@ -34,13 +34,16 @@ public class PatAuthenticationFilter implements GlobalFilter, Ordered {
 
     private final WebClient webClient;
     private final boolean patEnabled;
+    private final String internalServiceKey;
 
     public PatAuthenticationFilter(
             WebClient.Builder webClientBuilder,
             @Value("${AUTH_SERVICE_URL:http://auth-service:8086}") String authServiceUrl,
-            @Value("${pat.authentication.enabled:true}") boolean patEnabled) {
+            @Value("${pat.authentication.enabled:true}") boolean patEnabled,
+            @Value("${INTERNAL_SERVICE_KEY:}") String internalServiceKey) {
         this.webClient = webClientBuilder.baseUrl(authServiceUrl).build();
         this.patEnabled = patEnabled;
+        this.internalServiceKey = internalServiceKey;
     }
 
     @Override
@@ -94,9 +97,14 @@ public class PatAuthenticationFilter implements GlobalFilter, Ordered {
                 })
                 .onErrorResume(e -> {
                     log.error("Error validating PAT token", e);
-                    // On error, let the request continue without authentication
-                    // The backend service will handle unauthorized access
-                    return chain.filter(exchange);
+                    // On error, reject the request with 503 Service Unavailable
+                    // This prevents unauthorized access when auth service is down
+                    exchange.getResponse().setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+                    exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                    return exchange.getResponse().writeWith(
+                            Mono.just(exchange.getResponse().bufferFactory()
+                                    .wrap("{\"error\":\"Authentication service unavailable\"}".getBytes()))
+                    );
                 });
     }
 
@@ -107,6 +115,7 @@ public class PatAuthenticationFilter implements GlobalFilter, Ordered {
                 .uri("/api/v1/auth/tokens/validate")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new ValidateTokenRequest(token))
+                .header("X-Internal-Service-Key", internalServiceKey)
                 .header("X-Forwarded-For", clientIp)
                 .retrieve()
                 .bodyToMono(PatTokenResponse.class)
@@ -138,8 +147,7 @@ public class PatAuthenticationFilter implements GlobalFilter, Ordered {
                path.startsWith("/api-docs") ||
                path.startsWith("/swagger-ui") ||
                path.equals("/swagger-ui.html") ||
-               path.startsWith("/api/v1/public/") ||
-               path.equals("/api/v1/auth/tokens/validate");
+               path.startsWith("/api/v1/public/");
     }
 
     @Override

@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.jena.rdf.model.Model;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -15,6 +17,7 @@ import org.springframework.web.util.UriUtils;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
 
 /**
@@ -32,8 +35,19 @@ public class GitLabDestinationProvider implements DestinationProvider {
     private static final String CAPABILITY_WAIT_FOR_COMPLETION = "wait-for-completion";
     private static final String DEFAULT_GITLAB_API = "https://gitlab.com/api/v4";
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Value("${rdf-forge.gitlab.polling-interval-ms:5000}")
+    private long pollingIntervalMs;
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    public GitLabDestinationProvider(RestTemplateBuilder restTemplateBuilder, ObjectMapper objectMapper) {
+        this.restTemplate = restTemplateBuilder
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(30))
+                .build();
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public DestinationInfo getDestinationInfo() {
@@ -258,7 +272,7 @@ public class GitLabDestinationProvider implements DestinationProvider {
                     }
                 }
 
-                Thread.sleep(5000);
+                Thread.sleep(pollingIntervalMs);
                 attempts++;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -330,6 +344,21 @@ public class GitLabDestinationProvider implements DestinationProvider {
         Object value = config.get(key);
         if (value == null) return defaultValue;
         return value.toString();
+    }
+
+    /**
+     * Sanitize destination config by redacting sensitive fields before API serialization.
+     * This prevents access tokens from being leaked through pipeline API responses.
+     */
+    public Map<String, Object> sanitizeConfig(Map<String, Object> config) {
+        if (config == null) {
+            return null;
+        }
+        Map<String, Object> sanitized = new HashMap<>(config);
+        if (sanitized.containsKey("accessToken")) {
+            sanitized.put("accessToken", "***REDACTED***");
+        }
+        return sanitized;
     }
 
     private String mapFormat(String format) {

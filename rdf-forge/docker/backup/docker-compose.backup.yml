@@ -1,0 +1,142 @@
+# =============================================================================
+# RDF Forge - Backup Service Compose
+# =============================================================================
+#
+# Provides a containerized backup service for PostgreSQL, MinIO, and Keycloak.
+#
+# Usage:
+#   # Run an immediate backup:
+#   docker compose -f docker-compose.backup.yml run backup
+#
+#   # Run with custom retention:
+#   RETENTION_DAYS=7 docker compose -f docker-compose.backup.yml run backup
+#
+#   # Start scheduled backup (runs daily at 2 AM):
+#   docker compose -f docker-compose.backup.yml up -d backup-cron
+#
+#   # Restore from a backup:
+#   docker compose -f docker-compose.backup.yml run restore /backups/rdf-forge-backup_20260308_120000.tar.gz
+#
+#   # Dry-run restore:
+#   docker compose -f docker-compose.backup.yml run restore --dry-run /backups/rdf-forge-backup_20260308_120000.tar.gz
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # One-shot backup service
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:16-alpine
+    container_name: rdf-forge-backup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache curl python3 tar gzip 2>/dev/null
+        # Install MinIO client
+        curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+        chmod +x /usr/local/bin/mc
+        # Run backup
+        /scripts/backup.sh
+    environment:
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rdfforge}
+      DB_USER: ${DB_USER:-rdfforge}
+      PGPASSWORD: ${DB_PASSWORD:-rdfforge_secret}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-rdfforge}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-rdfforge_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-rdf-forge-data}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-rdfforge}
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASS: ${KEYCLOAK_ADMIN_PASS:-admin}
+    volumes:
+      - backup_data:/backups
+      - ./backup.sh:/scripts/backup.sh:ro
+    networks:
+      - rdf-forge-network
+
+  # ---------------------------------------------------------------------------
+  # Restore service
+  # ---------------------------------------------------------------------------
+  restore:
+    image: postgres:16-alpine
+    container_name: rdf-forge-restore
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache curl python3 tar gzip 2>/dev/null
+        # Install MinIO client
+        curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+        chmod +x /usr/local/bin/mc
+        # Run restore with all passed arguments
+        /scripts/restore.sh $${@}
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rdfforge}
+      DB_USER: ${DB_USER:-rdfforge}
+      PGPASSWORD: ${DB_PASSWORD:-rdfforge_secret}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-rdfforge}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-rdfforge_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-rdf-forge-data}
+    volumes:
+      - backup_data:/backups
+      - ./restore.sh:/scripts/restore.sh:ro
+    networks:
+      - rdf-forge-network
+
+  # ---------------------------------------------------------------------------
+  # Scheduled backup service (cron-based, runs daily at 02:00 UTC)
+  # ---------------------------------------------------------------------------
+  backup-cron:
+    image: postgres:16-alpine
+    container_name: rdf-forge-backup-cron
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache curl python3 tar gzip dcron 2>/dev/null
+        # Install MinIO client
+        curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+        chmod +x /usr/local/bin/mc
+        # Create cron job
+        echo "${BACKUP_CRON_SCHEDULE:-0 2 * * *} /scripts/backup.sh >> /var/log/backup-cron.log 2>&1" > /etc/crontabs/root
+        echo "Backup cron scheduled: ${BACKUP_CRON_SCHEDULE:-0 2 * * *}"
+        # Run cron in foreground
+        crond -f -l 2
+    environment:
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 2 * * *}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rdfforge}
+      DB_USER: ${DB_USER:-rdfforge}
+      PGPASSWORD: ${DB_PASSWORD:-rdfforge_secret}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-rdfforge}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-rdfforge_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-rdf-forge-data}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-rdfforge}
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASS: ${KEYCLOAK_ADMIN_PASS:-admin}
+    volumes:
+      - backup_data:/backups
+      - ./backup.sh:/scripts/backup.sh:ro
+    networks:
+      - rdf-forge-network
+    restart: unless-stopped
+
+volumes:
+  backup_data:
+    driver: local
+
+networks:
+  rdf-forge-network:
+    external: true
+    name: rdf-forge_rdf-forge-network

@@ -1,6 +1,7 @@
 import { Injectable, inject, NgZone, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
+import { LoggerService } from './logger.service';
 
 export interface KeyboardShortcut {
   key: string;
@@ -25,6 +26,7 @@ interface ShortcutRegistration {
 export class KeyboardShortcutsService implements OnDestroy {
   private readonly router = inject(Router);
   private readonly zone = inject(NgZone);
+  private readonly logger = inject(LoggerService);
 
   private shortcuts: Map<string, ShortcutRegistration> = new Map();
   private enabled = true;
@@ -279,7 +281,7 @@ export class KeyboardShortcutsService implements OnDestroy {
       content += '\n';
     }
 
-    console.log(content);
+    this.logger.debug(content);
     // In a real app, you'd show a dialog here
     alert(content);
   }

@@ -1,0 +1,333 @@
+<div class="data-preview-container" role="main" aria-label="Data preview">
+  <header class="preview-header">
+    <div class="file-info">
+      <h1>{{ 'i18n.data.preview.title' | translate }}</h1>
+      <div class="file-meta" *ngIf="fileName()">
+        <span class="file-name">
+          <i class="fa fa-file-text" aria-hidden="true"></i>
+          {{ fileName() }}
+        </span>
+        <span class="file-size" *ngIf="fileSize()">({{ formatFileSize(fileSize()) }})</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="exportToCsv()"
+        [disabled]="filteredData().length === 0">
+        <i class="fa fa-download" aria-hidden="true"></i>
+        {{ 'i18n.data.preview.exportCsv' | translate }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading()" class="loading-state">
+    <div class="progress-info">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>{{ loadingMessage() }}</span>
+      <span class="progress-percent" *ngIf="loadingProgress() > 0">{{ loadingProgress() }}%</span>
+    </div>
+    <div class="progress-bar" *ngIf="loadingProgress() > 0">
+      <div class="progress-fill" [style.width.%]="loadingProgress()"></div>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div
+    *ngIf="error()"
+    class="alert alert-danger"
+    role="alert"
+    aria-live="polite">
+    <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+    <span>{{ error() }}</span>
+    <button type="button" class="btn btn-outline-primary btn-sm" (click)="retry()">
+      {{ 'i18n.common.retry' | translate }}
+    </button>
+  </div>
+
+  <!-- CSV Options -->
+  <div *ngIf="!isLoading() && !error() && headers().length > 0" class="csv-options">
+    <div class="option-group">
+      <label for="delimiter">{{ 'i18n.data.preview.delimiter' | translate }}:</label>
+      <select id="delimiter" class="form-control form-control-sm" [(ngModel)]="delimiter" (change)="parseData()">
+        <option value=",">, ({{ 'i18n.data.preview.delimiter.comma' | translate }})</option>
+        <option value=";">; ({{ 'i18n.data.preview.delimiter.semicolon' | translate }})</option>
+        <option value="\t">Tab</option>
+        <option value="|">| ({{ 'i18n.data.preview.delimiter.pipe' | translate }})</option>
+      </select>
+    </div>
+    <div class="option-group" *ngIf="detectedDelimiter() && detectedDelimiter() !== delimiter()">
+      <span class="auto-detected">
+        <i class="fa fa-magic" aria-hidden="true"></i>
+        {{ 'i18n.data.preview.autoDetected' | translate }}: {{ detectedDelimiter() === '\t' ? 'Tab' : detectedDelimiter() }}
+      </span>
+    </div>
+    <div class="option-group checkbox-group">
+      <label>
+        <input type="checkbox" [(ngModel)]="hasHeader" (change)="parseData()" />
+        {{ 'i18n.data.preview.hasHeader' | translate }}
+      </label>
+    </div>
+    <div class="option-group">
+      <label for="encoding">{{ 'i18n.data.preview.encoding' | translate }}:</label>
+      <select id="encoding" class="form-control form-control-sm" [(ngModel)]="encoding" (change)="onEncodingChange()">
+        <option value="UTF-8">UTF-8</option>
+        <option value="ISO-8859-1">ISO-8859-1</option>
+        <option value="Windows-1252">Windows-1252</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Data Table with Virtual Scrolling -->
+  <div *ngIf="!isLoading() && !error() && headers().length > 0" class="data-table-container">
+    <div class="table-stats">
+      <span>{{ 'i18n.data.preview.showing' | translate }}</span>
+      <span class="stat-value">{{ filteredData().length }}</span>
+      <span>{{ 'i18n.data.preview.of' | translate }}</span>
+      <span class="stat-value">{{ totalRows() }}</span>
+      <span>{{ 'i18n.data.preview.rows' | translate }}</span>
+    </div>
+
+    <virtual-scroller
+      #scroll
+      [items]="filteredData()"
+      [enableUnequalChildrenSizes]="false"
+      class="virtual-scroller">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="row-number">#</th>
+            <th
+              *ngFor="let header of headers(); let i = index"
+              [style.width.px]="columnWidths()[i] || defaultColumnWidth"
+              class="column-header">
+              <div class="column-content">
+                <span class="column-name">{{ header }}</span>
+                <div class="resize-handle" (mousedown)="startResize($event, i)"></div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of scroll.viewPortItems; let rowIndex = index" [class.even]="rowIndex % 2 === 0">
+            <td class="row-number">{{ rowIndex + 1 }}</td>
+            <td
+              *ngFor="let cell of row.data; let colIndex = index"
+              [style.width.px]="columnWidths()[colIndex] || defaultColumnWidth"
+              [attr.title]="cell">
+              {{ cell }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </virtual-scroller>
+  </div>
+
+  <!-- Empty State -->
+  <div
+    *ngIf="!isLoading() && !error() && headers().length === 0"
+    class="empty-state"
+    role="status">
+    <i class="fa fa-file-text-o empty-icon" aria-hidden="true"></i>
+    <h3>{{ 'i18n.data.preview.empty.title' | translate }}</h3>
+    <p>{{ 'i18n.data.preview.empty.message' | translate }}</p>
+  </div>
+
+  <!-- Encoding Warning -->
+  <div *ngIf="encodingWarning()" class="encoding-warning alert alert-warning" role="alert">
+    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+    <span>{{ encodingWarning() }}</span>
+  </div>
+</div>
+
+<style>
+  :host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .data-preview-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--surface-border);
+    background: var(--surface-card);
+  }
+
+  .file-info h1 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.25rem;
+  }
+
+  .file-meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .loading-state {
+    padding: 2rem;
+    text-align: center;
+    background: var(--surface-card);
+  }
+
+  .progress-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--surface-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s;
+  }
+
+  .csv-options {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--surface-ground);
+    border-bottom: 1px solid var(--surface-border);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .option-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .auto-detected {
+    font-size: 0.875rem;
+    color: var(--green-600);
+  }
+
+  .data-table-container {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .table-stats {
+    padding: 0.5rem 1.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .stat-value {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .virtual-scroller {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .data-table th {
+    background: var(--surface-ground);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--surface-border);
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .column-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .column-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .resize-handle {
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+
+  .resize-handle:hover {
+    background: var(--primary);
+  }
+
+  .data-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--surface-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .data-table tr:hover td {
+    background: var(--surface-hover);
+  }
+
+  .row-number {
+    background: var(--surface-ground);
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: right;
+    min-width: 50px;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  .encoding-warning {
+    margin: 1rem 1.5rem;
+  }
+</style>

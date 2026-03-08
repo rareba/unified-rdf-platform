@@ -11,7 +11,8 @@
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss"
+          "style": "scss",
+          "changeDetection": "OnPush"
         }
       },
       "root": "",
@@ -21,6 +22,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "outputPath": "dist/rdf-forge-ui",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
@@ -35,14 +37,23 @@
               "node_modules/@oblique/oblique/styles/css/oblique-core.css",
               "node_modules/@oblique/oblique/styles/css/oblique-components.css",
               "src/styles.scss"
-            ]
+            ],
+            "scripts": [],
+            "optimization": true,
+            "aot": true,
+            "buildOptimizer": true,
+            "sourceMap": false,
+            "namedChunks": false,
+            "extractLicenses": true,
+            "vendorChunk": false,
+            "commonChunk": true
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "800kB",
+                  "maximumWarning": "1MB",
                   "maximumError": "2MB"
                 },
                 {
@@ -51,12 +62,27 @@
                   "maximumError": "48kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": true
+              },
+              "sourceMap": false,
+              "namedChunks": false,
+              "extractLicenses": true,
+              "vendorChunk": false,
+              "commonChunk": true
             },
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true
+              "sourceMap": true,
+              "namedChunks": true,
+              "vendorChunk": true
             },
             "offline": {
               "fileReplacements": [
@@ -64,7 +90,10 @@
                   "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.offline.ts"
                 }
-              ]
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             },
             "online": {
               "fileReplacements": [
@@ -154,7 +183,8 @@
             "codeCoverage": true,
             "codeCoverageExclude": [
               "src/test.ts",
-              "src/**/*.spec.ts"
+              "src/**/*.spec.ts",
+              "src/environments/**"
             ]
           }
         },

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -15,6 +15,8 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { DataService } from '../../../core/services';
 import { DataSource, DataPreview } from '../../../core/models';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { LoggerService } from '../../../core/services/logger.service';
 
 @Component({
   selector: 'app-data-manager',
@@ -36,10 +38,13 @@ import { DataSource, DataPreview } from '../../../core/models';
   ],
   templateUrl: './data-manager.html',
   styleUrl: './data-manager.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DataManager implements OnInit {
   private readonly dataService = inject(DataService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly logger = inject(LoggerService);
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -98,7 +103,7 @@ export class DataManager implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        console.error('Failed to load data sources:', err);
+        this.logger.error('Failed to load data sources:', err);
         this.snackBar.open('Failed to load data sources', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
@@ -178,7 +183,7 @@ export class DataManager implements OnInit {
         this.loadDataSources();
       },
       error: (err) => {
-        console.error('Upload failed:', err);
+        this.logger.error('Upload failed:', err);
         this.snackBar.open('Failed to upload file', 'Close', { duration: 3000 });
         this.uploading.set(false);
         this.uploadProgress.set(0);
@@ -215,7 +220,7 @@ export class DataManager implements OnInit {
         this.previewLoading.set(false);
       },
       error: (err) => {
-        console.error('Preview failed:', err);
+        this.logger.error('Preview failed:', err);
         this.snackBar.open('Failed to load preview', 'Close', { duration: 3000 });
         this.previewLoading.set(false);
       }
@@ -230,7 +235,7 @@ export class DataManager implements OnInit {
         this.snackBar.open('File download started', 'Close', { duration: 3000 });
       },
       error: (err) => {
-        console.error('Download failed:', err);
+        this.logger.error('Download failed:', err);
         this.snackBar.open('Failed to download file', 'Close', { duration: 3000 });
       }
     });
@@ -238,9 +243,16 @@ export class DataManager implements OnInit {
 
   confirmDelete(source: DataSource, event: Event): void {
     event.stopPropagation();
-    if (confirm(`Are you sure you want to delete "${source.name}"? This action cannot be undone.`)) {
-      this.deleteData(source);
-    }
+    this.confirmationService.confirm({
+      title: 'Delete Data Source',
+      message: `Are you sure you want to delete "${source.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.deleteData(source);
+      }
+    });
   }
 
   private deleteData(source: DataSource): void {
@@ -250,7 +262,7 @@ export class DataManager implements OnInit {
         this.loadDataSources();
       },
       error: (err) => {
-        console.error('Delete failed:', err);
+        this.logger.error('Delete failed:', err);
         this.snackBar.open('Failed to delete file', 'Close', { duration: 3000 });
       }
     });

@@ -5,7 +5,8 @@ import {
   EventEmitter,
   ContentChild,
   TemplateRef,
-  TrackByFunction
+  TrackByFunction,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
@@ -84,7 +85,8 @@ import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrollin
     :host-context(.dark-theme) .virtual-item:hover {
       background-color: rgba(255, 255, 255, 0.04);
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class VirtualListComponent<T> {
   @Input() items: T[] = [];
@@ -202,7 +204,8 @@ export class VirtualListComponent<T> {
     :host-context(.dark-theme) .virtual-table-row.striped {
       background-color: rgba(255, 255, 255, 0.02);
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class VirtualTableComponent<T> {
   @Input() rows: T[] = [];

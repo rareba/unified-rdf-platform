@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export type SkeletonType = 'text' | 'circle' | 'rectangle' | 'card' | 'table-row' | 'list-item';
@@ -195,7 +195,8 @@ export type SkeletonType = 'text' | 'circle' | 'rectangle' | 'card' | 'table-row
     :host-context(.dark-theme) .skeleton-table-row {
       border-color: #424242;
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SkeletonLoaderComponent {
   @Input() type: SkeletonType = 'text';

@@ -1,8 +1,12 @@
 package io.rdfforge.data.service;
 
+import io.rdfforge.common.exception.RdfForgeException;
+import io.rdfforge.common.exception.ResourceNotFoundException;
 import io.rdfforge.data.entity.DataSourceEntity;
 import io.rdfforge.data.entity.DataSourceEntity.DataFormat;
 import io.rdfforge.data.repository.DataSourceRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -10,49 +14,192 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.*;
 
 @Service
 @Transactional
+@Slf4j
 public class DataService {
-    
+
+    // Maximum file size: 100MB
+    private static final long MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+
+    // Allowed MIME types for upload
+    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
+        "text/csv",
+        "text/plain",
+        "text/tab-separated-values",
+        "application/json",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/octet-stream" // For binary files that need content sniffing
+    );
+
+    // File extensions to MIME type mapping for validation
+    private static final Map<String, String> EXTENSION_TO_MIME = Map.of(
+        ".csv", "text/csv",
+        ".tsv", "text/tab-separated-values",
+        ".json", "application/json",
+        ".xls", "application/vnd.ms-excel",
+        ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".txt", "text/plain"
+    );
+
     private final DataSourceRepository repository;
     private final FileStorageService storageService;
-    
+
+    @Value("${data.virus-scan.enabled:false}")
+    private boolean virusScanEnabled;
+
     public DataService(DataSourceRepository repository, FileStorageService storageService) {
         this.repository = repository;
         this.storageService = storageService;
     }
     
+    @Transactional(readOnly = true)
     public Page<DataSourceEntity> getDataSources(UUID projectId, DataFormat format, String search, int page, int size) {
         String formatStr = format != null ? format.name() : null;
         return repository.findWithFilters(projectId, formatStr, search, PageRequest.of(page, size));
     }
     
+    @Transactional(readOnly = true)
     public Optional<DataSourceEntity> getDataSource(UUID id) {
         return repository.findById(id);
     }
     
     public DataSourceEntity uploadDataSource(MultipartFile file, String encoding, boolean analyze, UUID userId) throws IOException {
-        DataFormat format = detectFormat(file.getOriginalFilename());
-        String storagePath = storageService.uploadFile(file, "data-sources");
-        
-        DataSourceEntity entity = new DataSourceEntity();
-        entity.setName(getNameFromFilename(file.getOriginalFilename()));
-        entity.setOriginalFilename(file.getOriginalFilename());
-        entity.setFormat(format);
-        entity.setSizeBytes(file.getSize());
-        entity.setStoragePath(storagePath);
-        entity.setUploadedBy(userId);
-        
-        if (analyze) {
-            Map<String, Object> analysisResult = analyzeFile(file, format, encoding);
-            entity.setRowCount((Long) analysisResult.get("rowCount"));
-            entity.setColumnCount((Integer) analysisResult.get("columnCount"));
-            entity.setMetadata(analysisResult);
+        // Validate file size
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException(
+                String.format("File size exceeds maximum allowed size of %d MB", MAX_FILE_SIZE_BYTES / (1024 * 1024)));
         }
-        
-        return repository.save(entity);
+
+        // Validate MIME type
+        String contentType = file.getContentType();
+        if (contentType != null && !isAllowedMimeType(contentType, file.getOriginalFilename())) {
+            throw new IllegalArgumentException(
+                "File type '" + contentType + "' is not allowed. Allowed types: CSV, TSV, JSON, Excel, TXT");
+        }
+
+        // Virus scan placeholder (for future implementation)
+        if (virusScanEnabled) {
+            performVirusScan(file);
+        }
+
+        DataFormat format = detectFormat(file.getOriginalFilename());
+        Path tempFile = null;
+
+        try {
+            // Create temp file for safe processing
+            tempFile = Files.createTempFile("upload-", "-" + file.getOriginalFilename());
+            Files.copy(file.getInputStream(), tempFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // Validate the temp file size matches expected size
+            long actualSize = Files.size(tempFile);
+            if (actualSize > MAX_FILE_SIZE_BYTES) {
+                throw new IllegalArgumentException("File size validation failed after upload");
+            }
+
+            // Upload to storage
+            String storagePath = storageService.uploadFile(file, "data-sources");
+
+            DataSourceEntity entity = new DataSourceEntity();
+            entity.setName(getNameFromFilename(file.getOriginalFilename()));
+            entity.setOriginalFilename(sanitizeFilename(file.getOriginalFilename()));
+            entity.setFormat(format);
+            entity.setSizeBytes(file.getSize());
+            entity.setStoragePath(storagePath);
+            entity.setUploadedBy(userId);
+            entity.setCreatedAt(Instant.now());
+
+            if (analyze) {
+                Map<String, Object> analysisResult = analyzeFile(tempFile, format, encoding);
+                entity.setRowCount((Long) analysisResult.get("rowCount"));
+                entity.setColumnCount((Integer) analysisResult.get("columnCount"));
+                entity.setMetadata(analysisResult);
+            }
+
+            log.info("Uploaded data source: {} (format: {}, size: {} bytes) by user: {}",
+                entity.getName(), format, file.getSize(), userId);
+
+            return repository.save(entity);
+        } finally {
+            // Clean up temp file
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException e) {
+                    log.warn("Failed to delete temp file: {}", tempFile, e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if MIME type is allowed for upload.
+     */
+    private boolean isAllowedMimeType(String contentType, String filename) {
+        // Check against allowed types
+        if (ALLOWED_MIME_TYPES.contains(contentType)) {
+            return true;
+        }
+
+        // Additional validation based on file extension
+        if (filename != null) {
+            String lowerFilename = filename.toLowerCase();
+            for (Map.Entry<String, String> entry : EXTENSION_TO_MIME.entrySet()) {
+                if (lowerFilename.endsWith(entry.getKey())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Placeholder for virus scanning functionality.
+     * SECURITY WARNING: This method currently does NOT scan files for malware.
+     * All file uploads should be considered potentially unsafe until this is implemented.
+     *
+     * TODO: Implement virus scanning integration (Issue #XXX)
+     * See: https://github.com/your-org/rdf-forge/issues/XXX
+     */
+    private void performVirusScan(MultipartFile file) {
+        if (virusScanEnabled) {
+            log.error("SECURITY: Virus scanning is enabled in config but NOT IMPLEMENTED! " +
+                      "File '{}' was uploaded without malware scanning. " +
+                      "This is a known security risk tracked in Issue #XXX",
+                      file.getOriginalFilename());
+            // TODO: Implement actual virus scanning when service is available
+            // For now, we log the error but still allow the upload
+        } else {
+            log.warn("SECURITY: Virus scanning is DISABLED. File '{}' was uploaded without malware scanning. " +
+                     "Enable data.virus-scan.enabled in configuration and implement the scanner.",
+                     file.getOriginalFilename());
+        }
+    }
+
+    /**
+     * Sanitize filename to prevent path traversal attacks.
+     */
+    private String sanitizeFilename(String filename) {
+        if (filename == null) {
+            return "unnamed";
+        }
+        // Remove path components, keeping only the filename
+        String sanitized = filename.replaceAll(".*[/\\\\]", "");
+        // Remove any control characters
+        sanitized = sanitized.replaceAll("[\\x00-\\x1f\\x7f]", "");
+        // Limit length
+        if (sanitized.length() > 255) {
+            sanitized = sanitized.substring(0, 255);
+        }
+        return sanitized;
     }
     
     public void deleteDataSource(UUID id) throws IOException {
@@ -60,28 +207,30 @@ public class DataService {
             try {
                 storageService.deleteFile(entity.getStoragePath());
             } catch (IOException e) {
-                throw new RuntimeException("Failed to delete file", e);
+                throw new RdfForgeException("DATA_DELETE_ERROR", "Failed to delete file: " + entity.getStoragePath(), e);
             }
             repository.delete(entity);
         });
     }
     
+    @Transactional(readOnly = true)
     public Map<String, Object> previewDataSource(UUID id, int rows, int offset) throws IOException {
         DataSourceEntity entity = repository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Data source not found: " + id));
-        
-        InputStream inputStream = storageService.downloadFile(entity.getStoragePath());
-        
-        return switch (entity.getFormat()) {
-            case CSV, TSV -> previewCsv(inputStream, entity.getFormat() == DataFormat.TSV ? "\t" : ",", rows, offset);
-            case JSON -> previewJson(inputStream, rows, offset);
-            default -> Map.of("error", "Preview not supported for format: " + entity.getFormat());
-        };
+            .orElseThrow(() -> new ResourceNotFoundException("DataSource", id.toString()));
+
+        try (InputStream inputStream = storageService.downloadFile(entity.getStoragePath())) {
+            return switch (entity.getFormat()) {
+                case CSV, TSV -> previewCsv(inputStream, entity.getFormat() == DataFormat.TSV ? "\t" : ",", rows, offset);
+                case JSON -> previewJson(inputStream, rows, offset);
+                default -> Map.of("error", "Preview not supported for format: " + entity.getFormat());
+            };
+        }
     }
     
+    @Transactional(readOnly = true)
     public InputStream downloadDataSource(UUID id) throws IOException {
         DataSourceEntity entity = repository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Data source not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("DataSource", id.toString()));
 
         return storageService.downloadFile(entity.getStoragePath());
     }
@@ -89,7 +238,7 @@ public class DataService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> analyzeDataSource(UUID id) throws IOException {
         DataSourceEntity entity = repository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Data source not found: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("DataSource", id.toString()));
 
         // If metadata already contains column info from upload analysis, use it
         Map<String, Object> metadata = entity.getMetadata();
@@ -103,12 +252,14 @@ public class DataService {
         }
 
         // Otherwise, re-analyze the file
-        InputStream inputStream = storageService.downloadFile(entity.getStoragePath());
-        Map<String, Object> analysis = switch (entity.getFormat()) {
-            case CSV, TSV -> analyzeCsv(inputStream, entity.getFormat() == DataFormat.TSV ? "\t" : ",", "UTF-8");
-            case JSON -> analyzeJson(inputStream);
-            default -> Map.of("columnCount", 0, "rowCount", 0L, "columns", List.of());
-        };
+        Map<String, Object> analysis;
+        try (InputStream inputStream = storageService.downloadFile(entity.getStoragePath())) {
+            analysis = switch (entity.getFormat()) {
+                case CSV, TSV -> analyzeCsv(inputStream, entity.getFormat() == DataFormat.TSV ? "\t" : ",", "UTF-8");
+                case JSON -> analyzeJson(inputStream);
+                default -> Map.of("columnCount", 0, "rowCount", 0L, "columns", List.of());
+            };
+        }
 
         // Update entity with analysis results
         entity.setMetadata(analysis);
@@ -264,7 +415,7 @@ public class DataService {
                 Map<String, Object> row = new HashMap<>();
                 for (int i = 0; i < columns.size(); i++) {
                     String value = i < values.length ? values[i].replace("\"", "") : null;
-                    row.put(columns.get(i), value.isEmpty() ? null : value);
+                    row.put(columns.get(i), value == null || value.isEmpty() ? null : value);
                 }
                 data.add(row);
                 count++;

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -19,6 +19,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmationService } from '../../core/services/confirmation.service';
 import {
   SettingsService,
   AppSettings,
@@ -164,12 +165,14 @@ const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   ],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Settings implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
   private readonly settingsService = inject(SettingsService);
+  private readonly confirmationService = inject(ConfirmationService);
 
   readonly env = environment;
 
@@ -367,9 +370,16 @@ export class Settings implements OnInit {
 
   // Reset
   confirmReset(): void {
-    if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
-      this.resetSettings();
-    }
+    this.confirmationService.confirm({
+      title: 'Reset Settings',
+      message: 'Are you sure you want to reset all settings to defaults? This cannot be undone.',
+      confirmText: 'Reset',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.resetSettings();
+      }
+    });
   }
 
   resetSettings(): void {
@@ -380,9 +390,16 @@ export class Settings implements OnInit {
 
   // Cache
   confirmClearCache(): void {
-    if (confirm('Clear all cached data? This will not affect your settings.')) {
-      this.clearCache();
-    }
+    this.confirmationService.confirm({
+      title: 'Clear Cache',
+      message: 'Clear all cached data? This will not affect your settings.',
+      confirmText: 'Clear',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.clearCache();
+      }
+    });
   }
 
   clearCache(): void {
@@ -651,7 +668,13 @@ export class Settings implements OnInit {
       return;
     }
 
-    if (confirm(`Delete role "${role.name}"?`)) {
+    this.confirmationService.confirm({
+      title: 'Delete Role',
+      message: `Delete role "${role.name}"?`,
+      confirmText: 'Delete',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
       if (this.env.auth.enabled) {
         this.http.delete(`${this.env.apiBaseUrl}/admin/roles/${role.name}`).subscribe({
           next: () => {
@@ -666,7 +689,7 @@ export class Settings implements OnInit {
         this.roles.update(roles => roles.filter(r => r.name !== role.name));
         this.snackBar.open('Role deleted (demo mode)', 'Close', { duration: 3000 });
       }
-    }
+    });
   }
 
   togglePermission(permission: string): void {
@@ -816,7 +839,13 @@ export class Settings implements OnInit {
   }
 
   revokeToken(token: PersonalAccessToken): void {
-    if (confirm(`Are you sure you want to revoke the token "${token.name}"? This action cannot be undone.`)) {
+    this.confirmationService.confirm({
+      title: 'Revoke Token',
+      message: `Are you sure you want to revoke the token "${token.name}"? This action cannot be undone.`,
+      confirmText: 'Revoke',
+      confirmColor: 'warn'
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
       this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
         next: () => {
           this.personalAccessTokens.update(tokens =>
@@ -832,7 +861,7 @@ export class Settings implements OnInit {
           this.snackBar.open('Token revoked (demo mode)', 'Close', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
   copyToken(): void {

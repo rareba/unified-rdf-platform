@@ -29,7 +29,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/cubes/validate")
 @RequiredArgsConstructor
 @Tag(name = "Cube Validator", description = "Cube-link compliant RDF Data Cube validation API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 @Slf4j
 public class CubeValidatorController {
 

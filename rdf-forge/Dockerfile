@@ -1,6 +1,10 @@
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
+# Create a non-root user for the build stage
+RUN addgroup -g 1000 -S rdfforge && \
+    adduser -u 1000 -S rdfforge -G rdfforge
+
 # 1. Copy POMs only first (to cache dependencies)
 COPY pom.xml .
 COPY rdf-forge-common/pom.xml rdf-forge-common/
@@ -37,9 +41,42 @@ RUN mvn clean package -Dmaven.test.skip
 # 5. Final Runtime Image
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-ARG SERVICE_NAME
-COPY --from=builder /app/${SERVICE_NAME}/target/*.jar app.jar
 
-# Add wait-for-it or similar if strictly needed, but healthchecks in compose usually suffice
-# Using exec form for ENTRYPOINT
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Create non-root user (UID 1000) for security
+RUN addgroup -g 1000 -S rdfforge && \
+    adduser -u 1000 -S rdfforge -G rdfforge
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs /app/tmp /app/data && \
+    chown -R rdfforge:rdfforge /app
+
+ARG SERVICE_NAME
+COPY --from=builder --chown=rdfforge:rdfforge /app/${SERVICE_NAME}/target/*.jar app.jar
+
+# Switch to non-root user
+USER 1000
+
+# JVM optimized settings for production:
+# - Use G1 Garbage Collector for better performance with large heaps
+# - Set initial and maximum heap size
+# - Enable container-aware memory settings
+# - Optimize GC for low latency
+ENV JAVA_OPTS="-XX:+UseG1GC \
+    -XX:MaxGCPauseMillis=200 \
+    -XX:+UseContainerSupport \
+    -XX:MaxRAMPercentage=75.0 \
+    -XX:+AlwaysPreTouch \
+    -XX:+DisableExplicitGC \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dspring.backgroundpreinitializer.ignore=true \
+    -Dfile.encoding=UTF-8"
+
+# Service port - override per service (gateway=8000, pipeline=8001, etc.)
+ENV SERVER_PORT=8080
+
+# Using exec form for ENTRYPOINT with JVM options
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+
+# Health check using the configurable server port
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${SERVER_PORT}/actuator/health || exit 1

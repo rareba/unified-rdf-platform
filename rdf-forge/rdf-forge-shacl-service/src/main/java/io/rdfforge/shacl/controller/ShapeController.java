@@ -27,7 +27,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/shapes")
 @RequiredArgsConstructor
 @Tag(name = "SHACL Shapes", description = "SHACL shape management and validation API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class ShapeController {
     private final ShapeService shapeService;
     private final ShapeBuilderService shapeBuilderService;

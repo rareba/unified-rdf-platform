@@ -1,0 +1,142 @@
+{
+  "name": "Swiss Economy Cube Pipeline",
+  "description": "Transform CSV data into an RDF Data Cube with dimensions (Year, Region, Sector) and measure (Value)",
+  "definition": {
+    "steps": [
+      {
+        "id": "step-load-csv",
+        "operation": "load-csv",
+        "params": {
+          "file": "/data/uploads/swiss_economy.csv",
+          "delimiter": ",",
+          "encoding": "UTF-8",
+          "hasHeader": true,
+          "skipRows": 0
+        }
+      },
+      {
+        "id": "step-build-cube-structure",
+        "operation": "build-cube",
+        "params": {
+          "cubeUri": "https://example.org/cube/swiss-economy",
+          "baseUri": "https://example.org/cube/",
+          "includeMetadata": true,
+          "cubeDefinition": {
+            "name": "Swiss Economic Indicators",
+            "description": "Economic indicators for Swiss regions and sectors",
+            "baseUri": "https://example.org/cube/",
+            "dimensions": [
+              {
+                "name": "Year",
+                "dataType": "http://www.w3.org/2001/XMLSchema#gYear",
+                "keyDimension": true,
+                "conceptUri": "http://purl.org/linked-data/sdmx/2009/concept#timePeriod"
+              },
+              {
+                "name": "Region",
+                "dataType": "http://www.w3.org/2001/XMLSchema#string",
+                "keyDimension": true,
+                "conceptUri": "http://purl.org/linked-data/sdmx/2009/concept#refArea"
+              },
+              {
+                "name": "Sector",
+                "dataType": "http://www.w3.org/2001/XMLSchema#string",
+                "keyDimension": true
+              }
+            ],
+            "measures": [
+              {
+                "name": "Value",
+                "dataType": "http://www.w3.org/2001/XMLSchema#decimal",
+                "unitUri": "http://qudt.org/vocab/unit/MillionUSD",
+                "conceptUri": "http://purl.org/linked-data/sdmx/2009/concept#obsValue"
+              }
+            ],
+            "attributes": [
+              {
+                "name": "Status",
+                "dataType": "http://www.w3.org/2001/XMLSchema#string"
+              }
+            ],
+            "metadata": {
+              "title": "Swiss Economic Indicators",
+              "description": "Economic indicators for Swiss regions and sectors over time",
+              "publisher": "Swiss Federal Statistics",
+              "publisherUri": "https://www.bfs.admin.ch",
+              "license": "https://creativecommons.org/licenses/by/4.0/",
+              "issued": "2026-01-31",
+              "modified": "2026-01-31",
+              "language": "en"
+            }
+          }
+        }
+      },
+      {
+        "id": "step-create-observations",
+        "operation": "create-observation",
+        "params": {
+          "cubeUri": "https://example.org/cube/swiss-economy",
+          "observationBaseUri": "https://example.org/cube/swiss-economy/observation/",
+          "dateFormat": "yyyy-MM-dd",
+          "emitUndefined": false,
+          "dimensions": {
+            "Year": {
+              "propertyUri": "https://example.org/cube/dimension/year",
+              "keyDimension": true
+            },
+            "Region": {
+              "propertyUri": "https://example.org/cube/dimension/region",
+              "keyDimension": true
+            },
+            "Sector": {
+              "propertyUri": "https://example.org/cube/dimension/sector",
+              "keyDimension": true
+            }
+          },
+          "measures": {
+            "Value": {
+              "propertyUri": "https://example.org/cube/measure/value",
+              "dataType": "http://www.w3.org/2001/XMLSchema#decimal"
+            }
+          },
+          "attributes": {
+            "Status": {
+              "propertyUri": "https://example.org/cube/attribute/status"
+            }
+          }
+        }
+      },
+      {
+        "id": "step-build-cube-shape",
+        "operation": "build-cube-shape",
+        "params": {
+          "cubeUri": "https://example.org/cube/swiss-economy",
+          "constraintUri": "https://example.org/cube/swiss-economy/constraint",
+          "inferDimensionRoles": true,
+          "includeValueEnumeration": true,
+          "maxEnumValues": 50
+        }
+      },
+      {
+        "id": "step-validate-shacl",
+        "operation": "validate-shacl",
+        "params": {
+          "onViolation": "WARN",
+          "includeReport": true
+        }
+      },
+      {
+        "id": "step-publish-to-graphdb",
+        "operation": "graph-store-put",
+        "params": {
+          "endpoint": "http://graphdb:7200/repositories/rdf-forge",
+          "graph": "https://example.org/graph/swiss-economy",
+          "username": "${GRAPHDB_USER:-admin}",
+          "password": "${GRAPHDB_PASS:-root}",
+          "batchSize": 5000
+        }
+      }
+    ]
+  },
+  "tags": ["cube", "swiss", "economy", "csv-to-rdf"]
+}

@@ -1,5 +1,8 @@
 server:
   port: 8000
+  shutdown: graceful
+
+spring.lifecycle.timeout-per-shutdown-phase: 30s
 
 spring:
   application:
@@ -15,6 +18,11 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://rdf-forge-auth-service:8086}
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/admin/**
+        
         - id: pipeline-service
           uri: ${PIPELINE_SERVICE_URL:http://rdf-forge-pipeline-service:8001}
           predicates:
@@ -29,6 +37,13 @@ spring:
           uri: ${JOB_SERVICE_URL:http://rdf-forge-job-service:8003}
           predicates:
             - Path=/api/v1/jobs/**,/api/v1/schedules/**
+        
+        - id: job-service-ws
+          uri: ws://rdf-forge-job-service:8003
+          predicates:
+            - Path=/api/v1/ws/**
+          filters:
+            - StripPrefix=2
         
         - id: data-service
           uri: ${DATA_SERVICE_URL:http://rdf-forge-data-service:8004}
@@ -47,11 +62,12 @@ spring:
       
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - Authentication
       
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}
             allowedMethods:
               - GET
               - POST
@@ -60,6 +76,7 @@ spring:
               - PATCH
               - OPTIONS
             allowedHeaders: "*"
+            allowCredentials: true
             exposedHeaders:
               - Content-Disposition
               - X-Total-Count
@@ -92,12 +109,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when_authorized
-    gateway:
-      enabled: true
 
 logging:
   level:

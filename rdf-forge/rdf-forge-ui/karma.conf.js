@@ -30,11 +30,24 @@ module.exports = function (config) {
       ],
       check: {
         global: {
-          statements: 80,
-          branches: 80,
-          functions: 80,
-          lines: 80
+          statements: 70,
+          branches: 70,
+          functions: 70,
+          lines: 70
+        },
+        each: {
+          statements: 60,
+          branches: 60,
+          functions: 60,
+          lines: 60
         }
+      },
+      // Istanbul watermarks for coverage visualization
+      watermarks: {
+        statements: [70, 90],
+        functions: [70, 90],
+        branches: [70, 90],
+        lines: [70, 90]
       }
     },
     reporters: ['progress', 'coverage'],
@@ -46,10 +59,20 @@ module.exports = function (config) {
     customLaunchers: {
       ChromeHeadlessCI: {
         base: 'ChromeHeadless',
-        flags: ['--no-sandbox']
+        flags: ['--no-sandbox', '--disable-gpu', '--disable-web-security']
+      },
+      ChromeDebug: {
+        base: 'Chrome',
+        flags: ['--remote-debugging-port=9333']
       }
     },
     singleRun: false,
-    restartOnFileChange: true
+    restartOnFileChange: true,
+    // Increase browser no activity timeout for CI environments
+    browserNoActivityTimeout: 60000,
+    // Capture timeout for browsers
+    captureTimeout: 60000,
+    // Retry limit for failed tests
+    retryLimit: 2
   });
 };

@@ -177,3 +177,98 @@ mat-card {
   color: rgba(0, 0, 0, 0.6);
   padding: 2rem;
 }
+
+// Connection status indicator
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-right: 0.5rem;
+  transition: background-color 0.3s ease;
+
+  &.status-success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.status-warn {
+    background-color: #fff3e0;
+    color: #ef6c00;
+  }
+
+  &.status-error {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+
+  .status-text {
+    white-space: nowrap;
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+
+    &.spinning {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+// Log actions header
+.log-actions {
+  margin-left: auto;
+
+  mat-chip-set {
+    mat-chip {
+      cursor: pointer;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.08);
+      }
+
+      &.active {
+        background-color: #e3f2fd;
+        color: #1565c0;
+      }
+    }
+  }
+}
+
+// Scroll to bottom button
+.scroll-to-bottom {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10;
+}
+
+// Logs container positioning for scroll button
+.logs-container {
+  position: relative;
+}
+
+// Spinning animation
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Header with card title and actions
+mat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  ::ng-deep .mat-mdc-card-header-text {
+    flex: 1;
+  }
+}

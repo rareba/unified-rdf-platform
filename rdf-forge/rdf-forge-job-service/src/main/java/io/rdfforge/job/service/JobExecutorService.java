@@ -1,10 +1,9 @@
 package io.rdfforge.job.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import io.rdfforge.common.exception.ResourceNotFoundException;
 import io.rdfforge.common.model.Pipeline;
 import io.rdfforge.common.model.PipelineStep;
+import io.rdfforge.common.util.PipelineDefinitionParser;
 import io.rdfforge.engine.pipeline.PipelineExecutor;
 import io.rdfforge.engine.pipeline.PipelineExecutor.PipelineDefinition;
 import io.rdfforge.job.entity.JobEntity;
@@ -16,10 +15,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,13 +34,12 @@ public class JobExecutorService {
     private final RestTemplate restTemplate;
     private final JobService jobService;
     private final ConcurrentHashMap<UUID, Thread> runningJobs = new ConcurrentHashMap<>();
-    private final ObjectMapper jsonMapper = new ObjectMapper();
-    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
 
     @Value("${PIPELINE_SERVICE_URL:http://pipeline-service:8001}")
     private String pipelineServiceUrl;
-    
-    public JobExecutorService(JobRepository jobRepository, PipelineExecutor pipelineExecutor, RestTemplate restTemplate, JobService jobService) {
+
+    public JobExecutorService(JobRepository jobRepository, PipelineExecutor pipelineExecutor,
+                              RestTemplate restTemplate, JobService jobService) {
         this.jobRepository = jobRepository;
         this.pipelineExecutor = pipelineExecutor;
         this.restTemplate = restTemplate;
@@ -51,24 +49,24 @@ public class JobExecutorService {
     @Async
     public void executeAsync(UUID jobId) {
         log.info("Starting job execution: {}", jobId);
-        
+
         Thread currentThread = Thread.currentThread();
         runningJobs.put(jobId, currentThread);
-        
+        long startTime = System.currentTimeMillis();
+
         try {
-            JobEntity job = jobRepository.findById(jobId).orElseThrow(() -> 
-                new RuntimeException("Job not found: " + jobId));
-            
-            job.setStatus(JobStatus.RUNNING);
-            job.setStartedAt(java.time.Instant.now());
-            jobRepository.save(job);
-            
+            JobEntity job = jobRepository.findById(jobId).orElseThrow(() ->
+                new ResourceNotFoundException("Job", jobId.toString()));
+
+            // Use service method to update status for proper locking
+            jobService.updateJobStatus(jobId, JobStatus.RUNNING);
+
             logToJob(jobId, LogLevel.INFO, null, "Job started" + (job.isDryRun() ? " (DRY RUN)" : ""));
-            
-            // Fetch pipeline definition
-            Pipeline pipeline = fetchPipeline(job.getPipelineId());
+
+            // Fetch pipeline definition with retry logic
+            Pipeline pipeline = fetchPipelineWithRetry(job.getPipelineId(), 3);
             List<PipelineStep> steps = parseDefinition(pipeline.getDefinition(), pipeline.getDefinitionFormat());
-            
+
             PipelineDefinition pipelineDef = PipelineDefinition.builder()
                 .id(pipeline.getId().toString())
                 .name(pipeline.getName())
@@ -76,83 +74,133 @@ public class JobExecutorService {
                 .defaultVariables(pipeline.getVariables())
                 .build();
 
-            // Execute pipeline
-            PipelineExecutor.ExecutionResult result = pipelineExecutor.execute(
-                pipelineDef, 
-                job.getVariables(), 
-                job.isDryRun(),
-                new JobExecutionCallback(jobId, jobService)
-            );
-            
-            job.setStatus(result.isSuccess() ? JobStatus.COMPLETED : JobStatus.FAILED);
-            job.setCompletedAt(java.time.Instant.now());
-            job.setMetrics(result.getMetrics());
-            if (!result.isSuccess()) {
+            // Execute pipeline with timeout handling
+            PipelineExecutor.ExecutionResult result = executePipelineWithTimeout(
+                pipelineDef, job.getVariables(), job.isDryRun(),
+                new JobExecutionCallback(jobId, jobService), jobId);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            if (result.isSuccess()) {
+                job.setStatus(JobStatus.COMPLETED);
+                job.setCompletedAt(java.time.Instant.now());
+                job.setMetrics(result.getMetrics());
+                log.info("Job {} completed successfully in {}ms", jobId, duration);
+            } else {
+                job.setStatus(JobStatus.FAILED);
+                job.setCompletedAt(java.time.Instant.now());
                 job.setErrorMessage(result.getErrorMessage());
+                job.setErrorDetails(buildErrorDetails(new Exception(result.getErrorMessage()), duration));
+                log.error("Job {} failed: {} (duration: {}ms)", jobId, result.getErrorMessage(), duration);
             }
             jobRepository.save(job);
-            
-            logToJob(jobId, result.isSuccess() ? LogLevel.INFO : LogLevel.ERROR, null, 
-                "Job " + (result.isSuccess() ? "completed successfully" : "failed"));
-            
+
+            logToJob(jobId, result.isSuccess() ? LogLevel.INFO : LogLevel.ERROR, null,
+                "Job " + (result.isSuccess() ? "completed successfully" : "failed") +
+                " in " + duration + "ms");
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.info("Job {} was cancelled", jobId);
+            log.info("Job {} was cancelled by user", jobId);
+            handleJobCancellation(jobId);
+        } catch (ResourceNotFoundException e) {
+            log.error("Job {} failed - resource not found: {}", jobId, e.getMessage());
+            handleJobFailure(jobId, "Resource not found: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Job {} failed with unexpected error", jobId, e);
+            handleJobFailure(jobId, "Unexpected error: " + e.getMessage(), e);
+        } finally {
+            runningJobs.remove(jobId);
+        }
+    }
+
+    /**
+     * Handle job cancellation with proper cleanup.
+     */
+    private void handleJobCancellation(UUID jobId) {
+        try {
             jobRepository.findById(jobId).ifPresent(job -> {
                 job.setStatus(JobStatus.CANCELLED);
                 job.setCompletedAt(java.time.Instant.now());
                 jobRepository.save(job);
             });
+            logToJob(jobId, LogLevel.INFO, null, "Job cancelled by user request");
         } catch (Exception e) {
-            log.error("Job {} failed", jobId, e);
+            log.error("Error handling job cancellation for job {}", jobId, e);
+        }
+    }
+
+    /**
+     * Handle job failure with proper error logging.
+     */
+    private void handleJobFailure(UUID jobId, String message, Exception e) {
+        try {
             jobRepository.findById(jobId).ifPresent(job -> {
                 job.setStatus(JobStatus.FAILED);
                 job.setCompletedAt(java.time.Instant.now());
-                job.setErrorMessage(e.getMessage());
-                job.setErrorDetails(Map.of("stackTrace", getStackTrace(e)));
+                job.setErrorMessage(message);
+                job.setErrorDetails(buildErrorDetails(e, 0));
                 jobRepository.save(job);
             });
-            logToJob(jobId, LogLevel.ERROR, null, "Job execution error: " + e.getMessage());
-        } finally {
-            runningJobs.remove(jobId);
+            logToJob(jobId, LogLevel.ERROR, null, "Job execution failed: " + message);
+        } catch (Exception ex) {
+            log.error("Error handling job failure for job {}", jobId, ex);
         }
+    }
+
+    /**
+     * Fetch pipeline with retry logic for resilience.
+     */
+    private Pipeline fetchPipelineWithRetry(UUID pipelineId, int maxRetries) {
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return fetchPipeline(pipelineId);
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Attempt {} failed to fetch pipeline {}: {}", attempt, pipelineId, e.getMessage());
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(1000 * attempt); // Exponential backoff
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Interrupted while waiting to retry", ie);
+                    }
+                }
+            }
+        }
+        throw new RuntimeException("Failed to fetch pipeline after " + maxRetries + " attempts", lastException);
+    }
+
+    /**
+     * Execute pipeline with timeout protection.
+     */
+    private PipelineExecutor.ExecutionResult executePipelineWithTimeout(
+            PipelineDefinition pipelineDef,
+            Map<String, Object> variables,
+            boolean dryRun,
+            PipelineExecutor.ExecutionCallback callback,
+            UUID jobId) {
+        // The actual timeout handling is done via the scheduled timeout checker in JobService
+        return pipelineExecutor.execute(pipelineDef, variables, dryRun, callback);
     }
     
-    private Pipeline fetchPipeline(UUID pipelineId) {
+    private Pipeline fetchPipeline(UUID pipelineId) throws ResourceNotFoundException {
         String url = pipelineServiceUrl + "/api/v1/pipelines/" + pipelineId;
-        return restTemplate.getForObject(url, Pipeline.class);
+        try {
+            Pipeline pipeline = restTemplate.getForObject(url, Pipeline.class);
+            if (pipeline == null) {
+                throw new ResourceNotFoundException("Pipeline", pipelineId.toString());
+            }
+            return pipeline;
+        } catch (RestClientException e) {
+            log.error("Failed to fetch pipeline {} from {}", pipelineId, url, e);
+            throw new ResourceNotFoundException("Pipeline", pipelineId.toString());
+        }
     }
 
-    private List<PipelineStep> parseDefinition(String definition, Pipeline.DefinitionFormat format) throws Exception {
-        ObjectMapper mapper = format == Pipeline.DefinitionFormat.YAML ? yamlMapper : jsonMapper;
-        Map<String, Object> parsed = mapper.readValue(definition, new TypeReference<>() {});
-        
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> stepsData = (List<Map<String, Object>>) parsed.get("steps");
-        
-        if (stepsData == null) {
-            return Collections.emptyList();
-        }
-
-        List<PipelineStep> steps = new ArrayList<>();
-        for (Map<String, Object> stepData : stepsData) {
-            @SuppressWarnings("unchecked")
-            // Support both "params" (UI format) and "parameters" (API format)
-            Map<String, Object> params = (Map<String, Object>) stepData.get("params");
-            if (params == null) {
-                params = (Map<String, Object>) stepData.get("parameters");
-            }
-            PipelineStep step = PipelineStep.builder()
-                .id((String) stepData.get("id"))
-                .operationType((String) stepData.get("operation"))
-                .name((String) stepData.get("name"))
-                .parameters(params)
-                .inputConnections((List<String>) stepData.get("inputs"))
-                .outputConnections((List<String>) stepData.get("outputs"))
-                .build();
-            steps.add(step);
-        }
-        return steps;
+    private List<PipelineStep> parseDefinition(String definition, Pipeline.DefinitionFormat format) {
+        return PipelineDefinitionParser.parse(definition, format);
     }
     
     public void cancelExecution(UUID jobId) {
@@ -167,12 +215,27 @@ public class JobExecutorService {
         jobService.addLog(jobId, level, step, message, null);
     }
     
-    private String getStackTrace(Exception e) {
-        StringBuilder sb = new StringBuilder();
-        for (StackTraceElement element : e.getStackTrace()) {
-            sb.append(element.toString()).append("\n");
+    /**
+     * Build a sanitized error details map suitable for API responses.
+     * Limits stack trace to the first 3 frames to avoid leaking internal package structure.
+     */
+    private Map<String, Object> buildErrorDetails(Exception e, long durationMs) {
+        Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("errorType", e.getClass().getName());
+        details.put("message", e.getMessage());
+        details.put("traceId", UUID.randomUUID().toString());
+        details.put("durationMs", durationMs);
+        details.put("timestamp", java.time.Instant.now().toString());
+
+        // Include only the first 3 stack frames
+        StackTraceElement[] frames = e.getStackTrace();
+        List<String> limitedFrames = new ArrayList<>();
+        for (int i = 0; i < Math.min(3, frames.length); i++) {
+            limitedFrames.add(frames[i].toString());
         }
-        return sb.toString();
+        details.put("stackFrames", limitedFrames);
+
+        return details;
     }
 
     private static class JobExecutionCallback implements PipelineExecutor.ExecutionCallback {
@@ -213,7 +276,10 @@ public class JobExecutorService {
             LogLevel logLevel = LogLevel.INFO;
             try {
                 logLevel = LogLevel.valueOf(level.toUpperCase());
-            } catch (Exception ignored) {}
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown log level '{}', defaulting to INFO", level);
+                logLevel = LogLevel.INFO;
+            }
             jobService.addLog(jobId, logLevel, stepId, message, null);
         }
 

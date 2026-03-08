@@ -1,5 +1,8 @@
 package io.rdfforge.pipeline.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.rdfforge.common.audit.AuditLogService;
 import io.rdfforge.common.exception.PipelineValidationException;
 import io.rdfforge.common.exception.ResourceNotFoundException;
 import io.rdfforge.common.model.Pipeline;
@@ -12,7 +15,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -37,7 +39,9 @@ class PipelineServiceTest {
     @Mock
     private OperationRegistry operationRegistry;
 
-    @InjectMocks
+    @Mock
+    private AuditLogService auditLogService;
+
     private PipelineService pipelineService;
 
     private UUID projectId;
@@ -48,6 +52,10 @@ class PipelineServiceTest {
 
     @BeforeEach
     void setUp() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        pipelineService = new PipelineService(pipelineRepository, operationRegistry, auditLogService, objectMapper);
+
         projectId = UUID.randomUUID();
         pipelineId = UUID.randomUUID();
         userId = UUID.randomUUID();

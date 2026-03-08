@@ -1,0 +1,99 @@
+groups:
+  - name: rdf-forge-service-health
+    rules:
+      - alert: ServiceDown
+        expr: up{job="rdf-forge-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "The service at {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: >
+          (
+            sum(rate(http_server_requests_seconds_count{status=~"5..", job="rdf-forge-services"}[5m])) by (instance)
+            /
+            sum(rate(http_server_requests_seconds_count{job="rdf-forge-services"}[5m])) by (instance)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on {{ $labels.instance }}"
+          description: "The 5xx error rate on {{ $labels.instance }} has exceeded 5% for more than 5 minutes. Current value: {{ $value | humanizePercentage }}."
+
+      - alert: HighResponseTime
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_server_requests_seconds_bucket{job="rdf-forge-services"}[5m])) by (instance, le)
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency on {{ $labels.instance }}"
+          description: "The P95 response time on {{ $labels.instance }} has exceeded 5 seconds for more than 5 minutes. Current value: {{ $value | humanizeDuration }}."
+
+  - name: rdf-forge-jvm
+    rules:
+      - alert: HighMemoryUsage
+        expr: >
+          (
+            sum(jvm_memory_used_bytes{area="heap", job="rdf-forge-services"}) by (instance)
+            /
+            sum(jvm_memory_max_bytes{area="heap", job="rdf-forge-services"}) by (instance)
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage on {{ $labels.instance }}"
+          description: "JVM heap usage on {{ $labels.instance }} has exceeded 85% for more than 10 minutes. Current value: {{ $value | humanizePercentage }}."
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: >
+          (
+            hikaricp_connections_active{job="rdf-forge-services"}
+            /
+            hikaricp_connections_max{job="rdf-forge-services"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HikariCP connection pool near exhaustion on {{ $labels.instance }}"
+          description: "Active database connections on {{ $labels.instance }} exceed 90% of the maximum pool size for more than 5 minutes. Active: {{ $value | humanizePercentage }} of max."
+
+  - name: rdf-forge-business
+    rules:
+      - alert: JobFailureRate
+        expr: >
+          (
+            sum(increase(rdfforge_jobs_failed_total[1h]))
+            /
+            (sum(increase(rdfforge_jobs_completed_total[1h])) + sum(increase(rdfforge_jobs_failed_total[1h])))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High job failure rate"
+          description: "The job failure rate has exceeded 20% over the last hour. Current rate: {{ $value | humanizePercentage }}."
+
+  - name: rdf-forge-infrastructure
+    rules:
+      - alert: DiskSpaceLow
+        expr: >
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Available disk space on {{ $labels.instance }} is below 15%. Available: {{ $value | humanizePercentage }}."

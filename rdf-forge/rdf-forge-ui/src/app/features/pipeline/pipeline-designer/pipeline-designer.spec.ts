@@ -30,13 +30,16 @@ describe('PipelineDesigner', () => {
 
   const mockOperations: Operation[] = [
     { id: 'load-csv', name: 'Load CSV', type: 'SOURCE', description: 'Load CSV file', parameters: {} },
+    { id: 'load-json', name: 'Load JSON', type: 'SOURCE', description: 'Load JSON file', parameters: {} },
     { id: 'transform', name: 'Transform', type: 'TRANSFORM', description: 'Transform data', parameters: {} },
-    { id: 'validate-shacl', name: 'Validate', type: 'VALIDATION', description: 'Validate data', parameters: {} }
+    { id: 'filter', name: 'Filter', type: 'TRANSFORM', description: 'Filter data', parameters: {} },
+    { id: 'validate-shacl', name: 'Validate', type: 'VALIDATION', description: 'Validate data', parameters: {} },
+    { id: 'save-rdf', name: 'Save RDF', type: 'OUTPUT', description: 'Save RDF output', parameters: {} }
   ];
 
   beforeEach(async () => {
     pipelineServiceSpy = jasmine.createSpyObj('PipelineService', [
-      'get', 'create', 'update', 'delete', 'run', 'getOperations'
+      'get', 'create', 'update', 'delete', 'run', 'getOperations', 'validate'
     ]);
     pipelineServiceSpy.get.and.returnValue(of(mockPipeline));
     pipelineServiceSpy.getOperations.and.returnValue(of(mockOperations));
@@ -48,8 +51,8 @@ describe('PipelineDesigner', () => {
         provideHttpClientTesting(),
         provideNoopAnimations(),
         provideRouter([
-          { path: 'jobs/:id', component: PipelineDesigner },
-          { path: 'jobs', component: PipelineDesigner }
+          { path: 'pipelines/:id', component: PipelineDesigner },
+          { path: 'pipelines', component: PipelineDesigner }
         ]),
         { provide: PipelineService, useValue: pipelineServiceSpy },
         {
@@ -79,7 +82,7 @@ describe('PipelineDesigner', () => {
   it('should load operations on init', fakeAsync(() => {
     tick();
     expect(pipelineServiceSpy.getOperations).toHaveBeenCalled();
-    expect(component.availableOperations().length).toBe(3);
+    expect(component.availableOperations().length).toBe(6);
   }));
 
   it('should load pipeline when editing', fakeAsync(() => {
@@ -94,6 +97,8 @@ describe('PipelineDesigner', () => {
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.find(g => g.type === 'SOURCE')).toBeTruthy();
     expect(groups.find(g => g.type === 'TRANSFORM')).toBeTruthy();
+    expect(groups.find(g => g.type === 'VALIDATION')).toBeTruthy();
+    expect(groups.find(g => g.type === 'OUTPUT')).toBeTruthy();
   }));
 
   it('should add node to canvas', fakeAsync(() => {
@@ -110,6 +115,19 @@ describe('PipelineDesigner', () => {
     const mockEvent = { stopPropagation: jasmine.createSpy() };
     component.removeNode(node.id, mockEvent as any);
     expect(component.nodes().length).toBe(0);
+  }));
+
+  it('should also remove connected edges when removing node', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    component.addNode(mockOperations[1], 300, 100);
+    const nodes = component.nodes();
+    component.addEdge(nodes[0].id, nodes[1].id);
+    
+    expect(component.edges().length).toBe(1);
+    
+    component.removeNode(nodes[0].id, { stopPropagation: () => {} } as any);
+    expect(component.edges().length).toBe(0);
   }));
 
   it('should save pipeline', fakeAsync(() => {
@@ -133,6 +151,7 @@ describe('PipelineDesigner', () => {
     component.loadPipeline('p1');
     tick();
     expect(component.loading()).toBeFalse();
+    expect(component.error()).toBeTruthy();
   }));
 
   it('should update pipeline name', () => {
@@ -151,12 +170,14 @@ describe('PipelineDesigner', () => {
     expect(component.getTypeColor('VALIDATION' as OperationType)).toBe('secondary');
     expect(component.getTypeColor('OUTPUT' as OperationType)).toBe('danger');
     expect(component.getTypeColor('CUBE' as OperationType)).toBe('warn');
+    expect(component.getTypeColor('OTHER' as OperationType)).toBe('default');
   });
 
   it('should get node border color', () => {
     expect(component.getNodeBorderColor('SOURCE' as OperationType)).toContain('#');
     expect(component.getNodeBorderColor('TRANSFORM' as OperationType)).toContain('#');
     expect(component.getNodeBorderColor('VALIDATION' as OperationType)).toContain('#');
+    expect(component.getNodeBorderColor('OUTPUT' as OperationType)).toContain('#');
   });
 
   it('should have pipeline templates', () => {
@@ -175,6 +196,12 @@ describe('PipelineDesigner', () => {
     component.operationSearch.set('csv');
     const filtered = component.filteredOperationGroups();
     expect(filtered.length).toBeGreaterThanOrEqual(0);
+    
+    // Should find the Load CSV operation
+    const sourceGroup = filtered.find(g => g.type === 'SOURCE');
+    if (sourceGroup) {
+      expect(sourceGroup.operations.some(op => op.id === 'load-csv')).toBeTrue();
+    }
   }));
 
   it('should add edge between nodes', fakeAsync(() => {
@@ -195,6 +222,14 @@ describe('PipelineDesigner', () => {
     const initialEdges = component.edges().length;
     component.addEdge(nodes[0].id, nodes[1].id);
     expect(component.edges().length).toBe(initialEdges);
+  }));
+
+  it('should not add self-loop edge', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    const node = component.nodes()[0];
+    component.addEdge(node.id, node.id);
+    expect(component.edges().length).toBe(0);
   }));
 
   it('should remove edge', fakeAsync(() => {
@@ -257,9 +292,15 @@ describe('PipelineDesigner', () => {
     expect(component.getParamType('boolean')).toBe('boolean');
     expect(component.getParamType('java.lang.Integer')).toBe('number');
     expect(component.getParamType('int')).toBe('number');
+    expect(component.getParamType('java.lang.Long')).toBe('number');
     expect(component.getParamType('java.util.Map')).toBe('map');
     expect(component.getParamType('java.lang.Character')).toBe('char');
     expect(component.getParamType('java.lang.String')).toBe('text');
+    expect(component.getParamType('java.net.URI')).toBe('url');
+    expect(component.getParamType('java.net.URL')).toBe('url');
+    expect(component.getParamType('java.io.File')).toBe('file');
+    expect(component.getParamType('java.lang.Object')).toBe('object');
+    expect(component.getParamType('unknown.type')).toBe('text');
   });
 
   it('should get node center', fakeAsync(() => {
@@ -336,6 +377,15 @@ describe('PipelineDesigner', () => {
     expect(Object.keys(component.runVariables()).length).toBe(0);
   });
 
+  it('should not add duplicate run variable', () => {
+    component.runVariables.set({ 'key1': 'value1' });
+    component.newVarKey.set('key1');
+    component.newVarValue.set('newValue');
+    component.addRunVariable();
+    // Should update existing
+    expect(component.runVariables()['key1']).toBe('newValue');
+  });
+
   it('should remove run variable', () => {
     component.runVariables.set({ 'key1': 'value1', 'key2': 'value2' });
     component.removeRunVariable('key1');
@@ -361,6 +411,13 @@ describe('PipelineDesigner', () => {
     component.importPipelineJson(json);
     expect(component.jsonDialogVisible()).toBeFalse();
     expect(component.nodes().length).toBe(1);
+  }));
+
+  it('should handle invalid json import', fakeAsync(() => {
+    tick();
+    const json = 'invalid json';
+    component.importPipelineJson(json);
+    expect(component.error()).toBeTruthy();
   }));
 
   it('should open templates dialog', () => {
@@ -446,6 +503,7 @@ describe('PipelineDesigner', () => {
     component.save();
     tick();
     expect(component.saving()).toBeFalse();
+    expect(component.error()).toBeTruthy();
   }));
 
   it('should handle run error', fakeAsync(() => {
@@ -454,6 +512,7 @@ describe('PipelineDesigner', () => {
     component.run();
     tick();
     // Should show error snackbar
+    expect(component.error()).toBeTruthy();
   }));
 
   it('should clear canvas when confirmed', fakeAsync(() => {
@@ -565,6 +624,7 @@ describe('PipelineDesigner', () => {
   it('should handle invalid pipeline definition', () => {
     component.parsePipelineDefinition('invalid json');
     // Should not throw, just log warning
+    expect(component.error()).toBeFalsy();
   });
 
   it('should get operation by id', fakeAsync(() => {
@@ -599,5 +659,110 @@ describe('PipelineDesigner', () => {
 
     expect(pipelineServiceSpy.create).toHaveBeenCalled();
     expect((component as any).router.navigate).toHaveBeenCalled();
+  }));
+
+  it('should handle create error', fakeAsync(() => {
+    pipelineServiceSpy.create.and.returnValue(throwError(() => ({ error: { message: 'Create failed' } })));
+
+    component.isNew.set(true);
+    component.pipelineId.set(null);
+    component.save();
+    tick();
+
+    expect(component.saving()).toBeFalse();
+    expect(component.error()).toBeTruthy();
+  }));
+
+  it('should close dialogs', () => {
+    component.configDialogVisible.set(true);
+    component.runDialogVisible.set(true);
+    component.jsonDialogVisible.set(true);
+    component.templatesDialogVisible.set(true);
+
+    component.closeDialogs();
+
+    expect(component.configDialogVisible()).toBeFalse();
+    expect(component.runDialogVisible()).toBeFalse();
+    expect(component.jsonDialogVisible()).toBeFalse();
+    expect(component.templatesDialogVisible()).toBeFalse();
+  });
+
+  it('should check if pipeline is dirty', fakeAsync(() => {
+    tick();
+    expect(component.isDirty()).toBeFalse();
+    
+    component.name.set('New Name');
+    expect(component.isDirty()).toBeTrue();
+  }));
+
+  it('should apply template', fakeAsync(() => {
+    tick();
+    const template = component.pipelineTemplates[0];
+    component.applyTemplate(template);
+    expect(component.templatesDialogVisible()).toBeFalse();
+    expect(component.nodes().length).toBeGreaterThan(0);
+  }));
+
+  it('should handle keyboard shortcuts', () => {
+    spyOn(component, 'save');
+    
+    const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true });
+    component.handleKeyboard(event);
+    
+    expect(component.save).toHaveBeenCalled();
+  });
+
+  it('should export pipeline', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    const blob = component.exportPipeline();
+    expect(blob).toBeDefined();
+  }));
+
+  it('should duplicate selected node', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    const node = component.nodes()[0];
+    component.selectedNode.set(node);
+    
+    const initialCount = component.nodes().length;
+    component.duplicateNode();
+    
+    expect(component.nodes().length).toBe(initialCount + 1);
+  }));
+
+  it('should align nodes horizontally', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    component.addNode(mockOperations[1], 200, 200);
+    
+    component.alignNodes('horizontal');
+    
+    const nodes = component.nodes();
+    expect(nodes[0].y).toBe(nodes[1].y);
+  }));
+
+  it('should align nodes vertically', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 100, 100);
+    component.addNode(mockOperations[1], 200, 200);
+    
+    component.alignNodes('vertical');
+    
+    const nodes = component.nodes();
+    expect(nodes[0].x).toBe(nodes[1].x);
+  }));
+
+  it('should auto layout nodes', fakeAsync(() => {
+    tick();
+    component.addNode(mockOperations[0], 0, 0);
+    component.addNode(mockOperations[1], 0, 0);
+    component.addNode(mockOperations[2], 0, 0);
+    
+    component.autoLayout();
+    
+    const nodes = component.nodes();
+    // Nodes should have different positions after auto layout
+    expect(nodes[0].x).not.toBe(0);
   }));
 });

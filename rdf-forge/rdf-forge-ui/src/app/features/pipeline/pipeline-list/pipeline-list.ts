@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,9 +16,11 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { PipelineService, JobService } from '../../../core/services';
 import { Pipeline, Job } from '../../../core/models';
-import { forkJoin, catchError, of } from 'rxjs';
+import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader';
 
 @Component({
   selector: 'app-pipeline-list',
@@ -38,19 +40,25 @@ import { forkJoin, catchError, of } from 'rxjs';
     MatSortModule,
     MatChipsModule,
     MatCardModule,
-    MatDialogModule
+    MatDialogModule,
+    MatMenuModule,
+    SkeletonLoaderComponent
   ],
   templateUrl: './pipeline-list.html',
   styleUrl: './pipeline-list.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PipelineList implements OnInit {
+export class PipelineList implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
   private readonly jobService = inject(JobService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly destroy$ = new Subject<void>();
+  private readonly searchSubject = new Subject<string>();
 
   loading = signal(true);
+  refreshing = signal(false);
   searchQuery = signal('');
   statusFilter = signal<string | null>(null);
   pipelines = signal<Pipeline[]>([]);
@@ -72,12 +80,12 @@ export class PipelineList implements OnInit {
 
   filteredPipelines = computed(() => {
     let result = this.pipelines();
-    const query = this.searchQuery().toLowerCase();
+    const query = this.searchQuery().toLowerCase().trim();
     if (query) {
       result = result.filter(p =>
         p.name.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query) ||
-        p.tags.some(t => t.toLowerCase().includes(query))
+        p.description?.toLowerCase().includes(query) ||
+        p.tags?.some(t => t.toLowerCase().includes(query))
       );
     }
     const status = this.statusFilter();
@@ -116,41 +124,77 @@ export class PipelineList implements OnInit {
 
   ngOnInit(): void {
     this.loadPipelines();
+
+    // Setup debounced search
+    this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(query => {
+      this.searchQuery.set(query);
+      this.pageIndex.set(0);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadPipelines(): void {
     this.loading.set(true);
-    forkJoin({
-      pipelines: this.pipelineService.list().pipe(catchError(() => of([]))),
-      jobs: this.jobService.list().pipe(catchError(() => of([])))
-    }).subscribe({
-      next: ({ pipelines, jobs }) => {
-        // Compute lastRun for each pipeline from jobs
-        const lastRunMap = new Map<string, Date>();
-        jobs.forEach((job: Job) => {
-          if (job.completedAt && (job.status?.toLowerCase() === 'completed' || job.status?.toLowerCase() === 'failed')) {
-            const completedAt = new Date(job.completedAt);
-            const existing = lastRunMap.get(job.pipelineId);
-            if (!existing || completedAt > existing) {
-              lastRunMap.set(job.pipelineId, completedAt);
-            }
+    this.pipelineService.list().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (pipelines) => {
+        // Load jobs to get last run info
+        this.jobService.list({ size: 1000 }).pipe(
+          takeUntil(this.destroy$)
+        ).subscribe({
+          next: (jobs) => {
+            // Compute lastRun for each pipeline from jobs
+            const lastRunMap = new Map<string, Date>();
+            jobs.forEach((job: Job) => {
+              if (job.completedAt && (job.status?.toLowerCase() === 'completed' || job.status?.toLowerCase() === 'failed')) {
+                const completedAt = new Date(job.completedAt);
+                const existing = lastRunMap.get(job.pipelineId);
+                if (!existing || completedAt > existing) {
+                  lastRunMap.set(job.pipelineId, completedAt);
+                }
+              }
+            });
+
+            // Enrich pipelines with lastRun
+            const enrichedPipelines = pipelines.map(p => ({
+              ...p,
+              lastRun: lastRunMap.get(p.id) || p.lastRun
+            }));
+
+            this.pipelines.set(enrichedPipelines);
+            this.loading.set(false);
+          },
+          error: () => {
+            // If jobs fail to load, still show pipelines
+            this.pipelines.set(pipelines);
+            this.loading.set(false);
           }
         });
-
-        // Enrich pipelines with lastRun
-        const enrichedPipelines = pipelines.map(p => ({
-          ...p,
-          lastRun: lastRunMap.get(p.id) || p.lastRun
-        }));
-
-        this.pipelines.set(enrichedPipelines);
-        this.loading.set(false);
       },
       error: () => {
         this.snackBar.open('Failed to load pipelines', 'Close', { duration: 3000 });
         this.loading.set(false);
       }
     });
+  }
+
+  refreshPipelines(): void {
+    this.refreshing.set(true);
+    this.loadPipelines();
+    setTimeout(() => this.refreshing.set(false), 500);
+  }
+
+  onSearchChange(value: string): void {
+    this.searchSubject.next(value);
   }
 
   createPipeline(): void {
@@ -163,26 +207,70 @@ export class PipelineList implements OnInit {
 
   runPipeline(pipeline: Pipeline, event: Event): void {
     event.stopPropagation();
-    this.pipelineService.run(pipeline.id).subscribe({
-      next: () => {
-        this.snackBar.open(`Pipeline "${pipeline.name}" started`, 'Close', { duration: 3000 });
-        this.router.navigate(['/jobs']);
-      },
-      error: () => {
-        this.snackBar.open('Failed to run pipeline', 'Close', { duration: 3000 });
+
+    // Confirm before running
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Run Pipeline',
+        message: `Are you sure you want to run "${pipeline.name}"?`,
+        confirmText: 'Run',
+        confirmColor: 'primary'
+      }
+    });
+
+    dialogRef.afterClosed().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(result => {
+      if (result) {
+        this.pipelineService.run(pipeline.id).pipe(
+          takeUntil(this.destroy$)
+        ).subscribe({
+          next: () => {
+            this.snackBar.open(`Pipeline "${pipeline.name}" started`, 'View Jobs', {
+              duration: 3000
+            }).onAction().subscribe(() => {
+              this.router.navigate(['/jobs']);
+            });
+          },
+          error: () => {
+            this.snackBar.open('Failed to run pipeline', 'Close', { duration: 3000 });
+          }
+        });
       }
     });
   }
 
   duplicatePipeline(pipeline: Pipeline, event: Event): void {
     event.stopPropagation();
-    this.pipelineService.duplicate(pipeline.id).subscribe({
-      next: () => {
-        this.snackBar.open(`Pipeline "${pipeline.name}" duplicated`, 'Close', { duration: 3000 });
-        this.loadPipelines();
-      },
-      error: () => {
-        this.snackBar.open('Failed to duplicate pipeline', 'Close', { duration: 3000 });
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Clone Pipeline',
+        message: `Create a copy of "${pipeline.name}"?`,
+        confirmText: 'Clone',
+        confirmColor: 'primary'
+      }
+    });
+
+    dialogRef.afterClosed().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(result => {
+      if (result) {
+        this.pipelineService.duplicate(pipeline.id).pipe(
+          takeUntil(this.destroy$)
+        ).subscribe({
+          next: (newPipeline) => {
+            this.snackBar.open(`Pipeline "${pipeline.name}" duplicated`, 'Edit', {
+              duration: 3000
+            }).onAction().subscribe(() => {
+              this.router.navigate(['/pipelines', newPipeline.id]);
+            });
+            this.loadPipelines();
+          },
+          error: () => {
+            this.snackBar.open('Failed to duplicate pipeline', 'Close', { duration: 3000 });
+          }
+        });
       }
     });
   }
@@ -191,15 +279,29 @@ export class PipelineList implements OnInit {
     event.stopPropagation();
     this.selectedPipeline.set(pipeline);
 
-    const confirmed = window.confirm(`Are you sure you want to delete "${pipeline.name}"?`);
-    if (confirmed) {
-      this.deletePipeline(pipeline);
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Delete Pipeline',
+        message: `Are you sure you want to delete "${pipeline.name}"? This action cannot be undone.`,
+        confirmText: 'Delete',
+        confirmColor: 'warn'
+      }
+    });
+
+    dialogRef.afterClosed().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(result => {
+      if (result) {
+        this.deletePipeline(pipeline);
+      }
+    });
   }
 
   deletePipeline(pipeline: Pipeline): void {
     this.deleting.set(true);
-    this.pipelineService.delete(pipeline.id).subscribe({
+    this.pipelineService.delete(pipeline.id).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
       next: () => {
         this.snackBar.open(`Pipeline "${pipeline.name}" deleted`, 'Close', { duration: 3000 });
         this.loadPipelines();
@@ -233,11 +335,51 @@ export class PipelineList implements OnInit {
 
   formatDate(date: Date | undefined): string {
     if (!date) return 'Never';
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   }
+}
+
+// Simple confirm dialog component
+import { Component as NgComponent, Inject } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+
+interface ConfirmDialogData {
+  title: string;
+  message: string;
+  confirmText: string;
+  confirmColor: 'primary' | 'accent' | 'warn';
+}
+
+@NgComponent({
+  selector: 'app-confirm-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatIconModule
+  ],
+  template: `
+    <h2 mat-dialog-title>{{ data.title }}</h2>
+    <mat-dialog-content>
+      <p>{{ data.message }}</p>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-raised-button [color]="data.confirmColor" [mat-dialog-close]="true">
+        {{ data.confirmText }}
+      </button>
+    </mat-dialog-actions>
+  `
+})
+class ConfirmDialogComponent {
+  constructor(
+    public dialogRef: MatDialogRef<ConfirmDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: ConfirmDialogData
+  ) {}
 }

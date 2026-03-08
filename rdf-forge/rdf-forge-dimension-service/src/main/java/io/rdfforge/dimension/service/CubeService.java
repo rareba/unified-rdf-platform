@@ -1,10 +1,14 @@
 package io.rdfforge.dimension.service;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import io.rdfforge.common.model.Pipeline;
 import io.rdfforge.common.model.Shape;
 import io.rdfforge.dimension.dto.GeneratedArtifact;
 import io.rdfforge.dimension.entity.CubeEntity;
 import io.rdfforge.dimension.repository.CubeRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.domain.Page;
@@ -13,16 +17,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import io.rdfforge.common.exception.ResourceNotFoundException;
+
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @Transactional
 public class CubeService {
+
+    private static final Logger log = LoggerFactory.getLogger(CubeService.class);
 
     private final CubeRepository cubeRepository;
     private final RestTemplate restTemplate;
@@ -36,15 +44,26 @@ public class CubeService {
     @Value("${rdf-forge.services.data.url:http://data-service:8080}")
     private String dataServiceUrl;
 
+    @Value("${rdf-forge.storage.s3.bucket:rdf-forge-data}")
+    private String s3BucketName;
+
+    @Value("${rdf-forge.triplestore.graphdb.endpoint:http://graphdb:7200/repositories/rdf-forge/statements}")
+    private String graphStoreEndpoint;
+
     public CubeService(CubeRepository cubeRepository, RestTemplateBuilder restTemplateBuilder) {
         this.cubeRepository = cubeRepository;
-        this.restTemplate = restTemplateBuilder.build();
+        this.restTemplate = restTemplateBuilder
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(30))
+                .build();
     }
 
+    @Transactional(readOnly = true)
     public Page<CubeEntity> search(UUID projectId, String search, Pageable pageable) {
         return cubeRepository.search(projectId, search, pageable);
     }
 
+    @Transactional(readOnly = true)
     public Optional<CubeEntity> findById(UUID id) {
         return cubeRepository.findById(id);
     }
@@ -56,7 +75,7 @@ public class CubeService {
 
     public CubeEntity update(UUID id, CubeEntity updates) {
         CubeEntity cube = cubeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", id.toString()));
 
         if (updates.getName() != null)
             cube.setName(updates.getName());
@@ -87,7 +106,7 @@ public class CubeService {
 
     public CubeEntity markPublished(UUID id, Long observationCount) {
         CubeEntity cube = cubeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", id.toString()));
 
         cube.setLastPublished(Instant.now());
         if (observationCount != null) {
@@ -104,9 +123,11 @@ public class CubeService {
      * The generated shape validates cube observations against the defined
      * structure.
      */
+    @CircuitBreaker(name = "shaclService", fallbackMethod = "generateShapeFallback")
+    @Retry(name = "shaclService")
     public GeneratedArtifact generateShape(UUID cubeId, String shapeName, String targetClass) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         // Generate shape name if not provided
         String finalShapeName = shapeName != null ? shapeName : cube.getName() + " Validation Shape";
@@ -154,9 +175,11 @@ public class CubeService {
      * Generate a draft ETL pipeline from the cube definition.
      * The pipeline includes steps for loading data, mapping to RDF, and publishing.
      */
+    @CircuitBreaker(name = "pipelineService", fallbackMethod = "generatePipelineFallback")
+    @Retry(name = "pipelineService")
     public GeneratedArtifact generatePipeline(UUID cubeId, String pipelineName, UUID triplestoreId, String graphUri) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         // Generate pipeline name if not provided
         String finalPipelineName = pipelineName != null ? pipelineName : "Pipeline: " + cube.getName();
@@ -209,7 +232,7 @@ public class CubeService {
      */
     public CubeEntity linkShape(UUID cubeId, UUID shapeId) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         cube.setShapeId(shapeId);
         cube.setUpdatedAt(Instant.now());
@@ -221,7 +244,7 @@ public class CubeService {
      */
     public CubeEntity linkPipeline(UUID cubeId, UUID pipelineId) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         cube.setPipelineId(pipelineId);
         cube.setUpdatedAt(Instant.now());
@@ -233,7 +256,7 @@ public class CubeService {
      */
     public CubeEntity unlinkShape(UUID cubeId) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         cube.setShapeId(null);
         cube.setUpdatedAt(Instant.now());
@@ -245,7 +268,7 @@ public class CubeService {
      */
     public CubeEntity unlinkPipeline(UUID cubeId) {
         CubeEntity cube = cubeRepository.findById(cubeId)
-                .orElseThrow(() -> new NoSuchElementException("Cube not found: " + cubeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         cube.setPipelineId(null);
         cube.setUpdatedAt(Instant.now());
@@ -378,7 +401,6 @@ public class CubeService {
 
         if (isS3Path) {
             // For S3/MinIO storage, use s3-get followed by load-csv
-            String bucket = "rdf-forge-data";
             String key = sourceFilePath.startsWith("data-sources/")
                 ? sourceFilePath
                 : sourceFilePath.substring(5); // Remove "s3://"
@@ -388,7 +410,7 @@ public class CubeService {
             json.append("      \"operation\": \"s3-get\",\n");
             json.append("      \"name\": \"Download from Storage\",\n");
             json.append("      \"params\": {\n");
-            json.append("        \"bucket\": \"").append(bucket).append("\",\n");
+            json.append("        \"bucket\": \"").append(s3BucketName).append("\",\n");
             json.append("        \"key\": \"").append(escapeJson(key)).append("\"\n");
             json.append("      }\n");
             json.append("    },\n");
@@ -466,8 +488,7 @@ public class CubeService {
         json.append("      \"name\": \"Publish to Triplestore\",\n");
         json.append("      \"params\": {\n");
 
-        // Build the Graph Store endpoint URL (uses Docker network name)
-        String graphStoreEndpoint = "http://graphdb:7200/repositories/rdf-forge/statements";
+        // Use configured Graph Store endpoint URL
         json.append("        \"endpoint\": \"").append(graphStoreEndpoint).append("\",\n");
         json.append("        \"graph\": \"").append(finalGraphUri).append("\",\n");
         json.append("        \"method\": \"PUT\"\n");
@@ -575,6 +596,22 @@ public class CubeService {
             // log.warn("Could not look up data source path: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Fallback for generateShape when the SHACL service is unavailable.
+     */
+    private GeneratedArtifact generateShapeFallback(UUID cubeId, String shapeName, String targetClass, Throwable t) {
+        log.error("SHACL service unavailable, circuit breaker open for generateShape cubeId={}: {}", cubeId, t.getMessage());
+        throw new RuntimeException("SHACL service is currently unavailable. Please try again later.", t);
+    }
+
+    /**
+     * Fallback for generatePipeline when the Pipeline service is unavailable.
+     */
+    private GeneratedArtifact generatePipelineFallback(UUID cubeId, String pipelineName, UUID triplestoreId, String graphUri, Throwable t) {
+        log.error("Pipeline service unavailable, circuit breaker open for generatePipeline cubeId={}: {}", cubeId, t.getMessage());
+        throw new RuntimeException("Pipeline service is currently unavailable. Please try again later.", t);
     }
 
     /**

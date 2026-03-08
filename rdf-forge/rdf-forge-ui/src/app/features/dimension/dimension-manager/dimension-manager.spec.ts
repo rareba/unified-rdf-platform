@@ -1,492 +1,335 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of, throwError } from 'rxjs';
 import { DimensionManager } from './dimension-manager';
-import { DimensionService } from '../../../core/services';
-import { ConfirmationService } from '../../../core/services/confirmation.service';
-import { Dimension, DimensionValue } from '../../../core/models';
+import { DimensionService } from '../../../core/services/dimension.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { DialogService } from '../../../core/services/dialog.service';
+import { of, throwError } from 'rxjs';
+import { Dimension, DimensionType } from '../../../core/models/dimension.model';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+
+class MockDimensionService {
+  list = jasmine.createSpy('list').and.returnValue(of({ content: [], totalElements: 0 }));
+  create = jasmine.createSpy('create').and.returnValue(of({ id: 'dim-1', name: 'Test Dimension' }));
+  update = jasmine.createSpy('update').and.returnValue(of({ id: 'dim-1', name: 'Updated' }));
+  delete = jasmine.createSpy('delete').and.returnValue(of(void 0));
+  search = jasmine.createSpy('search').and.returnValue(of([]));
+  get = jasmine.createSpy('get').and.returnValue(of({ id: 'dim-1', name: 'Test' }));
+  deleteValue = jasmine.createSpy('deleteValue').and.returnValue(of(void 0));
+  importFromCsv = jasmine.createSpy('importFromCsv').and.returnValue(of({ success: true, imported: 5 }));
+}
+
+class MockNotificationService {
+  success = jasmine.createSpy('success');
+  error = jasmine.createSpy('error');
+  info = jasmine.createSpy('info');
+}
+
+class MockDialogService {
+  confirm = jasmine.createSpy('confirm').and.returnValue(of(true));
+  open = jasmine.createSpy('open').and.returnValue({ afterClosed: () => of({ confirmed: true }) });
+}
 
 describe('DimensionManager', () => {
   let component: DimensionManager;
   let fixture: ComponentFixture<DimensionManager>;
-  let dimensionServiceSpy: jasmine.SpyObj<DimensionService>;
-  let confirmationServiceSpy: jasmine.SpyObj<ConfirmationService>;
+  let dimensionService: MockDimensionService;
+  let notificationService: MockNotificationService;
+  let dialogService: MockDialogService;
 
   const mockDimensions: Dimension[] = [
-    { id: '1', name: 'Year', uri: 'http://example.org/dimension/year', type: 'TEMPORAL', description: 'Year dimension' },
-    { id: '2', name: 'Region', uri: 'http://example.org/dimension/region', type: 'KEY', description: 'Geographic region' },
-    { id: '3', name: 'Measure', uri: 'http://example.org/dimension/measure', type: 'MEASURE', description: 'Measure dimension' }
-  ];
-
-  const mockValues: DimensionValue[] = [
-    { id: 'v1', dimensionId: '1', code: '2023', label: '2023', uri: 'http://example.org/year/2023' },
-    { id: 'v2', dimensionId: '1', code: '2024', label: '2024', uri: 'http://example.org/year/2024' }
+    {
+      id: 'dim-1',
+      name: 'Year',
+      uri: 'http://example.org/year',
+      type: 'TEMPORAL' as DimensionType,
+      createdAt: '2024-01-15T10:00:00Z'
+    },
+    {
+      id: 'dim-2',
+      name: 'Canton',
+      uri: 'http://example.org/canton',
+      type: 'GEO' as DimensionType,
+      createdAt: '2024-01-15T10:00:00Z'
+    }
   ];
 
   beforeEach(async () => {
-    dimensionServiceSpy = jasmine.createSpyObj('DimensionService', [
-      'list', 'get', 'create', 'update', 'delete', 'getValues', 'addValue', 'deleteValue'
-    ]);
-    confirmationServiceSpy = jasmine.createSpyObj('ConfirmationService', ['confirm']);
-
-    dimensionServiceSpy.list.and.returnValue(of(mockDimensions));
-    dimensionServiceSpy.getValues.and.returnValue(of(mockValues));
-
     await TestBed.configureTestingModule({
       imports: [DimensionManager],
+      schemas: [NO_ERRORS_SCHEMA],
       providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        provideNoopAnimations(),
-        { provide: DimensionService, useValue: dimensionServiceSpy },
-        { provide: ConfirmationService, useValue: confirmationServiceSpy }
+        { provide: DimensionService, useClass: MockDimensionService },
+        { provide: NotificationService, useClass: MockNotificationService },
+        { provide: DialogService, useClass: MockDialogService }
       ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(DimensionManager);
     component = fixture.componentInstance;
-    fixture.detectChanges();
+    dimensionService = TestBed.inject(DimensionService) as unknown as MockDimensionService;
+    notificationService = TestBed.inject(NotificationService) as unknown as MockNotificationService;
+    dialogService = TestBed.inject(DialogService) as unknown as MockDialogService;
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render the component', () => {
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled).toBeTruthy();
+  it('should initialize with empty tree', () => {
+    fixture.detectChanges();
+    expect(component.dimensions()).toEqual([]);
   });
 
-  it('should load dimensions on init', fakeAsync(() => {
-    tick();
-    expect(dimensionServiceSpy.list).toHaveBeenCalled();
-    expect(component.dimensions().length).toBe(3);
-    expect(component.loading()).toBeFalse();
-  }));
-
-  it('should filter dimensions by search query', fakeAsync(() => {
-    tick();
-    component.searchQuery.set('Year');
-    expect(component.filteredDimensions().length).toBe(1);
-    expect(component.filteredDimensions()[0].name).toBe('Year');
-  }));
-
-  it('should filter dimensions by type', fakeAsync(() => {
-    tick();
-    component.typeFilter.set('TEMPORAL');
-    expect(component.filteredDimensions().length).toBe(1);
-    expect(component.filteredDimensions()[0].type).toBe('TEMPORAL');
-  }));
-
-  it('should handle load error gracefully', fakeAsync(() => {
-    dimensionServiceSpy.list.and.returnValue(throwError(() => new Error('Network error')));
-    component.loadDimensions();
-    tick();
-    expect(component.loading()).toBeFalse();
-  }));
-
-  it('should open create dialog', () => {
-    component.openCreateDialog();
-    expect(component.createDialogVisible()).toBeTrue();
+  it('should set new dimension form values', () => {
+    fixture.detectChanges();
+    // The form should exist after view init
+    expect(component.newDimensionForm).toBeDefined();
   });
 
-  it('should create dimension', fakeAsync(() => {
-    const newDim: Partial<Dimension> = { name: 'New Dim', uri: 'http://example.org/new', type: 'KEY' };
-    dimensionServiceSpy.create.and.returnValue(of({ ...newDim, id: '4' } as Dimension));
-
-    component.newDimension.set(newDim);
-    component.createDimension();
-    tick();
-
-    expect(dimensionServiceSpy.create).toHaveBeenCalled();
-    expect(component.createDialogVisible()).toBeFalse();
-  }));
-
-  it('should delete dimension', fakeAsync(() => {
-    dimensionServiceSpy.delete.and.returnValue(of(void 0));
-    component.deleteDimension(mockDimensions[0]);
-    tick();
-    expect(dimensionServiceSpy.delete).toHaveBeenCalledWith('1');
-  }));
-
-  it('should get dimension type icon', () => {
-    expect(component.getTypeIcon('TEMPORAL')).toBe('event');
-    expect(component.getTypeIcon('KEY')).toBe('key');
-    expect(component.getTypeIcon('MEASURE')).toBe('bar_chart');
+  describe('createDimension', () => {
+    it('should show error if form invalid', () => {
+      fixture.detectChanges();
+      component.createDimension();
+      expect(notificationService.error).toHaveBeenCalled();
+    });
   });
 
-  it('should get type color', () => {
-    expect(component.getTypeColor('TEMPORAL')).toBeTruthy();
-    expect(component.getTypeColor('KEY')).toBeTruthy();
-    expect(component.getTypeColor('MEASURE')).toBeTruthy();
+  describe('deleteDimension', () => {
+    it('should delete dimension after confirmation', fakeAsync(() => {
+      fixture.detectChanges();
+      component.deleteDimension(mockDimensions[0], new Event('click') as any);
+      tick();
+      expect(dimensionService.delete).toHaveBeenCalledWith('dim-1');
+    }));
   });
 
-  it('should have dialog visibility signals', () => {
-    expect(component.createDialogVisible()).toBeFalse();
-    expect(component.editDialogVisible()).toBeFalse();
-    expect(component.detailsDialogVisible()).toBeFalse();
-    expect(component.valuesDialogVisible()).toBeFalse();
+  describe('addValue', () => {
+    it('should add value to dimension', () => {
+      fixture.detectChanges();
+      component.addValue(mockDimensions[0]);
+      expect(component.editingDimension()).toEqual(mockDimensions[0]);
+    });
   });
 
-  it('should filter dimensions', fakeAsync(() => {
-    tick();
-    expect(component.filteredDimensions().length).toBe(3);
-    component.searchQuery.set('Region');
-    expect(component.filteredDimensions().length).toBe(1);
-  }));
-
-  it('should not create dimension without required fields', () => {
-    component.newDimension.set({ name: '', uri: '', type: 'KEY' });
-    component.createDimension();
-    expect(dimensionServiceSpy.create).not.toHaveBeenCalled();
+  describe('deleteValue', () => {
+    it('should delete value after confirmation', fakeAsync(() => {
+      const mockDim = { ...mockDimensions[0], values: [{ id: 'val-1', code: 'CH', label: 'Switzerland' }] };
+      fixture.detectChanges();
+      component.deleteValue(mockDim, mockDim.values[0], new Event('click') as any);
+      tick();
+      expect(dimensionService.deleteValue).toHaveBeenCalledWith('dim-1', 'val-1');
+    }));
   });
 
-  it('should handle create dimension error', fakeAsync(() => {
-    dimensionServiceSpy.create.and.returnValue(throwError(() => new Error('Create failed')));
-    component.newDimension.set({ name: 'Test', uri: 'http://test.org/', type: 'KEY' });
-    component.createDimension();
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should open edit dialog', () => {
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.openEditDialog(mockDimensions[0], mockEvent as any);
-    expect(component.editDialogVisible()).toBeTrue();
-    expect(component.editDimension().id).toBe('1');
-    expect(mockEvent.stopPropagation).toHaveBeenCalled();
+  describe('exportDimension', () => {
+    it('should export dimension as Turtle', () => {
+      fixture.detectChanges();
+      const event = new Event('click');
+      spyOn(event, 'stopPropagation');
+      component.exportDimension(mockDimensions[0], event as any);
+      expect(event.stopPropagation).toHaveBeenCalled();
+    });
   });
 
-  it('should save dimension', fakeAsync(() => {
-    dimensionServiceSpy.update.and.returnValue(of(mockDimensions[0]));
-    component.editDimension.set({ ...mockDimensions[0] });
-    component.saveDimension();
-    tick();
-    expect(dimensionServiceSpy.update).toHaveBeenCalledWith('1', jasmine.any(Object));
-    expect(component.editDialogVisible()).toBeFalse();
-  }));
-
-  it('should not save dimension without id', () => {
-    component.editDimension.set({ name: 'Test', uri: 'http://test.org/' });
-    component.saveDimension();
-    expect(dimensionServiceSpy.update).not.toHaveBeenCalled();
+  describe('copyUri', () => {
+    it('should copy URI to clipboard', async () => {
+      fixture.detectChanges();
+      spyOn(navigator.clipboard, 'writeText').and.returnValue(Promise.resolve());
+      await component.copyUri('http://test.uri', new Event('click') as any);
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://test.uri');
+    });
   });
 
-  it('should handle save dimension error', fakeAsync(() => {
-    dimensionServiceSpy.update.and.returnValue(throwError(() => new Error('Update failed')));
-    component.editDimension.set({ ...mockDimensions[0] });
-    component.saveDimension();
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should handle delete dimension error', fakeAsync(() => {
-    dimensionServiceSpy.delete.and.returnValue(throwError(() => new Error('Delete failed')));
-    component.deleteDimension(mockDimensions[0]);
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should not delete dimension without id', () => {
-    component.deleteDimension({ name: 'Test' } as Dimension);
-    expect(dimensionServiceSpy.delete).not.toHaveBeenCalled();
+  describe('toggleExpand', () => {
+    it('should toggle dimension expansion', () => {
+      fixture.detectChanges();
+      expect(component.isExpanded('dim-1')).toBeFalse();
+      component.toggleExpand('dim-1');
+      expect(component.isExpanded('dim-1')).toBeTrue();
+      component.toggleExpand('dim-1');
+      expect(component.isExpanded('dim-1')).toBeFalse();
+    });
   });
 
-  it('should view details', () => {
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.viewDetails(mockDimensions[0], mockEvent as any);
-    expect(component.detailsDialogVisible()).toBeTrue();
-    expect(component.selectedDimension()).toBe(mockDimensions[0]);
-    expect(mockEvent.stopPropagation).toHaveBeenCalled();
+  describe('selectDimension', () => {
+    it('should select and deselect dimension', () => {
+      fixture.detectChanges();
+      component.selectDimension(mockDimensions[0]);
+      expect(component.selectedDimension()).toEqual(mockDimensions[0]);
+      component.selectDimension(mockDimensions[0]);
+      expect(component.selectedDimension()).toBeNull();
+    });
   });
 
-  it('should open values dialog', fakeAsync(() => {
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.openValuesDialog(mockDimensions[0], mockEvent as any);
-    tick();
-    expect(component.valuesDialogVisible()).toBeTrue();
-    expect(dimensionServiceSpy.getValues).toHaveBeenCalledWith('1');
-    expect(mockEvent.stopPropagation).toHaveBeenCalled();
-  }));
-
-  it('should handle load values error', fakeAsync(() => {
-    dimensionServiceSpy.getValues.and.returnValue(throwError(() => new Error('Load failed')));
-    component.loadValues('1');
-    tick();
-    expect(component.valuesLoading()).toBeFalse();
-  }));
-
-  it('should open add value dialog', () => {
-    component.selectedDimension.set(mockDimensions[0]);
-    component.openAddValueDialog();
-    expect(component.addValueDialogVisible()).toBeTrue();
+  describe('startEditingDimension', () => {
+    it('should populate edit form', () => {
+      fixture.detectChanges();
+      component.startEditingDimension(mockDimensions[0], new Event('click') as any);
+      expect(component.editingDimension()).toEqual(mockDimensions[0]);
+    });
   });
 
-  it('should add value', fakeAsync(() => {
-    dimensionServiceSpy.addValue.and.returnValue(of(mockValues[0]));
-    component.selectedDimension.set(mockDimensions[0]);
-    component.newValue.set({ code: 'test', label: 'Test', uri: 'http://test.org/', description: '', parentId: null });
-    component.addValue();
-    tick();
-    expect(dimensionServiceSpy.addValue).toHaveBeenCalled();
-    expect(component.addValueDialogVisible()).toBeFalse();
-  }));
-
-  it('should not add value without required fields', () => {
-    component.selectedDimension.set(mockDimensions[0]);
-    component.newValue.set({ code: '', label: '', uri: '', description: '', parentId: null });
-    component.addValue();
-    expect(dimensionServiceSpy.addValue).not.toHaveBeenCalled();
+  describe('saveDimensionChanges', () => {
+    it('should update dimension', () => {
+      fixture.detectChanges();
+      component.editingDimension.set(mockDimensions[0]);
+      component.editDimensionForm.patchValue({ name: 'Updated' });
+      component.saveDimensionChanges();
+      expect(dimensionService.update).toHaveBeenCalled();
+    });
   });
 
-  it('should not add value without selected dimension', () => {
-    component.selectedDimension.set(null);
-    component.newValue.set({ code: 'test', label: 'Test', uri: '', description: '', parentId: null });
-    component.addValue();
-    expect(dimensionServiceSpy.addValue).not.toHaveBeenCalled();
+  describe('cancelEditingDimension', () => {
+    it('should clear editing state', () => {
+      fixture.detectChanges();
+      component.editingDimension.set(mockDimensions[0]);
+      component.cancelEditingDimension();
+      expect(component.editingDimension()).toBeNull();
+    });
   });
 
-  it('should handle add value error', fakeAsync(() => {
-    dimensionServiceSpy.addValue.and.returnValue(throwError(() => new Error('Add failed')));
-    component.selectedDimension.set(mockDimensions[0]);
-    component.newValue.set({ code: 'test', label: 'Test', uri: '', description: '', parentId: null });
-    component.addValue();
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should open edit value dialog', () => {
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.openEditValueDialog(mockValues[0], mockEvent as any);
-    expect(component.editValueDialogVisible()).toBeTrue();
-    expect(component.selectedValue()).toBe(mockValues[0]);
-    expect(mockEvent.stopPropagation).toHaveBeenCalled();
+  describe('startAddingValue', () => {
+    it('should initialize value form', () => {
+      fixture.detectChanges();
+      component.startAddingValue(mockDimensions[0]);
+      expect(component.addingValueTo()).toEqual(mockDimensions[0]);
+    });
   });
 
-  it('should save value', fakeAsync(() => {
-    dimensionServiceSpy.updateValue = jasmine.createSpy().and.returnValue(of(mockValues[0]));
-    component.selectedDimension.set(mockDimensions[0]);
-    component.editValue.set({ ...mockValues[0] });
-    component.saveValue();
-    tick();
-    expect(dimensionServiceSpy.updateValue).toHaveBeenCalled();
-    expect(component.editValueDialogVisible()).toBeFalse();
-  }));
-
-  it('should not save value without id', () => {
-    dimensionServiceSpy.updateValue = jasmine.createSpy();
-    component.editValue.set({ code: 'test', label: 'Test' });
-    component.saveValue();
-    expect(dimensionServiceSpy.updateValue).not.toHaveBeenCalled();
+  describe('cancelAddingValue', () => {
+    it('should clear adding value state', () => {
+      fixture.detectChanges();
+      component.addingValueTo.set(mockDimensions[0]);
+      component.cancelAddingValue();
+      expect(component.addingValueTo()).toBeNull();
+    });
   });
 
-  it('should delete value', fakeAsync(() => {
-    dimensionServiceSpy.deleteValue.and.returnValue(of(void 0));
-    component.selectedDimension.set(mockDimensions[0]);
-    component.deleteValue(mockValues[0]);
-    tick();
-    expect(dimensionServiceSpy.deleteValue).toHaveBeenCalledWith('v1');
-  }));
-
-  it('should not delete value without id', () => {
-    component.deleteValue({ code: 'test', label: 'Test' } as DimensionValue);
-    expect(dimensionServiceSpy.deleteValue).not.toHaveBeenCalled();
+  describe('saveValue', () => {
+    it('should add new value', () => {
+      fixture.detectChanges();
+      component.addingValueTo.set(mockDimensions[0]);
+      component.valueForm.patchValue({ code: 'TEST', label: 'Test Value' });
+      component.saveValue();
+      expect(notificationService.success).toHaveBeenCalled();
+    });
   });
 
-  it('should handle delete value error', fakeAsync(() => {
-    dimensionServiceSpy.deleteValue.and.returnValue(throwError(() => new Error('Delete failed')));
-    component.selectedDimension.set(mockDimensions[0]);
-    component.deleteValue(mockValues[0]);
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should open import dialog', () => {
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.openImportDialog(mockDimensions[0], mockEvent as any);
-    expect(component.importDialogVisible()).toBeTrue();
-    expect(component.selectedDimension()).toBe(mockDimensions[0]);
+  describe('startEditingValue', () => {
+    it('should set editing value state', () => {
+      fixture.detectChanges();
+      const mockValue = { id: 'val-1', code: 'CH', label: 'Switzerland' };
+      component.startEditingValue(mockDimensions[0], mockValue);
+      expect(component.editingValueIn()).toEqual(mockDimensions[0]);
+      expect(component.editingValueId()).toBe('val-1');
+    });
   });
 
-  it('should handle file select', fakeAsync(() => {
-    dimensionServiceSpy.importCsv = jasmine.createSpy().and.returnValue(of({ imported: 10 }));
-    component.selectedDimension.set(mockDimensions[0]);
-    const mockFile = new File(['test'], 'test.csv', { type: 'text/csv' });
-    component.onFileSelect({ files: [mockFile] });
-    tick();
-    expect(dimensionServiceSpy.importCsv).toHaveBeenCalled();
-    expect(component.importDialogVisible()).toBeFalse();
-  }));
-
-  it('should not process file without selection', () => {
-    dimensionServiceSpy.importCsv = jasmine.createSpy();
-    component.selectedDimension.set(null);
-    component.onFileSelect({ files: [] });
-    expect(dimensionServiceSpy.importCsv).not.toHaveBeenCalled();
+  describe('cancelEditingValue', () => {
+    it('should clear editing value state', () => {
+      fixture.detectChanges();
+      component.editingValueIn.set(mockDimensions[0]);
+      component.editingValueId.set('val-1');
+      component.cancelEditingValue();
+      expect(component.editingValueIn()).toBeNull();
+      expect(component.editingValueId()).toBeNull();
+    });
   });
 
-  it('should handle import error', fakeAsync(() => {
-    dimensionServiceSpy.importCsv = jasmine.createSpy().and.returnValue(throwError(() => new Error('Import failed')));
-    component.selectedDimension.set(mockDimensions[0]);
-    const mockFile = new File(['test'], 'test.csv', { type: 'text/csv' });
-    component.onFileSelect({ files: [mockFile] });
-    tick();
-    expect(component.importing()).toBeFalse();
-  }));
-
-  it('should export turtle', fakeAsync(() => {
-    dimensionServiceSpy.exportTurtle = jasmine.createSpy().and.returnValue(of(new Blob(['test'], { type: 'text/turtle' })));
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.exportTurtle(mockDimensions[0], mockEvent as any);
-    tick();
-    expect(dimensionServiceSpy.exportTurtle).toHaveBeenCalledWith('1');
-  }));
-
-  it('should not export without id', () => {
-    dimensionServiceSpy.exportTurtle = jasmine.createSpy();
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.exportTurtle({ name: 'Test' } as Dimension, mockEvent as any);
-    expect(dimensionServiceSpy.exportTurtle).not.toHaveBeenCalled();
+  describe('updateValue', () => {
+    it('should update value', () => {
+      fixture.detectChanges();
+      component.editingValueIn.set(mockDimensions[0]);
+      component.editingValueId.set('val-1');
+      component.valueForm.patchValue({ code: 'UPD', label: 'Updated' });
+      component.updateValue();
+      expect(notificationService.success).toHaveBeenCalled();
+    });
   });
 
-  it('should handle export error', fakeAsync(() => {
-    dimensionServiceSpy.exportTurtle = jasmine.createSpy().and.returnValue(throwError(() => new Error('Export failed')));
-    const mockEvent = { stopPropagation: jasmine.createSpy() };
-    component.exportTurtle(mockDimensions[0], mockEvent as any);
-    tick();
-    // Error handled via snackbar
-  }));
-
-  it('should format date', () => {
-    expect(component.formatDate(undefined)).toBe('-');
-    expect(component.formatDate('2024-01-15T10:00:00Z').length).toBeGreaterThan(0);
+  describe('importValue', () => {
+    it('should import values from CSV', () => {
+      fixture.detectChanges();
+      component.importingTo.set(mockDimensions[0]);
+      const mockFile = new File(['code,label\nTEST,Test'], 'values.csv', { type: 'text/csv' });
+      component.importValue(mockFile);
+      expect(dimensionService.importFromCsv).toHaveBeenCalled();
+    });
   });
 
-  it('should copy to clipboard', () => {
-    spyOn(navigator.clipboard, 'writeText').and.returnValue(Promise.resolve());
-    component.copyToClipboard('test', 'Test');
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('test');
+  describe('closeImport', () => {
+    it('should clear import state', () => {
+      fixture.detectChanges();
+      component.importingTo.set(mockDimensions[0]);
+      component.closeImport();
+      expect(component.importingTo()).toBeNull();
+    });
   });
 
-  it('should update new dimension name', () => {
-    component.updateNewDimensionName('New Name');
-    expect(component.newDimension().name).toBe('New Name');
+  describe('formatType', () => {
+    it('should return formatted type names', () => {
+      fixture.detectChanges();
+      expect(component.formatType('TEMPORAL')).toBe('Temporal');
+      expect(component.formatType('GEO')).toBe('Geographic');
+      expect(component.formatType('MEASURE')).toBe('Measure');
+      expect(component.formatType('KEY')).toBe('Key');
+      expect(component.formatType('CODED')).toBe('Coded');
+      expect(component.formatType('' as DimensionType)).toBe('' as DimensionType);
+    });
   });
 
-  it('should update new dimension uri', () => {
-    component.updateNewDimensionUri('http://new.uri/');
-    expect(component.newDimension().uri).toBe('http://new.uri/');
+  describe('formatDate', () => {
+    it('should format date or return dash', () => {
+      fixture.detectChanges();
+      expect(component.formatDate(undefined)).toBe('-');
+      const dateStr = '2024-01-15T10:00:00Z';
+      const result = component.formatDate(dateStr);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).not.toBe('-');
+    });
   });
 
-  it('should update new dimension type', () => {
-    component.updateNewDimensionType('TEMPORAL');
-    expect(component.newDimension().type).toBe('TEMPORAL');
+  describe('onFileSelected', () => {
+    it('should handle CSV file selection for import', () => {
+      fixture.detectChanges();
+      component.importingTo.set(mockDimensions[0]);
+      const mockFile = new File(['code,label\nTEST,Test'], 'values.csv', { type: 'text/csv' });
+      component.onFileSelected({ files: [mockFile] } as any);
+      expect(dimensionService.importFromCsv).toHaveBeenCalled();
+    });
+
+    it('should reject non-CSV files', () => {
+      fixture.detectChanges();
+      component.importingTo.set(mockDimensions[0]);
+      const mockFile = new File(['content'], 'values.txt', { type: 'text/plain' });
+      component.onFileSelected({ files: [mockFile] } as any);
+      expect(notificationService.error).toHaveBeenCalled();
+    });
+
+    it('should handle empty file selection', () => {
+      fixture.detectChanges();
+      component.onFileSelected({ files: [] } as any);
+      expect(dimensionService.importFromCsv).not.toHaveBeenCalled();
+    });
   });
 
-  it('should update new dimension base uri', () => {
-    component.updateNewDimensionBaseUri('http://base.uri/');
-    expect(component.newDimension().baseUri).toBe('http://base.uri/');
+  describe('onEscape', () => {
+    it('should close dialogs on escape', () => {
+      fixture.detectChanges();
+      component.importingTo.set(mockDimensions[0]);
+      component.onEscape();
+      expect(component.importingTo()).toBeNull();
+    });
   });
 
-  it('should update new dimension description', () => {
-    component.updateNewDimensionDescription('New Description');
-    expect(component.newDimension().description).toBe('New Description');
+  describe('cleanup', () => {
+    it('should unsubscribe on destroy', () => {
+      fixture.detectChanges();
+      spyOn(component['destroy$'], 'next');
+      spyOn(component['destroy$'], 'complete');
+      component.ngOnDestroy();
+      expect(component['destroy$'].next).toHaveBeenCalled();
+      expect(component['destroy$'].complete).toHaveBeenCalled();
+    });
   });
-
-  it('should update edit dimension fields', () => {
-    component.updateEditDimensionName('Edit Name');
-    component.updateEditDimensionUri('http://edit.uri/');
-    component.updateEditDimensionType('GEO');
-    component.updateEditDimensionBaseUri('http://edit-base.uri/');
-    component.updateEditDimensionDescription('Edit Description');
-
-    expect(component.editDimension().name).toBe('Edit Name');
-    expect(component.editDimension().uri).toBe('http://edit.uri/');
-    expect(component.editDimension().type).toBe('GEO');
-    expect(component.editDimension().baseUri).toBe('http://edit-base.uri/');
-    expect(component.editDimension().description).toBe('Edit Description');
-  });
-
-  it('should update new value fields', () => {
-    component.updateNewValueCode('code1');
-    component.updateNewValueLabel('Label 1');
-    component.updateNewValueUri('http://value.uri/');
-    component.updateNewValueDescription('Value Description');
-
-    expect(component.newValue().code).toBe('code1');
-    expect(component.newValue().label).toBe('Label 1');
-    expect(component.newValue().uri).toBe('http://value.uri/');
-    expect(component.newValue().description).toBe('Value Description');
-  });
-
-  it('should update edit value fields', () => {
-    component.updateEditValueCode('edit-code');
-    component.updateEditValueLabel('Edit Label');
-    component.updateEditValueUri('http://edit-value.uri/');
-    component.updateEditValueDescription('Edit Description');
-
-    expect(component.editValue().code).toBe('edit-code');
-    expect(component.editValue().label).toBe('Edit Label');
-    expect(component.editValue().uri).toBe('http://edit-value.uri/');
-    expect(component.editValue().description).toBe('Edit Description');
-  });
-
-  it('should compute total dimensions', fakeAsync(() => {
-    tick();
-    expect(component.totalDimensions()).toBe(3);
-  }));
-
-  it('should compute total values', fakeAsync(() => {
-    tick();
-    expect(component.totalValues()).toBeGreaterThanOrEqual(0);
-  }));
-
-  it('should compute by type', fakeAsync(() => {
-    tick();
-    const byType = component.byType();
-    expect(byType['TEMPORAL']).toBe(1);
-    expect(byType['KEY']).toBe(1);
-    expect(byType['MEASURE']).toBe(1);
-  }));
-
-  it('should filter values by search query', fakeAsync(() => {
-    tick();
-    component.dimensionValues.set(mockValues);
-    component.valuesSearchQuery.set('2023');
-    expect(component.filteredValues().length).toBe(1);
-    expect(component.filteredValues()[0].code).toBe('2023');
-  }));
-
-  it('should have type options', () => {
-    expect(component.typeOptions.length).toBeGreaterThan(0);
-    expect(component.typeOptions.map(o => o.value)).toContain('KEY');
-  });
-
-  it('should have type filter options', () => {
-    expect(component.typeFilterOptions.length).toBeGreaterThan(0);
-    expect(component.typeFilterOptions[0].value).toBeNull();
-  });
-
-  it('should get GEO type icon and color', () => {
-    expect(component.getTypeIcon('GEO')).toBe('place');
-    expect(component.getTypeColor('GEO')).toBe('warn');
-  });
-
-  it('should get CODED type icon and color', () => {
-    expect(component.getTypeIcon('CODED')).toBe('list');
-    expect(component.getTypeColor('CODED')).toBe('primary');
-  });
-
-  it('should get default type icon and color', () => {
-    expect(component.getTypeIcon('UNKNOWN')).toBe('label');
-    expect(component.getTypeColor('UNKNOWN')).toBe('');
-  });
-
-  it('should filter by URI', fakeAsync(() => {
-    tick();
-    component.searchQuery.set('example.org/dimension/year');
-    expect(component.filteredDimensions().length).toBe(1);
-  }));
 });

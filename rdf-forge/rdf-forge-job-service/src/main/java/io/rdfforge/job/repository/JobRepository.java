@@ -27,6 +27,9 @@ public interface JobRepository extends JpaRepository<JobEntity, UUID> {
     
     @Query("SELECT j FROM JobEntity j WHERE j.status = 'RUNNING' AND j.startedAt < :timeout")
     List<JobEntity> findStaleRunningJobs(@Param("timeout") Instant timeout);
+
+    @Query("SELECT j FROM JobEntity j WHERE j.status = 'RUNNING' AND j.startedAt < :threshold")
+    List<JobEntity> findRunningJobsStartedBefore(@Param("threshold") Instant threshold);
     
     @Query("SELECT COUNT(j) FROM JobEntity j WHERE j.status = :status")
     long countByStatus(@Param("status") JobStatus status);

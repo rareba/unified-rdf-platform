@@ -1,45 +1,60 @@
-<div class="pipeline-list">
+<div class="pipeline-list" role="main" aria-label="Pipeline List">
   <div class="header">
     <h1>Pipelines</h1>
     <div class="actions">
       <mat-form-field appearance="outline" class="search-field">
-        <mat-icon matPrefix>search</mat-icon>
-        <input matInput placeholder="Search pipelines..." [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+        <input matInput
+               placeholder="Search pipelines..."
+               [ngModel]="searchQuery()"
+               (ngModelChange)="onSearchChange($event)"
+               aria-label="Search pipelines" />
       </mat-form-field>
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" placeholder="Filter by status">
+        <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" placeholder="Filter by status" aria-label="Filter by status">
           @for (option of statusOptions; track option.value) {
             <mat-option [value]="option.value">{{ option.label }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
-      <button mat-raised-button color="primary" (click)="createPipeline()">
-        <mat-icon>add</mat-icon>
+      <button mat-icon-button (click)="refreshPipelines()" matTooltip="Refresh" aria-label="Refresh pipelines" [disabled]="refreshing()">
+        <mat-icon [class.spinning]="refreshing()">refresh</mat-icon>
+      </button>
+      <button mat-raised-button color="primary" (click)="createPipeline()" aria-label="Create new pipeline">
+        <mat-icon aria-hidden="true">add</mat-icon>
         New Pipeline
       </button>
     </div>
   </div>
 
   @if (loading()) {
-    <div class="loading-container">
+    <div class="loading-container" role="status" aria-label="Loading pipelines">
       <mat-spinner></mat-spinner>
     </div>
   } @else if (filteredPipelines().length === 0) {
-    <div class="empty-state">
-      <mat-icon>account_tree</mat-icon>
-      <p>No pipelines found</p>
-      <button mat-raised-button color="primary" (click)="createPipeline()">
-        <mat-icon>add</mat-icon>
-        Create your first pipeline
-      </button>
+    <div class="empty-state" role="status">
+      <mat-icon aria-hidden="true">account_tree</mat-icon>
+      @if (searchQuery() || statusFilter()) {
+        <h3>No pipelines match your search</h3>
+        <p>Try adjusting your filters or search query</p>
+        <button mat-stroked-button (click)="searchQuery.set(''); statusFilter.set(null)">
+          Clear Filters
+        </button>
+      } @else {
+        <p>No pipelines found</p>
+        <button mat-raised-button color="primary" (click)="createPipeline()">
+          <mat-icon aria-hidden="true">add</mat-icon>
+          Create your first pipeline
+        </button>
+      }
     </div>
   } @else {
     <div class="table-container">
-      <table mat-table [dataSource]="paginatedPipelines()" matSort (matSortChange)="onSortChange($event)">
+      <table mat-table [dataSource]="paginatedPipelines()" matSort (matSortChange)="onSortChange($event)" aria-label="Pipelines table">
 
         <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
-          <td mat-cell *matCellDef="let pipeline" (click)="openPipeline(pipeline)" class="cursor-pointer">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header scope="col">Name</th>
+          <td mat-cell *matCellDef="let pipeline" (click)="openPipeline(pipeline)" class="cursor-pointer" tabindex="0" (keydown.enter)="openPipeline(pipeline)" role="link">
             <div class="pipeline-name">
               <span class="name">{{ pipeline.name }}</span>
               <span class="description">{{ pipeline.description }}</span>
@@ -48,16 +63,16 @@
         </ng-container>
 
         <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header scope="col">Status</th>
           <td mat-cell *matCellDef="let pipeline">
-            <span class="status-chip" [ngClass]="getStatusClass(pipeline.status || 'active')">
+            <span class="status-chip" [ngClass]="getStatusClass(pipeline.status || 'active')" role="status">
               {{ pipeline.status || 'active' }}
             </span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="stepsCount">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Steps</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header scope="col">Steps</th>
           <td mat-cell *matCellDef="let pipeline">
             <span class="step-count" [matTooltip]="(pipeline.stepsCount || 0) + ' pipeline steps'">
               {{ pipeline.stepsCount ?? 0 }}
@@ -66,12 +81,12 @@
         </ng-container>
 
         <ng-container matColumnDef="lastRun">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Run</th>
+          <th mat-header-cell *matHeaderCellDef mat-sort-header scope="col">Last Run</th>
           <td mat-cell *matCellDef="let pipeline">{{ formatDate(pipeline.lastRun) }}</td>
         </ng-container>
 
         <ng-container matColumnDef="tags">
-          <th mat-header-cell *matHeaderCellDef>Tags</th>
+          <th mat-header-cell *matHeaderCellDef scope="col">Tags</th>
           <td mat-cell *matCellDef="let pipeline">
             <div class="tags">
               @for (tag of pipeline.tags; track tag) {
@@ -82,24 +97,36 @@
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <th mat-header-cell *matHeaderCellDef scope="col">Actions</th>
           <td mat-cell *matCellDef="let pipeline">
             <div class="row-actions">
-              <button mat-icon-button color="primary" (click)="runPipeline(pipeline, $event)" matTooltip="Run">
+              <button mat-icon-button color="primary" (click)="runPipeline(pipeline, $event)" matTooltip="Run pipeline" aria-label="Run pipeline">
                 <mat-icon>play_arrow</mat-icon>
               </button>
-              <button mat-icon-button (click)="duplicatePipeline(pipeline, $event)" matTooltip="Duplicate">
-                <mat-icon>content_copy</mat-icon>
+              <button mat-icon-button [matMenuTriggerFor]="pipelineMenu" (click)="$event.stopPropagation()" aria-label="More actions">
+                <mat-icon>more_vert</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="confirmDelete(pipeline, $event)" matTooltip="Delete">
-                <mat-icon>delete</mat-icon>
-              </button>
+              <mat-menu #pipelineMenu="matMenu">
+                <button mat-menu-item (click)="openPipeline(pipeline)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                <button mat-menu-item (click)="duplicatePipeline(pipeline, $event)">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>Clone</span>
+                </button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="confirmDelete(pipeline, $event)" class="warn-action">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
             </div>
           </td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" tabindex="0" (keydown.enter)="openPipeline(row)"></tr>
       </table>
 
       <mat-paginator
@@ -108,7 +135,8 @@
         [pageIndex]="pageIndex()"
         [pageSizeOptions]="[10, 25, 50]"
         (page)="onPageChange($event)"
-        showFirstLastButtons>
+        showFirstLastButtons
+        aria-label="Select page of pipelines">
       </mat-paginator>
     </div>
   }

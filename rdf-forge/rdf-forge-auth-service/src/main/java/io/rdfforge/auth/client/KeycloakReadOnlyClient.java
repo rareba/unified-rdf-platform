@@ -29,14 +29,14 @@ public class KeycloakReadOnlyClient {
     @Value("${keycloak.admin.client-secret:}")
     private String clientSecret;
 
-    @Value("${keycloak.admin.username:admin}")
+    @Value("${keycloak.admin.username}")
     private String adminUsername;
 
-    @Value("${keycloak.admin.password:admin}")
+    @Value("${keycloak.admin.password}")
     private String adminPassword;
 
-    private String accessToken;
-    private long tokenExpiresAt;
+    private volatile String accessToken;
+    private volatile long tokenExpiresAt;
 
     public KeycloakReadOnlyClient() {
         this.restTemplate = new RestTemplate();
@@ -199,7 +199,7 @@ public class KeycloakReadOnlyClient {
         }
     }
 
-    private void refreshToken() {
+    private synchronized void refreshToken() {
         try {
             String tokenUrl = String.format("%s/realms/master/protocol/openid-connect/token", keycloakUrl);
 

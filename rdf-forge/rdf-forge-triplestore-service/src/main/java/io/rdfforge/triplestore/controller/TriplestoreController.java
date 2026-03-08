@@ -18,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/triplestores")
 @Tag(name = "Triplestores", description = "Triplestore connection and management API")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")
 public class TriplestoreController {
 
     private final TriplestoreService triplestoreService;

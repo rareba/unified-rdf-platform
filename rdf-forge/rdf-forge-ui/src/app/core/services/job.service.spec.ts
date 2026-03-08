@@ -1,8 +1,8 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick, flush } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
-import { JobService } from './job.service';
+import { JobService, LogStreamMessage, ConnectionStatus } from './job.service';
 import { SettingsService } from './settings.service';
 import { environment } from '../../../environments/environment';
 import { Job, JobLog, JobMetrics, JobSchedule } from '../models';
@@ -53,6 +53,7 @@ describe('JobService', () => {
   });
 
   afterEach(() => {
+    service.disconnect();
     httpMock.verify();
   });
 
@@ -83,6 +84,15 @@ describe('JobService', () => {
       expect(req.request.method).toBe('GET');
       req.flush([]);
     });
+
+    it('should handle empty list', () => {
+      service.list().subscribe(jobs => {
+        expect(jobs.length).toBe(0);
+      });
+
+      const req = httpMock.expectOne(r => r.url === `${baseUrl}/jobs` && r.params.has('size'));
+      req.flush([]);
+    });
   });
 
   describe('get()', () => {
@@ -95,6 +105,17 @@ describe('JobService', () => {
       const req = httpMock.expectOne(`${baseUrl}/jobs/job-1`);
       expect(req.request.method).toBe('GET');
       req.flush(mockJob);
+    });
+
+    it('should handle job not found', () => {
+      service.get('non-existent').subscribe({
+        error: (error) => {
+          expect(error.status).toBe(404);
+        }
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs/non-existent`);
+      req.flush('Not found', { status: 404, statusText: 'Not Found' });
     });
   });
 
@@ -125,6 +146,18 @@ describe('JobService', () => {
       });
       req.flush(mockJob);
     });
+
+    it('should create a job with empty variables', () => {
+      service.create('pipeline-1', {}, 0).subscribe();
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs`);
+      expect(req.request.body).toEqual({
+        pipelineId: 'pipeline-1',
+        variables: {},
+        priority: 0
+      });
+      req.flush(mockJob);
+    });
   });
 
   describe('cancel()', () => {
@@ -134,6 +167,17 @@ describe('JobService', () => {
       const req = httpMock.expectOne(`${baseUrl}/jobs/job-1`);
       expect(req.request.method).toBe('DELETE');
       req.flush(null);
+    });
+
+    it('should handle cancel error', () => {
+      service.cancel('job-1').subscribe({
+        error: (error) => {
+          expect(error.status).toBe(409);
+        }
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs/job-1`);
+      req.flush('Job already completed', { status: 409, statusText: 'Conflict' });
     });
   });
 
@@ -145,7 +189,18 @@ describe('JobService', () => {
 
       const req = httpMock.expectOne(`${baseUrl}/jobs/job-1/retry`);
       expect(req.request.method).toBe('POST');
-      req.flush({ ...mockJob, id: 'job-2', status: 'pending' });
+      req.flush({ ...mockJob, id: 'job-2', status: 'pending' as const });
+    });
+
+    it('should handle retry for non-retryable job', () => {
+      service.retry('job-1').subscribe({
+        error: (error) => {
+          expect(error.status).toBe(400);
+        }
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs/job-1/retry`);
+      req.flush('Job not in failed state', { status: 400, statusText: 'Bad Request' });
     });
   });
 
@@ -172,6 +227,15 @@ describe('JobService', () => {
       expect(req.request.method).toBe('GET');
       req.flush([]);
     });
+
+    it('should handle empty logs', () => {
+      service.getLogs('job-1').subscribe(logs => {
+        expect(logs.length).toBe(0);
+      });
+
+      const req = httpMock.expectOne(r => r.url === `${baseUrl}/jobs/job-1/logs` && r.params.has('size'));
+      req.flush([]);
+    });
   });
 
   describe('getMetrics()', () => {
@@ -186,6 +250,15 @@ describe('JobService', () => {
       const req = httpMock.expectOne(`${baseUrl}/jobs/job-1/metrics`);
       expect(req.request.method).toBe('GET');
       req.flush(metrics);
+    });
+
+    it('should handle missing metrics', () => {
+      service.getMetrics('job-1').subscribe(m => {
+        expect(m.rowsProcessed).toBeUndefined();
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs/job-1/metrics`);
+      req.flush({});
     });
   });
 
@@ -204,6 +277,15 @@ describe('JobService', () => {
       expect(req.request.method).toBe('GET');
       req.flush(schedules);
     });
+
+    it('should handle empty schedules', () => {
+      service.getSchedules().subscribe(s => {
+        expect(s.length).toBe(0);
+      });
+
+      const req = httpMock.expectOne(r => r.url === `${baseUrl}/schedules` && r.params.has('size'));
+      req.flush([]);
+    });
   });
 
   describe('createSchedule()', () => {
@@ -219,6 +301,18 @@ describe('JobService', () => {
       });
       req.flush({ id: 'sched-1', pipelineId: 'pipeline-1', cronExpression: '0 0 * * *' });
     });
+
+    it('should create a schedule without variables', () => {
+      service.createSchedule('pipeline-1', '0 0 * * *').subscribe();
+
+      const req = httpMock.expectOne(`${baseUrl}/schedules`);
+      expect(req.request.body).toEqual({
+        pipelineId: 'pipeline-1',
+        cronExpression: '0 0 * * *',
+        variables: undefined
+      });
+      req.flush({ id: 'sched-1', pipelineId: 'pipeline-1', cronExpression: '0 0 * * *' });
+    });
   });
 
   describe('updateSchedule()', () => {
@@ -230,6 +324,14 @@ describe('JobService', () => {
       expect(req.request.body).toEqual({ isActive: false });
       req.flush({ id: 'sched-1', isActive: false });
     });
+
+    it('should update schedule cron expression', () => {
+      service.updateSchedule('sched-1', { cronExpression: '0 30 * * *' }).subscribe();
+
+      const req = httpMock.expectOne(`${baseUrl}/schedules/sched-1`);
+      expect(req.request.body).toEqual({ cronExpression: '0 30 * * *' });
+      req.flush({ id: 'sched-1', cronExpression: '0 30 * * *' });
+    });
   });
 
   describe('deleteSchedule()', () => {
@@ -239,6 +341,196 @@ describe('JobService', () => {
       const req = httpMock.expectOne(`${baseUrl}/schedules/sched-1`);
       expect(req.request.method).toBe('DELETE');
       req.flush(null);
+    });
+
+    it('should handle delete for non-existent schedule', () => {
+      service.deleteSchedule('non-existent').subscribe({
+        error: (error) => {
+          expect(error.status).toBe(404);
+        }
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/schedules/non-existent`);
+      req.flush('Not found', { status: 404, statusText: 'Not Found' });
+    });
+  });
+
+  describe('WebSocket Connection', () => {
+    it('should initialize with disconnected status', () => {
+      let status: ConnectionStatus | undefined;
+      service.connectionStatus$.subscribe(s => status = s);
+      
+      expect(status).toBeDefined();
+      expect(status?.connected).toBeFalse();
+      expect(status?.reconnecting).toBeFalse();
+    });
+
+    it('should not connect without jobId', () => {
+      service.connectToJobLogs('');
+      expect(service.isConnected()).toBeFalse();
+    });
+
+    it('should disconnect and clean up resources', fakeAsync(() => {
+      service.connectToJobLogs('job-1');
+      tick();
+      
+      service.disconnect();
+      tick();
+      
+      expect(service.isConnected()).toBeFalse();
+      
+      let status: ConnectionStatus | undefined;
+      service.connectionStatus$.subscribe(s => status = s);
+      expect(status?.connected).toBeFalse();
+      expect(status?.reconnecting).toBeFalse();
+    }));
+
+    it('should handle multiple disconnect calls gracefully', fakeAsync(() => {
+      service.connectToJobLogs('job-1');
+      tick();
+      
+      // Multiple disconnects should not throw
+      expect(() => {
+        service.disconnect();
+        service.disconnect();
+        service.disconnect();
+      }).not.toThrow();
+    }));
+
+    it('should not reconnect after explicit disconnect', fakeAsync(() => {
+      service.connectToJobLogs('job-1');
+      tick();
+      
+      service.disconnect();
+      tick();
+      
+      // Reconnection should be disabled
+      // Fast-forward time to ensure no reconnection attempts
+      tick(60000);
+      expect(service.isConnected()).toBeFalse();
+    }));
+  });
+
+  describe('Log Stream', () => {
+    it('should emit log messages', fakeAsync(() => {
+      const messages: LogStreamMessage[] = [];
+      service.logStream$.subscribe(msg => messages.push(msg));
+      
+      // Note: In a real test with mocked STOMP client,
+      // we would simulate incoming messages here
+      
+      expect(messages).toEqual([]);
+    }));
+
+    it('should handle different message types', () => {
+      const logMessage: LogStreamMessage = {
+        type: 'log',
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message: 'Test log message'
+      };
+      
+      const statusMessage: LogStreamMessage = {
+        type: 'status',
+        status: 'running',
+        progress: 50
+      };
+      
+      const completionMessage: LogStreamMessage = {
+        type: 'completion',
+        success: true
+      };
+      
+      expect(logMessage.type).toBe('log');
+      expect(statusMessage.type).toBe('status');
+      expect(completionMessage.type).toBe('completion');
+    });
+  });
+
+  describe('ngOnDestroy', () => {
+    it('should clean up on destroy', fakeAsync(() => {
+      service.connectToJobLogs('job-1');
+      tick();
+      
+      service.ngOnDestroy();
+      tick();
+      
+      expect(service.isConnected()).toBeFalse();
+    }));
+
+    it('should complete subjects on destroy', () => {
+      const logStreamCompleteSpy = spyOn((service as unknown as { logStreamSubject: { complete: () => void } }).logStreamSubject, 'complete');
+      const connectionStatusCompleteSpy = spyOn((service as unknown as { connectionStatusSubject: { complete: () => void } }).connectionStatusSubject, 'complete');
+      
+      service.ngOnDestroy();
+      
+      expect(logStreamCompleteSpy).toHaveBeenCalled();
+      expect(connectionStatusCompleteSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle network errors gracefully', () => {
+      service.list().subscribe({
+        error: (error) => {
+          expect(error).toBeTruthy();
+        }
+      });
+
+      const req = httpMock.expectOne(r => r.url === `${baseUrl}/jobs` && r.params.has('size'));
+      req.error(new ProgressEvent('Network error'));
+    });
+
+    it('should handle server errors', () => {
+      service.get('job-1').subscribe({
+        error: (error) => {
+          expect(error.status).toBe(500);
+        }
+      });
+
+      const req = httpMock.expectOne(`${baseUrl}/jobs/job-1`);
+      req.flush('Internal Server Error', { status: 500, statusText: 'Internal Server Error' });
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle pagination params', () => {
+      service.list({ page: 2, limit: 10 }).subscribe();
+
+      const req = httpMock.expectOne(r =>
+        r.url === `${baseUrl}/jobs` &&
+        r.params.get('page') === '2' &&
+        r.params.get('limit') === '10'
+      );
+      req.flush([]);
+    });
+
+    it('should handle all job statuses in list params', () => {
+      const statuses = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const;
+      
+      statuses.forEach(status => {
+        service.list({ status }).subscribe();
+        
+        const req = httpMock.expectOne(r =>
+          r.url === `${baseUrl}/jobs` &&
+          r.params.get('status') === status
+        );
+        req.flush([]);
+      });
+    });
+
+    it('should handle log level filtering', () => {
+      const levels = ['debug', 'info', 'warn', 'error'] as const;
+      
+      levels.forEach(level => {
+        service.getLogs('job-1', { level }).subscribe();
+        
+        const req = httpMock.expectOne(r =>
+          r.url === `${baseUrl}/jobs/job-1/logs` &&
+          r.params.get('level') === level
+        );
+        req.flush([]);
+      });
     });
   });
 });

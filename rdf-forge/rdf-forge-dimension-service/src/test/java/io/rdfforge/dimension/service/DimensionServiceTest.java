@@ -1,5 +1,6 @@
 package io.rdfforge.dimension.service;
 
+import io.rdfforge.common.exception.ResourceNotFoundException;
 import io.rdfforge.dimension.entity.DimensionEntity;
 import io.rdfforge.dimension.entity.DimensionEntity.DimensionType;
 import io.rdfforge.dimension.entity.DimensionEntity.HierarchyType;
@@ -207,7 +208,7 @@ class DimensionServiceTest {
         void update_WhenNotFound_ThrowsException() {
             when(dimensionRepository.findById(dimensionId)).thenReturn(Optional.empty());
 
-            assertThrows(NoSuchElementException.class, () -> 
+            assertThrows(ResourceNotFoundException.class, () ->
                 dimensionService.update(dimensionId, new DimensionEntity())
             );
         }
@@ -337,7 +338,7 @@ class DimensionServiceTest {
         void updateValue_WhenNotFound_ThrowsException() {
             when(valueRepository.findById(valueId)).thenReturn(Optional.empty());
 
-            assertThrows(NoSuchElementException.class, () -> 
+            assertThrows(ResourceNotFoundException.class, () ->
                 dimensionService.updateValue(valueId, new DimensionValueEntity())
             );
         }
@@ -365,7 +366,7 @@ class DimensionServiceTest {
         void deleteValue_WhenNotFound_ThrowsException() {
             when(valueRepository.findById(valueId)).thenReturn(Optional.empty());
 
-            assertThrows(NoSuchElementException.class, () -> 
+            assertThrows(ResourceNotFoundException.class, () ->
                 dimensionService.deleteValue(valueId)
             );
         }
@@ -430,7 +431,7 @@ class DimensionServiceTest {
         void exportToTurtle_WhenNotFound_ThrowsException() {
             when(dimensionRepository.findById(dimensionId)).thenReturn(Optional.empty());
 
-            assertThrows(NoSuchElementException.class, () -> 
+            assertThrows(ResourceNotFoundException.class, () ->
                 dimensionService.exportToTurtle(dimensionId)
             );
         }

@@ -10,5 +10,6 @@ export * from './provider.service';
 export * from './cube.service';
 export * from './settings.service';
 export * from './global-error-handler.service';
-export * from './keyboard-shortcuts.service';
+export * from './error-tracking.service';
 export * from './notification.service';
+export * from './keyboard-shortcuts.service';

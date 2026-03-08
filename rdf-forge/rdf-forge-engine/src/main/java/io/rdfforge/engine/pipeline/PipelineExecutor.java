@@ -22,9 +22,11 @@ import java.util.stream.Stream;
 public class PipelineExecutor {
     private final OperationRegistry operationRegistry;
 
-    public ExecutionResult execute(PipelineDefinition pipeline, Map<String, Object> variables, 
+    public ExecutionResult execute(PipelineDefinition pipeline, Map<String, Object> variables,
                                     boolean dryRun, ExecutionCallback callback) {
-        ExecutionContext context = new ExecutionContext(pipeline.getId(), variables, dryRun, callback);
+        // Ensure variables is never null - use empty HashMap as default
+        Map<String, Object> safeVariables = variables != null ? variables : new HashMap<>();
+        ExecutionContext context = new ExecutionContext(pipeline.getId(), safeVariables, dryRun, callback);
         
         try {
             callback.onStart(pipeline.getId());
@@ -164,9 +166,13 @@ public class PipelineExecutor {
     }
 
     private String resolveVariables(String template, Map<String, Object> variables) {
+        // Handle null template - return empty string to prevent NPE
+        if (template == null) {
+            return "";
+        }
         String result = template;
         for (Map.Entry<String, Object> var : variables.entrySet()) {
-            result = result.replace("${" + var.getKey() + "}", 
+            result = result.replace("${" + var.getKey() + "}",
                 var.getValue() != null ? var.getValue().toString() : "");
         }
         if (result.startsWith("${") && result.endsWith("}")) {

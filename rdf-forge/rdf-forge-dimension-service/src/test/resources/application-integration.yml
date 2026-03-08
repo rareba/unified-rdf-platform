@@ -1,0 +1,35 @@
+# Configuration for integration tests using a PostgreSQLContainer.
+# Most datasource properties are overridden at runtime via @DynamicPropertySource.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rdfforge_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      schema:
+      pool-name: IntegrationTestPool
+      maximum-pool-size: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema:
+
+  flyway:
+    enabled: false
+
+  cache:
+    type: none
+
+logging:
+  level:
+    root: WARN
+    io.rdfforge: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.testcontainers: INFO

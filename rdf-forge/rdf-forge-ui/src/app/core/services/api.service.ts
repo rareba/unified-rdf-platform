@@ -4,6 +4,7 @@ import { Observable, throwError, timer } from 'rxjs';
 import { map, retry, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { SettingsService } from './settings.service';
+import { LoggerService } from './logger.service';
 import { OPERATION_TYPE, CUSTOM_TIMEOUT } from '../interceptors/timeout.interceptor';
 
 /**
@@ -49,6 +50,7 @@ export interface RequestOptions {
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly settingsService = inject(SettingsService);
+  private readonly logger = inject(LoggerService);
   private baseUrl = environment.apiBaseUrl;
 
   /**
@@ -206,7 +208,7 @@ export class ApiService {
           const jitter = Math.random() * 0.3 * baseDelay; // Add up to 30% jitter
           const delay = Math.min(baseDelay + jitter, config.maxDelayMs);
 
-          console.log(`Request failed, retrying in ${Math.round(delay)}ms (attempt ${retryCount}/${config.maxRetries})`);
+          this.logger.debug(`Request failed, retrying in ${Math.round(delay)}ms (attempt ${retryCount}/${config.maxRetries})`);
 
           return timer(delay);
         }
@@ -214,7 +216,7 @@ export class ApiService {
       catchError(error => {
         // Enhance error message for better debugging
         if (error instanceof HttpErrorResponse) {
-          console.error(`Request failed after ${config.maxRetries} retries:`, error.url, error.status);
+          this.logger.error(`Request failed after ${config.maxRetries} retries: ${error.url} ${error.status}`);
         }
         return throwError(() => error);
       })
