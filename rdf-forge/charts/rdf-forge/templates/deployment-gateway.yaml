@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rdf-forge.fullname" . }}-gateway
+  labels:
+    {{- include "rdf-forge.labels" . | nindent 4 }}
+    component: gateway
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.gateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "rdf-forge.selectorLabels" . | nindent 6 }}
+      component: gateway
+  template:
+    metadata:
+      {{- with .Values.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "rdf-forge.selectorLabels" . | nindent 8 }}
+        component: gateway
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "rdf-forge.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: gateway
+        securityContext:
+          {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.services.gateway.port }}
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: {{ .Values.env.springProfiles }}
+        - name: PIPELINE_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-pipeline:{{ .Values.services.pipeline.port }}"
+        - name: SHACL_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-shacl:{{ .Values.services.shacl.port }}"
+        - name: JOB_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-job:{{ .Values.services.job.port }}"
+        - name: DATA_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-data:{{ .Values.services.data.port }}"
+        - name: DIMENSION_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-dimension:{{ .Values.services.dimension.port }}"
+        - name: TRIPLESTORE_SERVICE_URL
+          value: "http://{{ include "rdf-forge.fullname" . }}-triplestore:{{ .Values.services.triplestore.port }}"
+        livenessProbe:
+          {{- toYaml .Values.services.gateway.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.services.gateway.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.services.gateway.resources | nindent 12 }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

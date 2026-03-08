@@ -11,6 +11,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+rdf-forge/rdf-forge-ui/node_modules/
 
 # IDE
 .vscode/

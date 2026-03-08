@@ -1,6 +1,18 @@
 apiVersion: v2
 name: rdf-forge
-description: A Helm chart for Kubernetes deployment of RDF Forge
+description: A Helm chart for Kubernetes deployment of RDF Forge with production-ready configuration
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
+home: https://rdfforge.io
+sources:
+  - https://github.com/example/rdf-forge
+maintainers:
+  - name: RDF Forge Team
+    email: team@rdfforge.io
+keywords:
+  - rdf
+  - data-integration
+  - etl
+  - kubernetes
+dependencies: []
