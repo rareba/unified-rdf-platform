@@ -20,7 +20,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject, Subscription, of, debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs';
 
 import { DimensionService } from '../../../core/services/dimension.service';
 import { Dimension, DimensionType } from '../../../core/models/dimension.model';
@@ -183,19 +183,15 @@ export class SharedDimensionSearch implements OnInit, OnDestroy {
           return this.dimensionService.list({
             search: term || undefined,
             type: this.data?.typeFilter,
-          });
+          }).pipe(
+            catchError(() => of([] as Dimension[]))
+          );
         }),
       )
-      .subscribe({
-        next: dimensions => {
-          const shared = dimensions.filter(d => d.isShared);
-          this.results.set(shared);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.results.set([]);
-          this.loading.set(false);
-        },
+      .subscribe(dimensions => {
+        const shared = dimensions.filter(d => d.isShared);
+        this.results.set(shared);
+        this.loading.set(false);
       });
 
     // Initial load

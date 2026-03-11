@@ -161,6 +161,7 @@ export class CubeMetadataDialog implements OnInit {
     this.dialogRef.close(result);
   }
 
+  // TODO: Base URI should come from environment config or project settings
   private generateUri(name: string): string {
     const slug = name
       .toLowerCase()
