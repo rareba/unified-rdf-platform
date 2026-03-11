@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Cube, CubeCreateRequest } from '../models/cube.model';
+import { Cube, CubeCreateRequest, ObservationPage } from '../models/cube.model';
 
 export interface CubeListParams {
   projectId?: string;
@@ -99,6 +99,20 @@ export class CubeService {
    */
   unlinkPipeline(cubeId: string): Observable<Cube> {
     return this.api.delete<Cube>(`/cubes/${cubeId}/pipeline`);
+  }
+
+  // ===== Cube Creator endpoints =====
+
+  getObservations(cubeId: string, page = 0, size = 10): Observable<ObservationPage> {
+    return this.api.get<ObservationPage>(`/cubes/${cubeId}/observations`, { page, size });
+  }
+
+  exportCube(cubeId: string, format: string = 'turtle'): Observable<Blob> {
+    return this.api.getBlob(`/cubes/${cubeId}/export`, { format });
+  }
+
+  unlistCube(cubeId: string): Observable<Cube> {
+    return this.api.post<Cube>(`/cubes/${cubeId}/unlist`, {});
   }
 }
 

@@ -133,6 +133,21 @@ export class ApiService {
     return this.applyRetry(request$, options);
   }
 
+  getBlob(url: string, params?: Record<string, unknown>): Observable<Blob> {
+    let httpParams = new HttpParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          httpParams = httpParams.set(key, String(value));
+        }
+      });
+    }
+    return this.http.get(`${this.baseUrl}${url}`, {
+      params: httpParams,
+      responseType: 'blob'
+    });
+  }
+
   upload<T>(url: string, file: File, additionalData?: Record<string, unknown>, options?: RequestOptions): Observable<T> {
     const formData = new FormData();
     formData.append('file', file);
