@@ -70,3 +70,24 @@ export interface ShapeVersion {
   version: number;
   createdAt: Date;
 }
+
+/** Used by shacl-studio for inline validation errors */
+export interface ValidationError {
+  message?: string;
+  path?: string;
+  severity?: string;
+  sourceShape?: string;
+}
+
+/** Profile metadata for SHACL shape profiles */
+export interface ShapeProfile {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/** Options for content validation */
+export interface ValidationOptions {
+  content: string;
+  profile?: string;
+}

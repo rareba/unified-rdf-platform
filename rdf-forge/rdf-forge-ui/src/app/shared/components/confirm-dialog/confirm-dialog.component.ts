@@ -3,6 +3,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogData } from '../../../core/services/confirmation.service';
 
+export type { ConfirmDialogData };
+
 @Component({
   selector: 'app-confirm-dialog',
   standalone: true,

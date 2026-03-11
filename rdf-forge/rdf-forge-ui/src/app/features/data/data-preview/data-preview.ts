@@ -47,7 +47,7 @@ import { LoggerService } from '../../../core/services/logger.service';
             <mat-icon>download</mat-icon>
             Export CSV
           </button>
-          <button mat-icon-button (click)="reloadPreview()" [disabled]="!dataSourceId()" matTooltip="Reload preview" aria-label="Reload preview">
+          <button mat-icon-button (click)="reloadPreview()" [disabled]="!dataSourceId" matTooltip="Reload preview" aria-label="Reload preview">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>

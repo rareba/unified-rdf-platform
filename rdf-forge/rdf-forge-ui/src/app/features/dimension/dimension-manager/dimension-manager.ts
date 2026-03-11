@@ -496,7 +496,7 @@ export class DimensionManager implements OnInit, OnDestroy {
     const dim = this.selectedDimension();
     if (!value.id || !dim?.id) return;
 
-    this.dimensionService.deleteValue(dim.id, value.id)
+    this.dimensionService.deleteValue(value.id!)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
@@ -685,6 +685,16 @@ export class DimensionManager implements OnInit, OnDestroy {
     this.error.set(message);
     this.snackBar.open(message, 'Close', { duration: 5000 });
     this.logger.error('Dimension manager error:', err);
+  }
+
+  formatDate(date: Date | string | undefined): string {
+    if (!date) return '-';
+    return new Date(date).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   // Dialog helpers

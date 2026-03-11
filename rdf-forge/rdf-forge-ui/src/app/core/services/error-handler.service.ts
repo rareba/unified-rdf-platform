@@ -67,7 +67,7 @@ export class ErrorHandlerService implements ErrorHandler {
 
     // Show notification
     if (shouldNotify && this.notificationService) {
-      this.notificationService.showError(errorMessage);
+      this.notificationService.error(errorMessage);
     }
 
     // Log using logger service

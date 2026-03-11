@@ -22,10 +22,11 @@ import {
 } from 'rxjs/operators';
 import { Subject, Observable, of } from 'rxjs';
 
-import { AlertService, ObButtonDirective, ObSpinnerModule } from '@oblique/oblique';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ShaclService } from '../../../core/services/shacl.service';
-import { HttpService } from '../../../core/services/http.service';
 import { ErrorHandlerService } from '../../../core/services/error-handler.service';
 
 import {
@@ -42,11 +43,9 @@ import {
   transition,
   animate
 } from '@angular/animations';
-import { ValidationErrorsComponent } from '../../../shared/components/validation-errors/validation-errors';
 import { ShapeVisualizerComponent } from '../../../shared/components/shape-visualizer/shape-visualizer.component';
 
-// Import CodeMirror
-import { CodemirrorModule } from '@ctrl/ngx-codemirror';
+// CodeMirror removed - using textarea fallback
 
 interface ShapeFile {
   name: string;
@@ -60,11 +59,10 @@ interface ShapeFile {
     CommonModule,
     ReactiveFormsModule,
     RouterModule,
-    ObButtonDirective,
-    ObSpinnerModule,
-    ValidationErrorsComponent,
-    ShapeVisualizerComponent,
-    CodemirrorModule
+    MatButtonModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    ShapeVisualizerComponent
   ],
   templateUrl: './shacl-studio.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -81,7 +79,7 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
   private shaclService = inject(ShaclService);
   private errorHandler = inject(ErrorHandlerService);
   private formBuilder = inject(FormBuilder);
-  private alertService = inject(AlertService);
+  private snackBar = inject(MatSnackBar);
 
   private destroy$ = new Subject<void>();
   private contentSubject = new Subject<string>();
@@ -176,17 +174,13 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
     this.shaclService.getProfiles()
       .pipe(
         takeUntil(this.destroy$),
-        catchError(error => {
-          this.errorHandler.handleError(error, { source: 'ShaclStudio', type: 'LoadProfiles' });
-          return of<ApiResponse<ShapeProfile[]>>({
-            data: [],
-            success: false,
-            error: 'Failed to load profiles'
-          });
+        catchError((error: unknown) => {
+          if (error instanceof Error) this.errorHandler.handleError(error);
+          return of([]);
         })
       )
-      .subscribe((response: ApiResponse<ShapeProfile[]>) => {
-        this.availableProfiles = response.data || [];
+      .subscribe((profiles: any) => {
+        this.availableProfiles = Array.isArray(profiles) ? profiles : (profiles?.data || []);
       });
   }
 
@@ -220,26 +214,21 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => this.isValidating = false),
-        catchError(error => {
-          this.errorHandler.handleError(error, { source: 'ShaclStudio', type: 'Validation' });
-          return of<ApiResponse<ValidationResult>>({
-            success: false,
-            data: { conforms: false, results: [] },
-            error: 'Validation failed'
-          });
+        catchError((error: unknown) => {
+          if (error instanceof Error) this.errorHandler.handleError(error);
+          return of(null);
         })
       )
-      .subscribe((response: ApiResponse<ValidationResult>) => {
-        if (response.success && response.data) {
-          this.validationResult = response.data;
-          this.validationErrors = response.data.results || [];
+      .subscribe((response: any) => {
+        if (response) {
+          const data = response.data || response;
+          this.validationResult = data;
+          this.validationErrors = data.results || [];
           this.suggestedFixes = this.generateSuggestedFixes(this.validationErrors);
           this.generateVisualizationData();
 
           if (this.validationErrors.length === 0 && showSuccess) {
-            this.alertService.success('✓ Shapes are valid!', {
-              keepAfterRouteChange: true
-            });
+            this.snackBar.open('Shapes are valid!', 'Close', { duration: 3000 });
           }
         }
       });
@@ -274,10 +263,7 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
   saveShape(): void {
     if (this.shapeForm.invalid) {
       this.markFormGroupTouched(this.shapeForm);
-      this.errorHandler.handleError(new Error('Form has validation errors'), {
-        source: 'ShaclStudio',
-        type: 'FormValidation'
-      });
+      this.errorHandler.handleError(new Error('Form has validation errors'));
       return;
     }
 
@@ -288,19 +274,14 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => this.isSaving = false),
-        catchError(error => {
-          this.errorHandler.handleError(error, { source: 'ShaclStudio', type: 'SaveShape' });
-          return of<ApiResponse<any>>({
-            success: false,
-            error: 'Failed to save shape'
-          });
+        catchError((error: unknown) => {
+          if (error instanceof Error) this.errorHandler.handleError(error);
+          return of(null);
         })
       )
-      .subscribe((response: ApiResponse<any>) => {
-        if (response.success) {
-          this.alertService.success('✓ Shape saved successfully!', {
-            keepAfterRouteChange: true
-          });
+      .subscribe((response: any) => {
+        if (response) {
+          this.snackBar.open('Shape saved successfully!', 'Close', { duration: 3000 });
           this.shapeForm.reset({ autoValidate: true });
           this.validationErrors = [];
           this.validationResult = null;

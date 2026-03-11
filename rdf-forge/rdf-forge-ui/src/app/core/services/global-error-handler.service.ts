@@ -427,9 +427,9 @@ export class GlobalErrorHandlerService implements ErrorHandler {
   static isNetworkError(error: unknown): boolean {
     if (typeof error !== 'object' || error === null) return false;
     const err = error as Record<string, unknown>;
-    return err['status'] === 0 || 
-           err['message']?.toString().includes('Network') ||
-           err['message']?.toString().includes('Http failure response');
+    return err['status'] === 0 ||
+           (err['message']?.toString().includes('Network') ?? false) ||
+           (err['message']?.toString().includes('Http failure response') ?? false);
   }
 
   /**

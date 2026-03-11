@@ -17,6 +17,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { PipelineService, JobService } from '../../../core/services';
 import { Pipeline, Job } from '../../../core/models';
@@ -42,6 +43,7 @@ import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loa
     MatCardModule,
     MatDialogModule,
     MatMenuModule,
+    MatDividerModule,
     SkeletonLoaderComponent
   ],
   templateUrl: './pipeline-list.html',

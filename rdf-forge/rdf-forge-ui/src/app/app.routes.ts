@@ -46,7 +46,7 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        loadComponent: () => import('./features/shacl/shacl-studio/shacl-studio').then(m => m.ShaclStudio)
+        loadComponent: () => import('./features/shacl/shacl-studio/shacl-studio').then(m => m.ShaclStudioComponent)
       },
       {
         path: ':id',

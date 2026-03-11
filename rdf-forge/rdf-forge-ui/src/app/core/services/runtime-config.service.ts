@@ -46,7 +46,7 @@ export class RuntimeConfigService {
     if (this.loaded) return;
 
     // Check window.__env first
-    const windowEnv = (window as Record<string, unknown>)['__env'];
+    const windowEnv = (window as unknown as Record<string, unknown>)['__env'];
     if (windowEnv && typeof windowEnv === 'object') {
       this.config = { ...(windowEnv as Record<string, string>) };
       this.loaded = true;

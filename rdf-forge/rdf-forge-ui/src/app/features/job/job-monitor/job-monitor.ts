@@ -1,10 +1,11 @@
-import { Component, inject, OnInit, OnDestroy, signal, viewChild, ElementRef, AfterViewChecked, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, viewChild, ElementRef, AfterViewChecked, ChangeDetectionStrategy, effect } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
@@ -49,6 +50,7 @@ interface LogFilter {
     MatFormFieldModule,
     MatInputModule,
     MatButtonToggleModule,
+    MatProgressSpinnerModule,
     SkeletonLoaderComponent
   ],
   templateUrl: './job-monitor.html',
@@ -88,6 +90,15 @@ export class JobMonitor implements OnInit, OnDestroy, AfterViewChecked {
   private destroy$ = new Subject<void>();
   private shouldScroll = false;
 
+  constructor() {
+    // Re-filter logs when filters change
+    effect(() => {
+      this.levelFilter();
+      this.searchQuery();
+      this.applyFilters();
+    });
+  }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -116,9 +127,7 @@ export class JobMonitor implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private setupFilters(): void {
-    // Re-filter logs when filters change
-    this.levelFilter.pipe(takeUntil(this.destroy$)).subscribe(() => this.applyFilters());
-    this.searchQuery.pipe(takeUntil(this.destroy$)).subscribe(() => this.applyFilters());
+    // Filters are now handled by the effect in the constructor
   }
 
   private applyFilters(): void {

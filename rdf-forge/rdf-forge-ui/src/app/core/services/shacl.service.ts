@@ -6,6 +6,7 @@ import {
   ShapeCreateRequest,
   ShapeVersion,
   ValidationResult,
+  ValidationOptions,
   PropertyShape,
   ContentFormat
 } from '../models';
@@ -109,6 +110,20 @@ export class ShaclService {
    */
   validateAgainstAllProfiles(dataContent: string, dataFormat?: string): Observable<Record<string, ValidationResult>> {
     return this.api.post<Record<string, ValidationResult>>('/shapes/validate-all-profiles', { dataContent, dataFormat });
+  }
+
+  /**
+   * Validate SHACL content inline (used by ShaclStudio)
+   */
+  validateContent(options: ValidationOptions): Observable<any> {
+    return this.api.post<any>('/shapes/validate-content', options);
+  }
+
+  /**
+   * Save a SHACL shape from the studio editor
+   */
+  saveShape(shapeData: any): Observable<any> {
+    return this.api.post<any>('/shapes', shapeData);
   }
 }
 

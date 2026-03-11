@@ -10,7 +10,9 @@ export interface JobListParams {
   status?: string;
   pipelineId?: string;
   page?: number;
+  size?: number;
   limit?: number;
+  sort?: string;
 }
 
 export interface JobLogParams {
@@ -92,6 +94,10 @@ export class JobService implements OnDestroy {
 
   retry(id: string): Observable<Job> {
     return this.api.post<Job>(`/jobs/${id}/retry`, {});
+  }
+
+  delete(id: string): Observable<void> {
+    return this.api.delete<void>(`/jobs/${id}`);
   }
 
   getLogs(id: string, params?: JobLogParams): Observable<JobLog[]> {

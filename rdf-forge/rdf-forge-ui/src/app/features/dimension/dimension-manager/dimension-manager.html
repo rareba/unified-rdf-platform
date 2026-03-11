@@ -12,7 +12,7 @@
       </mat-form-field>
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Filter by type</mat-label>
-        <mat-select [(ngModel)]="typeFilter">
+        <mat-select [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event)">
           @for (option of typeFilterOptions; track option.value) {
             <mat-option [value]="option.value">{{ option.label }}</mat-option>
           }
@@ -45,19 +45,6 @@
           <span class="stat-label">Total Values</span>
         </div>
       </mat-card>
-      @for (type of ['KEY', 'TEMPORAL', 'GEO', 'MEASURE']; track type) {
-        @if (byType()[type]) {
-          <mat-card class="stat-card type-card">
-            <div class="stat-icon">
-              <mat-icon>{{ getTypeIcon(type) }}</mat-icon>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value">{{ byType()[type] }}</span>
-              <span class="stat-label">{{ type }}</span>
-            </div>
-          </mat-card>
-        }
-      }
     </div>
   }
 
@@ -85,15 +72,12 @@
         </button>
       </div>
     } @else {
-      <table mat-table [dataSource]="filteredDimensions()" class="dimensions-table" matSort>
+      <table mat-table [dataSource]="filteredDimensions()" class="dimensions-table" matSort (matSortChange)="onSortChange($event)">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
           <td mat-cell *matCellDef="let dim">
             <div class="dim-name">
-              <div class="name-row">
-                <mat-icon class="type-icon">{{ getTypeIcon(dim.type) }}</mat-icon>
-                <span class="name">{{ dim.name }}</span>
-              </div>
+              <span class="name">{{ dim.name }}</span>
               @if (dim.description) {
                 <span class="description">{{ dim.description }}</span>
               }
@@ -104,7 +88,7 @@
         <ng-container matColumnDef="type">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
           <td mat-cell *matCellDef="let dim">
-            <mat-chip [class]="'type-chip-' + getTypeColor(dim.type)">{{ dim.type }}</mat-chip>
+            <mat-chip [class]="'type-chip-' + getTypeColor(dim.type)">{{ getTypeLabel(dim.type) }}</mat-chip>
           </td>
         </ng-container>
 
@@ -118,18 +102,8 @@
         <ng-container matColumnDef="uri">
           <th mat-header-cell *matHeaderCellDef>URI</th>
           <td mat-cell *matCellDef="let dim">
-            <div class="uri-cell">
-              <span class="uri-text" [matTooltip]="dim.uri">{{ dim.uri }}</span>
-              <button mat-icon-button class="copy-btn" (click)="copyToClipboard(dim.uri, 'URI'); $event.stopPropagation()" matTooltip="Copy URI">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-            </div>
+            <span class="uri-text" [matTooltip]="dim.uri">{{ dim.uri }}</span>
           </td>
-        </ng-container>
-
-        <ng-container matColumnDef="updatedAt">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header>Updated</th>
-          <td mat-cell *matCellDef="let dim">{{ formatDate(dim.updatedAt) }}</td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
@@ -142,12 +116,6 @@
               <button mat-icon-button color="primary" (click)="openValuesDialog(dim, $event)" matTooltip="Manage Values">
                 <mat-icon>list</mat-icon>
               </button>
-              <button mat-icon-button (click)="openImportDialog(dim, $event)" matTooltip="Import CSV">
-                <mat-icon>upload</mat-icon>
-              </button>
-              <button mat-icon-button (click)="exportTurtle(dim, $event)" matTooltip="Export Turtle">
-                <mat-icon>download</mat-icon>
-              </button>
               <button mat-icon-button (click)="openEditDialog(dim, $event)" matTooltip="Edit">
                 <mat-icon>edit</mat-icon>
               </button>
@@ -158,8 +126,8 @@
           </td>
         </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="['name', 'type', 'valueCount', 'uri', 'updatedAt', 'actions']"></tr>
-        <tr mat-row *matRowDef="let row; columns: ['name', 'type', 'valueCount', 'uri', 'updatedAt', 'actions']" class="dim-row"></tr>
+        <tr mat-header-row *matHeaderRowDef="['name', 'type', 'valueCount', 'uri', 'actions']"></tr>
+        <tr mat-row *matRowDef="let row; columns: ['name', 'type', 'valueCount', 'uri', 'actions']" class="dim-row"></tr>
       </table>
 
       <mat-paginator [pageSizeOptions]="[10, 25, 50]" [pageSize]="10" showFirstLastButtons></mat-paginator>
@@ -168,46 +136,54 @@
 
   <!-- Create Dimension Dialog -->
   @if (createDialogVisible()) {
-    <div class="dialog-backdrop" (click)="createDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeCreateDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>New Dimension</h2>
-          <button mat-icon-button (click)="createDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeCreateDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
         <div class="dialog-content">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Name <span class="required">*</span></mat-label>
-            <input matInput [ngModel]="newDimension().name" (ngModelChange)="updateNewDimensionName($event)" placeholder="e.g., Time Period">
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>URI <span class="required">*</span></mat-label>
-            <input matInput [ngModel]="newDimension().uri" (ngModelChange)="updateNewDimensionUri($event)" placeholder="https://example.org/dimension/timePeriod">
-            <mat-hint>Unique identifier for this dimension in RDF</mat-hint>
-          </mat-form-field>
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Type</mat-label>
-              <mat-select [ngModel]="newDimension().type" (ngModelChange)="updateNewDimensionType($event)">
-                @for (option of typeOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
+          <form [formGroup]="dimensionForm">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Name *</mat-label>
+              <input matInput formControlName="name" placeholder="e.g., Time Period">
+              @if (dimensionForm.get('name')?.touched && dimensionForm.get('name')?.invalid) {
+                <mat-error>{{ getErrorMessage('name', dimensionForm) }}</mat-error>
+              }
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Base URI for Values</mat-label>
-              <input matInput [ngModel]="newDimension().baseUri" (ngModelChange)="updateNewDimensionBaseUri($event)" placeholder="https://example.org/code/">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>URI *</mat-label>
+              <input matInput formControlName="uri" placeholder="https://example.org/dimension/timePeriod">
+              <mat-hint>Unique identifier for this dimension in RDF</mat-hint>
+              @if (dimensionForm.get('uri')?.touched && dimensionForm.get('uri')?.invalid) {
+                <mat-error>{{ getErrorMessage('uri', dimensionForm) }}</mat-error>
+              }
             </mat-form-field>
-          </div>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <textarea matInput rows="3" [ngModel]="newDimension().description" (ngModelChange)="updateNewDimensionDescription($event)" placeholder="Optional description of this dimension"></textarea>
-          </mat-form-field>
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Type</mat-label>
+                <mat-select formControlName="type">
+                  @for (option of typeOptions; track option.value) {
+                    <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Base URI for Values</mat-label>
+                <input matInput formControlName="baseUri" placeholder="https://example.org/code/">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description</mat-label>
+              <textarea matInput rows="3" formControlName="description" placeholder="Optional description"></textarea>
+            </mat-form-field>
+          </form>
         </div>
         <div class="dialog-actions">
-          <button mat-button (click)="createDialogVisible.set(false)">Cancel</button>
-          <button mat-raised-button color="primary" (click)="createDimension()">
+          <button mat-button (click)="closeCreateDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="createDimension()" [disabled]="dimensionForm.invalid">
             <mat-icon>check</mat-icon>
             Create
           </button>
@@ -218,45 +194,50 @@
 
   <!-- Edit Dimension Dialog -->
   @if (editDialogVisible()) {
-    <div class="dialog-backdrop" (click)="editDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeEditDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Edit Dimension</h2>
-          <button mat-icon-button (click)="editDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeEditDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
         <div class="dialog-content">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Name <span class="required">*</span></mat-label>
-            <input matInput [ngModel]="editDimension().name" (ngModelChange)="updateEditDimensionName($event)">
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>URI <span class="required">*</span></mat-label>
-            <input matInput [ngModel]="editDimension().uri" (ngModelChange)="updateEditDimensionUri($event)">
-          </mat-form-field>
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Type</mat-label>
-              <mat-select [ngModel]="editDimension().type" (ngModelChange)="updateEditDimensionType($event)">
-                @for (option of typeOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
+          <form [formGroup]="editDimensionForm">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Name *</mat-label>
+              <input matInput formControlName="name">
+              @if (editDimensionForm.get('name')?.touched && editDimensionForm.get('name')?.invalid) {
+                <mat-error>{{ getErrorMessage('name', editDimensionForm) }}</mat-error>
+              }
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Base URI for Values</mat-label>
-              <input matInput [ngModel]="editDimension().baseUri" (ngModelChange)="updateEditDimensionBaseUri($event)">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>URI *</mat-label>
+              <input matInput formControlName="uri">
             </mat-form-field>
-          </div>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <textarea matInput rows="3" [ngModel]="editDimension().description" (ngModelChange)="updateEditDimensionDescription($event)"></textarea>
-          </mat-form-field>
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Type</mat-label>
+                <mat-select formControlName="type">
+                  @for (option of typeOptions; track option.value) {
+                    <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Base URI for Values</mat-label>
+                <input matInput formControlName="baseUri">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description</mat-label>
+              <textarea matInput rows="3" formControlName="description"></textarea>
+            </mat-form-field>
+          </form>
         </div>
         <div class="dialog-actions">
-          <button mat-button (click)="editDialogVisible.set(false)">Cancel</button>
-          <button mat-raised-button color="primary" (click)="saveDimension()">
+          <button mat-button (click)="closeEditDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="saveDimension()" [disabled]="editDimensionForm.invalid">
             <mat-icon>check</mat-icon>
             Save
           </button>
@@ -267,74 +248,36 @@
 
   <!-- Details Dialog -->
   @if (detailsDialogVisible()) {
-    <div class="dialog-backdrop" (click)="detailsDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeDetailsDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Details: {{ selectedDimension()?.name || '' }}</h2>
-          <button mat-icon-button (click)="detailsDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeDetailsDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
         @if (selectedDimension(); as dim) {
           <div class="dialog-content">
             <div class="details-grid">
-              <div class="detail-item">
-                <label>Name</label>
-                <span class="detail-value">{{ dim.name }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Type</label>
-                <mat-chip [class]="'type-chip-' + getTypeColor(dim.type)">{{ dim.type }}</mat-chip>
-              </div>
-              <div class="detail-item full-width">
-                <label>URI</label>
-                <div class="uri-display">
-                  <code>{{ dim.uri }}</code>
-                  <button mat-icon-button (click)="copyToClipboard(dim.uri, 'URI')">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-              </div>
+              <div class="detail-item"><label>Name</label><span>{{ dim.name }}</span></div>
+              <div class="detail-item"><label>Type</label><mat-chip [class]="'type-chip-' + getTypeColor(dim.type)">{{ getTypeLabel(dim.type) }}</mat-chip></div>
+              <div class="detail-item full-width"><label>URI</label><code>{{ dim.uri }}</code></div>
               @if (dim.baseUri) {
-                <div class="detail-item full-width">
-                  <label>Base URI for Values</label>
-                  <code>{{ dim.baseUri }}</code>
-                </div>
+                <div class="detail-item full-width"><label>Base URI</label><code>{{ dim.baseUri }}</code></div>
               }
               @if (dim.description) {
-                <div class="detail-item full-width">
-                  <label>Description</label>
-                  <span class="detail-value">{{ dim.description }}</span>
-                </div>
+                <div class="detail-item full-width"><label>Description</label><span>{{ dim.description }}</span></div>
               }
-              <div class="detail-item">
-                <label>Value Count</label>
-                <span class="detail-value">{{ dim.valueCount || 0 }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Version</label>
-                <span class="detail-value">{{ dim.version || 1 }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Created</label>
-                <span class="detail-value">{{ formatDate(dim.createdAt) }}</span>
-              </div>
-              <div class="detail-item">
-                <label>Updated</label>
-                <span class="detail-value">{{ formatDate(dim.updatedAt) }}</span>
-              </div>
-              <div class="detail-item full-width">
-                <label>ID</label>
-                <code class="id-code">{{ dim.id }}</code>
-              </div>
+              <div class="detail-item"><label>Values</label><span>{{ dim.valueCount || 0 }}</span></div>
+              <div class="detail-item"><label>ID</label><code>{{ dim.id }}</code></div>
             </div>
           </div>
           <div class="dialog-actions">
-            <button mat-raised-button color="primary" (click)="openValuesDialog(selectedDimension()!, $event); detailsDialogVisible.set(false)">
+            <button mat-raised-button color="primary" (click)="openValuesDialog(dim, $event); closeDetailsDialog()">
               <mat-icon>list</mat-icon>
               Manage Values
             </button>
-            <button mat-button (click)="detailsDialogVisible.set(false)">Close</button>
+            <button mat-button (click)="closeDetailsDialog()">Close</button>
           </div>
         }
       </div>
@@ -343,11 +286,11 @@
 
   <!-- Values Management Dialog -->
   @if (valuesDialogVisible()) {
-    <div class="dialog-backdrop" (click)="valuesDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeValuesDialog()">
       <div class="dialog-container large-dialog" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Values: {{ selectedDimension()?.name || '' }}</h2>
-          <button mat-icon-button (click)="valuesDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeValuesDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
@@ -362,6 +305,10 @@
               <mat-icon>add</mat-icon>
               Add Value
             </button>
+            <button mat-stroked-button (click)="openImportDialog()">
+              <mat-icon>upload</mat-icon>
+              Import CSV
+            </button>
           </div>
 
           @if (valuesLoading()) {
@@ -374,69 +321,40 @@
               <mat-icon>inbox</mat-icon>
               <h4>No values defined</h4>
               <p>Add values manually or import from CSV</p>
-              <div class="empty-actions">
-                <button mat-raised-button color="primary" (click)="openAddValueDialog()">
-                  <mat-icon>add</mat-icon>
-                  Add Value
-                </button>
-                <button mat-raised-button (click)="importDialogVisible.set(true)">
-                  <mat-icon>upload</mat-icon>
-                  Import CSV
-                </button>
-              </div>
             </div>
           } @else {
             <table mat-table [dataSource]="filteredValues()" class="values-table">
               <ng-container matColumnDef="code">
                 <th mat-header-cell *matHeaderCellDef>Code</th>
-                <td mat-cell *matCellDef="let value">
-                  <code class="value-code">{{ value.code }}</code>
-                </td>
+                <td mat-cell *matCellDef="let value"><code>{{ value.code }}</code></td>
               </ng-container>
-
               <ng-container matColumnDef="label">
                 <th mat-header-cell *matHeaderCellDef>Label</th>
-                <td mat-cell *matCellDef="let value">
-                  <div class="value-label">
-                    <span>{{ value.label }}</span>
-                    @if (value.description) {
-                      <small class="value-desc">{{ value.description }}</small>
-                    }
-                  </div>
-                </td>
+                <td mat-cell *matCellDef="let value">{{ value.label }}</td>
               </ng-container>
-
               <ng-container matColumnDef="uri">
                 <th mat-header-cell *matHeaderCellDef>URI</th>
-                <td mat-cell *matCellDef="let value">
-                  <span class="uri-cell-small" [matTooltip]="value.uri">{{ value.uri }}</span>
-                </td>
+                <td mat-cell *matCellDef="let value"><span [matTooltip]="value.uri">{{ value.uri }}</span></td>
               </ng-container>
-
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
                 <td mat-cell *matCellDef="let value">
-                  <div class="row-actions">
-                    <button mat-icon-button (click)="openEditValueDialog(value, $event)" matTooltip="Edit">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button color="warn" (click)="confirmDeleteValue(value, $event)" matTooltip="Delete">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </div>
+                  <button mat-icon-button (click)="openEditValueDialog(value, $event)" matTooltip="Edit">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="confirmDeleteValue(value, $event)" matTooltip="Delete">
+                    <mat-icon>delete</mat-icon>
+                  </button>
                 </td>
               </ng-container>
-
               <tr mat-header-row *matHeaderRowDef="['code', 'label', 'uri', 'actions']"></tr>
               <tr mat-row *matRowDef="let row; columns: ['code', 'label', 'uri', 'actions']"></tr>
             </table>
-
-            <mat-paginator [pageSizeOptions]="[10, 25, 50]" [pageSize]="10"></mat-paginator>
           }
         </div>
         <div class="dialog-actions">
-          <span class="values-count">{{ filteredValues().length }} values</span>
-          <button mat-button (click)="valuesDialogVisible.set(false)">Close</button>
+          <span>{{ filteredValues().length }} values</span>
+          <button mat-button (click)="closeValuesDialog()">Close</button>
         </div>
       </div>
     </div>
@@ -444,37 +362,39 @@
 
   <!-- Add Value Dialog -->
   @if (addValueDialogVisible()) {
-    <div class="dialog-backdrop" (click)="addValueDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeAddValueDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Add Value</h2>
-          <button mat-icon-button (click)="addValueDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeAddValueDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
         <div class="dialog-content">
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Code <span class="required">*</span></mat-label>
-              <input matInput [ngModel]="newValue().code" (ngModelChange)="updateNewValueCode($event)" placeholder="e.g., 2024-Q1">
+          <form [formGroup]="valueForm">
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Code *</mat-label>
+                <input matInput formControlName="code" placeholder="e.g., 2024-Q1">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Label *</mat-label>
+                <input matInput formControlName="label" placeholder="e.g., First Quarter 2024">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>URI</mat-label>
+              <input matInput formControlName="uri" placeholder="Auto-generated from base URI if empty">
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Label <span class="required">*</span></mat-label>
-              <input matInput [ngModel]="newValue().label" (ngModelChange)="updateNewValueLabel($event)" placeholder="e.g., First Quarter 2024">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description</mat-label>
+              <input matInput formControlName="description" placeholder="Optional description">
             </mat-form-field>
-          </div>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>URI</mat-label>
-            <input matInput [ngModel]="newValue().uri" (ngModelChange)="updateNewValueUri($event)" placeholder="Auto-generated from base URI if empty">
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <input matInput [ngModel]="newValue().description" (ngModelChange)="updateNewValueDescription($event)" placeholder="Optional description">
-          </mat-form-field>
+          </form>
         </div>
         <div class="dialog-actions">
-          <button mat-button (click)="addValueDialogVisible.set(false)">Cancel</button>
-          <button mat-raised-button color="primary" (click)="addValue()">
+          <button mat-button (click)="closeAddValueDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="addValue()" [disabled]="valueForm.invalid">
             <mat-icon>add</mat-icon>
             Add
           </button>
@@ -485,37 +405,39 @@
 
   <!-- Edit Value Dialog -->
   @if (editValueDialogVisible()) {
-    <div class="dialog-backdrop" (click)="editValueDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="closeEditValueDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Edit Value</h2>
-          <button mat-icon-button (click)="editValueDialogVisible.set(false)">
+          <button mat-icon-button (click)="closeEditValueDialog()">
             <mat-icon>close</mat-icon>
           </button>
         </div>
         <div class="dialog-content">
-          <div class="form-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Code <span class="required">*</span></mat-label>
-              <input matInput [ngModel]="editValue().code" (ngModelChange)="updateEditValueCode($event)">
+          <form [formGroup]="editValueForm">
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Code *</mat-label>
+                <input matInput formControlName="code">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Label *</mat-label>
+                <input matInput formControlName="label">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>URI</mat-label>
+              <input matInput formControlName="uri">
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Label <span class="required">*</span></mat-label>
-              <input matInput [ngModel]="editValue().label" (ngModelChange)="updateEditValueLabel($event)">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Description</mat-label>
+              <input matInput formControlName="description">
             </mat-form-field>
-          </div>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>URI</mat-label>
-            <input matInput [ngModel]="editValue().uri" (ngModelChange)="updateEditValueUri($event)">
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <input matInput [ngModel]="editValue().description" (ngModelChange)="updateEditValueDescription($event)">
-          </mat-form-field>
+          </form>
         </div>
         <div class="dialog-actions">
-          <button mat-button (click)="editValueDialogVisible.set(false)">Cancel</button>
-          <button mat-raised-button color="primary" (click)="saveValue()">
+          <button mat-button (click)="closeEditValueDialog()">Cancel</button>
+          <button mat-raised-button color="primary" (click)="saveValue()" [disabled]="editValueForm.invalid">
             <mat-icon>check</mat-icon>
             Save
           </button>
@@ -526,47 +448,67 @@
 
   <!-- Import CSV Dialog -->
   @if (importDialogVisible()) {
-    <div class="dialog-backdrop" (click)="!importing() && importDialogVisible.set(false)">
+    <div class="dialog-backdrop" (click)="!importing() && closeImportDialog()">
       <div class="dialog-container" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Import Values: {{ selectedDimension()?.name || '' }}</h2>
           @if (!importing()) {
-            <button mat-icon-button (click)="importDialogVisible.set(false)">
+            <button mat-icon-button (click)="closeImportDialog()">
               <mat-icon>close</mat-icon>
             </button>
           }
         </div>
         <div class="dialog-content">
-          <div class="import-dropzone" [class.importing]="importing()">
-            @if (importing()) {
+          @if (importing()) {
+            <div class="import-progress">
               <mat-spinner diameter="50"></mat-spinner>
               <p>Importing values...</p>
               <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            } @else {
-              <mat-icon>description</mat-icon>
-              <p>Drag and drop a CSV file here</p>
-              <p>or click to browse</p>
-              <input type="file" accept=".csv" (change)="onFileSelect({ files: $any($event.target).files })" style="display: none" #fileInput>
-              <button mat-raised-button color="primary" (click)="fileInput.click()">
-                <mat-icon>upload</mat-icon>
-                Select File
-              </button>
+            </div>
+          } @else {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>CSV Data</mat-label>
+              <textarea matInput rows="8" [ngModel]="importCsvData()" (ngModelChange)="importCsvData.set($event)" placeholder="code,label,description&#10;Q1,First Quarter,Jan-Mar"></textarea>
+              <mat-hint>Paste CSV data with code, label, and optional description columns</mat-hint>
+            </mat-form-field>
+
+            <div class="import-options">
+              <label><input type="checkbox" [ngModel]="hasHeaderRow()" (ngModelChange)="hasHeaderRow.set($event)"> First row is header</label>
+              <mat-form-field appearance="outline">
+                <mat-label>Delimiter</mat-label>
+                <mat-select [ngModel]="csvDelimiter()" (ngModelChange)="csvDelimiter.set($event)">
+                  <mat-option value=",">Comma</mat-option>
+                  <mat-option value=";">Semicolon</mat-option>
+                  <mat-option value="&#9;">Tab</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <button mat-stroked-button (click)="parseCsvPreview()">Preview</button>
+
+            @if (parsedCsvPreview().length > 0) {
+              <div class="csv-preview">
+                <h4>Preview (first {{ parsedCsvPreview().length }} rows)</h4>
+                @for (row of parsedCsvPreview(); track $index) {
+                  <div class="preview-row">{{ row.code }} - {{ row.label }}</div>
+                }
+              </div>
             }
-          </div>
 
-          <mat-divider></mat-divider>
-
-          <div class="import-info">
-            <h4>CSV Format Requirements</h4>
-            <ul>
-              <li><strong>code</strong> - Unique identifier for the value (required)</li>
-              <li><strong>label</strong> - Display label (required)</li>
-              <li><strong>uri</strong> - Full URI (optional, auto-generated if empty)</li>
-              <li><strong>description</strong> - Optional description</li>
-            </ul>
-            <p class="text-hint">First row should contain column headers</p>
-          </div>
+            @if (importError()) {
+              <div class="import-error">{{ importError() }}</div>
+            }
+          }
         </div>
+        @if (!importing()) {
+          <div class="dialog-actions">
+            <button mat-button (click)="closeImportDialog()">Cancel</button>
+            <button mat-raised-button color="primary" (click)="importFromCsv()" [disabled]="!importCsvData()">
+              <mat-icon>upload</mat-icon>
+              Import
+            </button>
+          </div>
+        }
       </div>
     </div>
   }

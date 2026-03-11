@@ -1,29 +1,20 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 
-import { ObliqueModule } from '@oblique/oblique';
-
-import { JobListComponent } from './job-list/job-list';
-import { JobMonitorComponent } from './job-monitor/job-monitor';
-import { SharedModule } from '../../shared/shared.module';
+import { JobList } from './job-list/job-list';
+import { JobMonitor } from './job-monitor/job-monitor';
 
 @NgModule({
-  declarations: [
-    JobListComponent,
-    JobMonitorComponent
-  ],
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     RouterModule,
-    ObliqueModule,
-    SharedModule
+    JobList,
+    JobMonitor
   ],
   exports: [
-    JobListComponent,
-    JobMonitorComponent
+    JobList,
+    JobMonitor
   ]
 })
 export class JobModule { }

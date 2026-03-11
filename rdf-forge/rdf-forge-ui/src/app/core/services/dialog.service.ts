@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { MatDialog, MatDialogRef, MatDialogConfig } from '@angular/material/dialog';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { ConfirmDialogComponent, ConfirmDialogData } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { ComponentType } from '@angular/cdk/portal';
 
 /**
  * Service for managing dialogs (confirmations, alerts, etc.)
@@ -31,7 +33,7 @@ export class DialogService {
       }
     );
 
-    return dialogRef.afterClosed();
+    return dialogRef.afterClosed().pipe(map(result => !!result));
   }
 
   /**
@@ -109,8 +111,6 @@ import { FormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { CommonModule } from '@angular/common';
-import { map } from 'rxjs/operators';
-import { ComponentType } from '@angular/cdk/portal';
 
 /**
  * Data for prompt dialog

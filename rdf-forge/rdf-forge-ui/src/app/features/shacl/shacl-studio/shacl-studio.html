@@ -1,549 +1,120 @@
-<!-- SHACL Studio Component -->
-<div class="shacl-studio ob-page" role="main" aria-label="SHACL Studio">
-  <header class="ob-page-header">
-    <div class="ob-page-title">
-      <h1>SHACL Studio</h1>
-      <p class="ob-text-muted">Design, validate, and manage RDF shapes</p>
-    </div>
-    <div class="ob-page-actions">
-      <button
-        mat-raised-button
-        color="primary"
-        (click)="createShape()"
-        aria-label="Create new shape">
-        <mat-icon>add</mat-icon>
-        New Shape
-      </button>
-    </div>
+<div class="shacl-studio" role="main" aria-label="SHACL Studio">
+  <header class="studio-header">
+    <h1>SHACL Studio</h1>
+    <p class="subtitle">Design, validate, and manage RDF shapes</p>
   </header>
 
-  <!-- Tabs -->
-  <mat-tab-group [selectedIndex]="activeTabIndex" (selectedIndexChange)="onTabChange($event)" aria-label="SHACL tabs">
-    <mat-tab label="Shape Editor">
-      <ng-template matTabContent>
-        <div class="shape-editor-content">
-          <!-- Shape List -->
-          <div class="shape-list-section">
-            <div class="section-header">
-              <h2>Shapes</h2>
-              <div class="filter-actions">
-                <mat-form-field appearance="outline" class="search-field">
-                  <mat-label>Search shapes</mat-label>
-                  <input matInput [formControl]="searchControl" placeholder="Filter by name..." aria-label="Search shapes">
-                  <mat-icon matSuffix>search</mat-icon>
-                </mat-form-field>
-              </div>
-            </div>
-
-            <div class="shapes-list" role="list" aria-label="Available shapes">
-              @for (shape of filteredShapes$ | async; track shape.id) {
-                <div
-                  class="shape-item"
-                  [class.active]="selectedShape?.id === shape.id"
-                  (click)="selectShape(shape)"
-                  role="listitem"
-                  [attr.aria-selected]="selectedShape?.id === shape.id"
-                  tabindex="0"
-                  (keydown.enter)="selectShape(shape)"
-                  (keydown.space)="selectShape(shape); $event.preventDefault()">
-                  <div class="shape-info">
-                    <span class="shape-name">{{ shape.name || 'Untitled Shape' }}</span>
-                    <span class="ob-text-muted shape-type">{{ shape.type }}</span>
-                  </div>
-                  <div class="shape-actions">
-                    <button
-                      mat-icon-button
-                      [matMenuTriggerFor]="shapeMenu"
-                      (click)="$event.stopPropagation()"
-                      aria-label="Shape actions">
-                      <mat-icon>more_vert</mat-icon>
-                    </button>
-                    <mat-menu #shapeMenu="matMenu">
-                      <button mat-menu-item (click)="editShape(shape)">
-                        <mat-icon>edit</mat-icon>
-                        <span>Edit</span>
-                      </button>
-                      <button mat-menu-item (click)="cloneShape(shape)">
-                        <mat-icon>content_copy</mat-icon>
-                        <span>Clone</span>
-                      </button>
-                      <button mat-menu-item (click)="validateShape(shape)">
-                        <mat-icon>check_circle</mat-icon>
-                        <span>Validate</span>
-                      </button>
-                      <mat-divider></mat-divider>
-                      <button mat-menu-item (click)="deleteShape(shape)" class="delete-action">
-                        <mat-icon color="warn">delete</mat-icon>
-                        <span>Delete</span>
-                      </button>
-                    </mat-menu>
-                  </div>
-                </div>
-              } @empty {
-                <div class="empty-state ob-empty-state">
-                  <mat-icon class="empty-icon">shapes</mat-icon>
-                  <p>No shapes found</p>
-                  <button mat-stroked-button (click)="createShape()">
-                    Create your first shape
-                  </button>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- Turtle Editor -->
-          <div class="editor-section" [class.has-errors]="validationErrors.length > 0">
-            <div class="editor-toolbar">
-              <span class="section-title">Turtle Editor</span>
-              <div class="toolbar-actions">
-                <button
-                  mat-icon-button
-                  (click)="formatTurtle()"
-                  matTooltip="Format Turtle"
-                  aria-label="Format Turtle code">
-                  <mat-icon>format_align_left</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
-                  (click)="validateSyntax()"
-                  matTooltip="Validate Syntax"
-                  aria-label="Validate syntax">
-                  <mat-icon>spellcheck</mat-icon>
-                </button>
-              </div>
-            </div>
-
-            <div class="editor-container" role="textbox" aria-label="Turtle code editor">
-              <ngx-codemirror
-                [(ngModel)]="turtleCode"
-                [options]="editorOptions"
-                (ngModelChange)="onCodeChange($event)">
-              </ngx-codemirror>
-            </div>
-
-            <!-- Validation Errors Panel -->
-            @if (validationErrors.length > 0) {
-              <div class="validation-errors ob-alert ob-alert-error" role="alert" aria-live="polite">
-                <h3>
-                  <mat-icon>error</mat-icon>
-                  Validation Errors ({{ validationErrors.length }})
-                </h3>
-                <ul>
-                  @for (error of validationErrors; track error.message) {
-                    <li>
-                      <span class="error-location">Line {{ error.line }}, Col {{ error.column }}:</span>
-                      <span class="error-message">{{ error.message }}</span>
-                    </li>
-                  }
-                </ul>
-                <button mat-stroked-button (click)="clearValidationErrors()">
-                  <mat-icon>clear_all</mat-icon>
-                  Clear Errors
-                </button>
-              </div>
-            }
-          </div>
-        </div>
-      </ng-template>
-    </mat-tab>
-
-    <mat-tab label="Visual Editor">
-      <ng-template matTabContent>
-        <div class="visual-editor-content">
-          <!-- Shape Graph Visualization -->
-          <div class="visualization-section">
-            <div class="section-header">
-              <h2>Shape Visualization</h2>
-              <div class="view-controls">
-                <mat-button-toggle-group [(ngModel)]="visualizationMode" aria-label="Visualization mode">
-                  <mat-button-toggle value="graph">
-                    <mat-icon>account_tree</mat-icon>
-                    Graph
-                  </mat-button-toggle>
-                  <mat-button-toggle value="tree">
-                    <mat-icon>account_tree</mat-icon>
-                    Tree
-                  </mat-button-toggle>
-                  <mat-button-toggle value="list">
-                    <mat-icon>list</mat-icon>
-                    List
-                  </mat-button-toggle>
-                </mat-button-toggle-group>
-              </div>
-            </div>
-
-            <div class="visualization-container" role="region" aria-label="Shape visualization">
-              @if (shapeGraphData) {
-                <div class="graph-view" [class.hidden]="visualizationMode !== 'graph'">
-                  <app-shape-graph
-                    [data]="shapeGraphData"
-                    (nodeClick)="onNodeClick($event)"
-                    role="img"
-                    aria-label="Shape graph visualization">
-                  </app-shape-graph>
-                </div>
-                <div class="tree-view" [class.hidden]="visualizationMode !== 'tree'">
-                  <app-shape-tree
-                    [data]="shapeGraphData"
-                    (nodeSelect)="onNodeClick($event)"
-                    role="tree"
-                    aria-label="Shape tree structure">
-                  </app-shape-tree>
-                </div>
-                <div class="list-view" [class.hidden]="visualizationMode !== 'list'">
-                  <app-shape-list
-                    [data]="shapeGraphData"
-                    (itemSelect)="onNodeClick($event)"
-                    role="list"
-                    aria-label="Shape properties list">
-                  </app-shape-list>
-                </div>
-              } @else {
-                <div class="empty-state ob-empty-state">
-                  <mat-icon class="empty-icon">visibility_off</mat-icon>
-                  <p>No shape selected for visualization</p>
-                  <p class="ob-text-muted">Select or create a shape to view its structure</p>
-                  <button mat-stroked-button (click)="activeTabIndex = 0">
-                    Go to Shape Editor
-                  </button>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- Shape Properties Panel -->
-          <div class="properties-section">
-            <h3>Properties</h3>
-            @if (selectedNode) {
-              <div class="property-form">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Name</mat-label>
-                  <input matInput [formControl]="nodeNameControl" placeholder="Property name" aria-label="Property name">
-                  @if (nodeNameControl.hasError('required')) {
-                    <mat-error>Name is required</mat-error>
-                  }
-                  @if (nodeNameControl.hasError('maxlength')) {
-                    <mat-error>Name must be less than 100 characters</mat-error>
-                  }
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Type</mat-label>
-                  <mat-select [formControl]="nodeTypeControl" aria-label="Property type">
-                    <mat-option value="NodeShape">Node Shape</mat-option>
-                    <mat-option value="PropertyShape">Property Shape</mat-option>
-                    <mat-option value="ClassConstraint">Class Constraint</mat-option>
-                    <mat-option value="DatatypeConstraint">Datatype Constraint</mat-option>
-                    <mat-option value="CardinalityConstraint">Cardinality Constraint</mat-option>
-                  </mat-select>
-                  @if (nodeTypeControl.hasError('required')) {
-                    <mat-error>Type is required</mat-error>
-                  }
-                </mat-form-field>
-
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Description</mat-label>
-                  <textarea
-                    matInput
-                    [formControl]="nodeDescriptionControl"
-                    rows="3"
-                    placeholder="Property description..."
-                    aria-label="Property description"></textarea>
-                  @if (nodeDescriptionControl.hasError('maxlength')) {
-                    <mat-error>Description must be less than 500 characters</mat-error>
-                  }
-                </mat-form-field>
-
-                <div class="property-constraints">
-                  <h4>Constraints</h4>
-                  <div formArrayName="constraints" class="constraints-list">
-                    @for (constraint of constraintsArray.controls; track $index; let i = $index) {
-                      <div class="constraint-item">
-                        <div class="constraint-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Constraint Type</mat-label>
-                            <mat-select [formControl]="getConstraintControl(i, 'type')" aria-label="Constraint type">
-                              <mat-option value="minCount">Min Count</mat-option>
-                              <mat-option value="maxCount">Max Count</mat-option>
-                              <mat-option value="pattern">Pattern</mat-option>
-                              <mat-option value="datatype">Datatype</mat-option>
-                              <mat-option value="class">Class</mat-option>
-                            </mat-select>
-                          </mat-form-field>
-                          <mat-form-field appearance="outline">
-                            <mat-label>Value</mat-label>
-                            <input matInput [formControl]="getConstraintControl(i, 'value')" aria-label="Constraint value">
-                          </mat-form-field>
-                          <button
-                            mat-icon-button
-                            color="warn"
-                            (click)="removeConstraint(i)"
-                            aria-label="Remove constraint">
-                            <mat-icon>remove_circle</mat-icon>
-                          </button>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                  <button mat-stroked-button (click)="addConstraint()" class="add-constraint-btn">
-                    <mat-icon>add</mat-icon>
-                    Add Constraint
-                  </button>
-                </div>
-
-                <div class="form-actions">
-                  <button
-                    mat-raised-button
-                    color="primary"
-                    (click)="saveProperty()"
-                    [disabled]="!isPropertyFormValid || isSaving"
-                    aria-label="Save property">
-                    @if (isSaving) {
-                      <mat-spinner diameter="20" aria-label="Saving..."></mat-spinner>
-                    } @else {
-                      <mat-icon>save</mat-icon>
-                    }
-                    Save Property
-                  </button>
-                  <button mat-stroked-button (click)="cancelPropertyEdit()" aria-label="Cancel">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            } @else {
-              <div class="empty-state ob-empty-state ob-empty-state-small">
-                <mat-icon>touch_app</mat-icon>
-                <p>Select a node to edit properties</p>
-              </div>
-            }
-          </div>
-        </div>
-      </ng-template>
-    </mat-tab>
-
-    <mat-tab label="Validation">
-      <ng-template matTabContent>
-        <div class="validation-content">
-          <!-- Validation Results -->
-          <div class="validation-results-section">
-            <div class="section-header">
-              <h2>Validation Results</h2>
-              <div class="validation-actions">
-                <input
-                  type="file"
-                  #fileInput
-                  accept=".ttl,.rdf,.jsonld,.nt"
-                  (change)="onDataFileSelected($event)"
-                  hidden
-                  aria-label="Select data file for validation">
-                <button mat-stroked-button (click)="fileInput.click()">
-                  <mat-icon>upload_file</mat-icon>
-                  Load Data File
-                </button>
-                <button
-                  mat-raised-button
-                  color="primary"
-                  (click)="runValidation()"
-                  [disabled]="!selectedShape || !validationDataFile || isValidating"
-                  aria-label="Run validation">
-                  @if (isValidating) {
-                    <mat-spinner diameter="20" aria-label="Validating..."></mat-spinner>
-                  } @else {
-                    <mat-icon>play_arrow</mat-icon>
-                  }
-                  Validate
-                </button>
-              </div>
-            </div>
-
-            @if (validationReport) {
-              <div class="validation-report" [class.valid]="validationReport.conforms" role="region" aria-label="Validation report">
-                <div class="report-summary" [class.conforms]="validationReport.conforms">
-                  <mat-icon>{{ validationReport.conforms ? 'check_circle' : 'error' }}</mat-icon>
-                  <span class="report-status">
-                    {{ validationReport.conforms ? 'Data conforms to shape' : 'Validation failed' }}
-                  </span>
-                  <span class="report-stats">
-                    {{ validationReport.results?.length || 0 }} violations found
-                  </span>
-                </div>
-
-                @if (!validationReport.conforms && validationReport.results?.length > 0) {
-                  <div class="violations-list" role="list" aria-label="Validation violations">
-                    @for (violation of validationReport.results; track violation.focusNode) {
-                      <div class="violation-item" role="listitem">
-                        <div class="violation-header">
-                          <mat-icon class="violation-icon">error</mat-icon>
-                          <span class="violation-path">{{ violation.resultPath || violation.focusNode }}</span>
-                          <span class="violation-severity ob-badge" [class]="'ob-badge-' + violation.severity">
-                            {{ violation.severity }}
-                          </span>
-                        </div>
-                        <div class="violation-details">
-                          <p class="violation-message">{{ violation.message }}</p>
-                          <div class="violation-values">
-                            <span class="violation-value ob-text-muted" title="Focus Node">{{ violation.focusNode }}</span>
-                            @if (violation.value) {
-                              <span class="violation-separator">→</span>
-                              <span class="violation-value ob-text-muted" title="Value">{{ violation.value }}</span>
-                            }
-                          </div>
-                          <button mat-button (click)="goToViolationInEditor(violation)" class="go-to-btn">
-                            <mat-icon>edit</mat-icon>
-                            Show in Editor
-                          </button>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                }
-
-                <div class="report-actions">
-                  <button mat-stroked-button (click)="exportValidationReport()">
-                    <mat-icon>download</mat-icon>
-                    Export Report
-                  </button>
-                </div>
-              </div>
-            } @else {
-              <div class="empty-state ob-empty-state">
-                <mat-icon class="empty-icon">fact_check</mat-icon>
-                <p>No validation run yet</p>
-                <p class="ob-text-muted">Select a shape and data file, then click Validate</p>
-              </div>
-            }
-          </div>
-
-          <!-- Validation Settings -->
-          <div class="validation-settings">
-            <h3>Validation Settings</h3>
-            <mat-card>
-              <mat-card-content>
-                <div class="settings-form">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Target Shape</mat-label>
-                    <mat-select [(ngModel)]="selectedValidationShape" aria-label="Select target shape">
-                      @for (shape of filteredShapes$ | async; track shape.id) {
-                        <mat-option [value]="shape">{{ shape.name }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-slide-toggle [(ngModel)]="validationOptions.failFast" aria-label="Fail fast mode">
-                    Fail Fast (stop on first error)
-                  </mat-slide-toggle>
-
-                  <mat-slide-toggle [(ngModel)]="validationOptions.includeDetails" aria-label="Include details in report">
-                    Include detailed explanations
-                  </mat-slide-toggle>
-
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Severity Filter</mat-label>
-                    <mat-select [(ngModel)]="validationOptions.minSeverity" multiple aria-label="Severity filter">
-                      <mat-option value="Violation">Violation</mat-option>
-                      <mat-option value="Warning">Warning</mat-option>
-                      <mat-option value="Info">Info</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                </div>
-              </mat-card-content>
-            </mat-card>
-          </div>
-        </div>
-      </ng-template>
-    </mat-tab>
-  </mat-tab-group>
-
-  <!-- Status Bar -->
-  <div class="status-bar ob-status-bar" role="status" aria-live="polite">
-    <div class="status-left">
-      <mat-icon class="status-icon" [class.unsaved]="hasUnsavedChanges">circle</mat-icon>
-      <span class="status-text">
-        @if (hasUnsavedChanges) {
-          Unsaved changes
-        } @else {
-          All changes saved
+  <!-- Shape Form -->
+  <div class="shape-form-section" [formGroup]="shapeForm">
+    <div class="form-row">
+      <div class="form-field">
+        <label for="shapeName">Shape Name</label>
+        <input id="shapeName" formControlName="name" placeholder="e.g., PersonShape" />
+        @if (hasErrors('name')) {
+          <span class="error-text">{{ getErrorMessage('name') }}</span>
         }
-      </span>
+      </div>
+      <div class="form-field">
+        <label for="shapeDescription">Description</label>
+        <input id="shapeDescription" formControlName="description" placeholder="Describe the shape..." />
+        @if (hasErrors('description')) {
+          <span class="error-text">{{ getErrorMessage('description') }}</span>
+        }
+      </div>
     </div>
-    <div class="status-right">
-      @if (selectedShape) {
-        <span class="shape-info">{{ selectedShape.name }}</span>
+
+    <div class="form-field">
+      <label for="profileSelect">Validation Profile</label>
+      <select id="profileSelect" formControlName="profile">
+        <option [ngValue]="null">-- None --</option>
+        @for (profile of availableProfiles; track profile.id) {
+          <option [ngValue]="profile.id">{{ profile.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-field">
+      <label>
+        <input type="checkbox" formControlName="autoValidate" />
+        Auto-validate on change
+      </label>
+    </div>
+
+    <!-- Turtle Editor -->
+    <div class="editor-section">
+      <label for="shapeContent">Turtle Content</label>
+      <textarea
+        id="shapeContent"
+        formControlName="content"
+        rows="16"
+        placeholder="@prefix sh: <http://www.w3.org/ns/shacl#> .&#10;..."
+        class="code-editor"
+        spellcheck="false"
+        aria-label="Turtle code editor"></textarea>
+      @if (hasErrors('content')) {
+        <span class="error-text">{{ getErrorMessage('content') }}</span>
       }
-      <span class="cursor-position">Ln {{ cursorLine }}, Col {{ cursorColumn }}</span>
     </div>
   </div>
-</div>
 
-<!-- Edit Shape Dialog Template -->
-<ng-template #editDialog>
-  <h2 mat-dialog-title>Edit Shape Properties</h2>
-  <mat-dialog-content>
-    <form [formGroup]="editShapeForm" class="edit-shape-form">
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Shape Name</mat-label>
-        <input matInput formControlName="name" placeholder="Enter shape name" aria-label="Shape name">
-        @if (editShapeForm.get('name')?.hasError('required')) {
-          <mat-error>Shape name is required</mat-error>
-        }
-        @if (editShapeForm.get('name')?.hasError('minlength')) {
-          <mat-error>Shape name must be at least 2 characters</mat-error>
-        }
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Shape Type</mat-label>
-        <mat-select formControlName="type" aria-label="Shape type">
-          <mat-option value="NodeShape">Node Shape</mat-option>
-          <mat-option value="PropertyShape">Property Shape</mat-option>
-        </mat-select>
-        @if (editShapeForm.get('type')?.hasError('required')) {
-          <mat-error>Shape type is required</mat-error>
-        }
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Target Class (optional)</mat-label>
-        <input
-          matInput
-          formControlName="targetClass"
-          placeholder="e.g., http://schema.org/Person"
-          aria-label="Target class">
-      </mat-form-field>
-    </form>
-  </mat-dialog-content>
-  <mat-dialog-actions align="end">
-    <button mat-button (click)="closeEditDialog()" aria-label="Cancel">Cancel</button>
-    <button
-      mat-raised-button
-      color="primary"
-      (click)="saveShapeProperties()"
-      [disabled]="editShapeForm.invalid || isSaving"
-      aria-label="Save shape">
-      Save
-    </button>
-  </mat-dialog-actions>
-</ng-template>
-
-<!-- Delete Confirmation Dialog Template -->
-<ng-template #deleteDialog>
-  <h2 mat-dialog-title>Delete Shape</h2>
-  <mat-dialog-content>
-    <p>Are you sure you want to delete the shape "{{ shapeToDelete?.name }}"?</p>
-    <p class="mat-caption ob-text-muted">This action cannot be undone.</p>
-  </mat-dialog-content>
-  <mat-dialog-actions align="end">
-    <button mat-button (click)="closeDeleteDialog()" aria-label="Cancel">Cancel</button>
-    <button
-      mat-raised-button
-      color="warn"
-      (click)="confirmDelete()"
-      [disabled]="isDeleting"
-      aria-label="Delete shape">
-      @if (isDeleting) {
-        <mat-spinner diameter="16"></mat-spinner>
+  <!-- Actions -->
+  <div class="actions-row">
+    <button (click)="validateContent(true)" [disabled]="isValidating" class="btn btn-primary">
+      @if (isValidating) {
+        Validating...
+      } @else {
+        Validate
       }
-      Delete
     </button>
-  </mat-dialog-actions>
-</ng-template>
+    <button (click)="saveShape()" [disabled]="isSaving || shapeForm.invalid" class="btn btn-primary">
+      @if (isSaving) {
+        Saving...
+      } @else {
+        Save Shape
+      }
+    </button>
+    <button (click)="loadExample()" class="btn btn-secondary">
+      Load Example
+    </button>
+    <button (click)="toggleVisualization()" class="btn btn-secondary">
+      {{ showVisualization ? 'Hide' : 'Show' }} Visualization
+    </button>
+  </div>
+
+  <!-- Validation Errors -->
+  @if (validationErrors.length > 0) {
+    <div class="validation-errors" role="alert">
+      <h3>Validation Errors ({{ validationErrors.length }})</h3>
+      <ul>
+        @for (error of validationErrors; track $index) {
+          <li>{{ error.message || 'Validation error' }}</li>
+        }
+      </ul>
+      <!-- Suggested Fixes -->
+      @if (suggestedFixes.length > 0) {
+        <div class="suggested-fixes">
+          <h4>Suggestions</h4>
+          @for (fix of suggestedFixes; track fix.errorId) {
+            <div class="fix-item">
+              <span>{{ fix.suggestion }}</span>
+              <button (click)="applyFix(fix)" class="btn btn-small">Apply</button>
+            </div>
+          }
+        </div>
+      }
+      <button (click)="clearValidationErrors()" class="btn btn-secondary">Clear Errors</button>
+    </div>
+  }
+
+  <!-- Validation Result -->
+  @if (validationResult) {
+    <div class="validation-result" [class.conforms]="validationResult.conforms">
+      <span>{{ validationResult.conforms ? 'Data conforms to shape' : 'Validation issues found' }}</span>
+    </div>
+  }
+
+  <!-- Visualization -->
+  @if (showVisualization && visualizationData) {
+    <app-shape-visualizer [data]="visualizationData"></app-shape-visualizer>
+  }
+</div>
