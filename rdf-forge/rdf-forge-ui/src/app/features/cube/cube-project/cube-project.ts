@@ -19,6 +19,7 @@ import { CubeService } from '../../../core/services/cube.service';
 import { Cube } from '../../../core/models/cube.model';
 import { CsvMappingTab } from './csv-mapping-tab/csv-mapping-tab';
 import { TransformTab } from './transform-tab/transform-tab';
+import { CubeDesignerTab } from './cube-designer-tab/cube-designer-tab';
 
 export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
@@ -34,7 +35,8 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
     MatSnackBarModule,
     MatDialogModule,
     CsvMappingTab,
-    TransformTab
+    TransformTab,
+    CubeDesignerTab
   ],
   template: `
     <div class="cube-project-container">
@@ -97,10 +99,12 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Cube Designer">
             <ng-template matTabContent>
-              <div class="tab-placeholder">
-                <mat-icon>view_in_ar</mat-icon>
-                <p>Cube Designer tab — coming soon</p>
-              </div>
+              @if (cube()) {
+                <app-cube-designer-tab
+                  [cube]="cube()!"
+                  (cubeUpdated)="onCubeUpdated($event)">
+                </app-cube-designer-tab>
+              }
             </ng-template>
           </mat-tab>
 
