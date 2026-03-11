@@ -62,6 +62,16 @@ public class CubeEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Column(length = 50)
+    private String status = "draft";
+
+    @Column(name = "mappings_version")
+    private Integer mappingsVersion = 0;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "csv_settings", columnDefinition = "jsonb")
+    private Map<String, Object> csvSettings;
+
     // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -110,4 +120,13 @@ public class CubeEntity {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public Integer getMappingsVersion() { return mappingsVersion; }
+    public void setMappingsVersion(Integer mappingsVersion) { this.mappingsVersion = mappingsVersion; }
+
+    public Map<String, Object> getCsvSettings() { return csvSettings; }
+    public void setCsvSettings(Map<String, Object> csvSettings) { this.csvSettings = csvSettings; }
 }
