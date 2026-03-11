@@ -17,6 +17,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CubeService } from '../../../core/services/cube.service';
 import { Cube } from '../../../core/models/cube.model';
+import { CsvMappingTab } from './csv-mapping-tab/csv-mapping-tab';
 
 export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
@@ -30,7 +31,8 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDialogModule
+    MatDialogModule,
+    CsvMappingTab
   ],
   template: `
     <div class="cube-project-container">
@@ -71,10 +73,12 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="CSV Mapping">
             <ng-template matTabContent>
-              <div class="tab-placeholder">
-                <mat-icon>table_chart</mat-icon>
-                <p>CSV Mapping tab — coming soon</p>
-              </div>
+              @if (cube()) {
+                <app-csv-mapping-tab
+                  [cube]="cube()!"
+                  (cubeUpdated)="onCubeUpdated($event)">
+                </app-csv-mapping-tab>
+              }
             </ng-template>
           </mat-tab>
 
@@ -266,6 +270,10 @@ export class CubeProject implements OnInit, OnDestroy {
           });
       });
     });
+  }
+
+  onCubeUpdated(updated: Cube): void {
+    this.cube.set(updated);
   }
 
   refreshCube(): void {
