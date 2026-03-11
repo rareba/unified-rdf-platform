@@ -20,6 +20,7 @@ import { Cube } from '../../../core/models/cube.model';
 import { CsvMappingTab } from './csv-mapping-tab/csv-mapping-tab';
 import { TransformTab } from './transform-tab/transform-tab';
 import { CubeDesignerTab } from './cube-designer-tab/cube-designer-tab';
+import { PublishTab } from './publish-tab/publish-tab';
 
 export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
@@ -36,7 +37,8 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
     MatDialogModule,
     CsvMappingTab,
     TransformTab,
-    CubeDesignerTab
+    CubeDesignerTab,
+    PublishTab
   ],
   template: `
     <div class="cube-project-container">
@@ -110,10 +112,12 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Publish">
             <ng-template matTabContent>
-              <div class="tab-placeholder">
-                <mat-icon>publish</mat-icon>
-                <p>Publish tab — coming soon</p>
-              </div>
+              @if (cube()) {
+                <app-publish-tab
+                  [cube]="cube()!"
+                  (cubeUpdated)="onCubeUpdated($event)">
+                </app-publish-tab>
+              }
             </ng-template>
           </mat-tab>
 
