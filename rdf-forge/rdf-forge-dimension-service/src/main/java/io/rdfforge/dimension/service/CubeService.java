@@ -18,10 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import io.rdfforge.common.exception.ResourceNotFoundException;
+import io.rdfforge.dimension.dto.ObservationPage;
+import io.rdfforge.dimension.dto.ObservationColumn;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,6 +53,19 @@ public class CubeService {
 
     @Value("${rdf-forge.triplestore.graphdb.endpoint:http://graphdb:7200/repositories/rdf-forge/statements}")
     private String graphStoreEndpoint;
+
+    @Value("${rdf-forge.services.triplestore.url:http://localhost:8006}")
+    private String triplestoreServiceUrl;
+
+    private static final java.util.regex.Pattern SAFE_URI_PATTERN =
+        java.util.regex.Pattern.compile("^https?://[\\w.:\\-/]+[\\w.:\\-/#?&=%]*$");
+
+    private String validateGraphUri(String graphUri) {
+        if (graphUri == null || !SAFE_URI_PATTERN.matcher(graphUri).matches()) {
+            throw new IllegalArgumentException("Invalid graph URI: " + graphUri);
+        }
+        return graphUri;
+    }
 
     public CubeService(CubeRepository cubeRepository, RestTemplateBuilder restTemplateBuilder) {
         this.cubeRepository = cubeRepository;
@@ -93,8 +110,15 @@ public class CubeService {
             cube.setTriplestoreId(updates.getTriplestoreId());
         if (updates.getGraphUri() != null)
             cube.setGraphUri(updates.getGraphUri());
-        if (updates.getMetadata() != null)
+        if (updates.getMetadata() != null) {
+            Object oldMappings = cube.getMetadata() != null ? cube.getMetadata().get("columnMappings") : null;
+            Object newMappings = updates.getMetadata().get("columnMappings");
+            if (newMappings != null && !newMappings.equals(oldMappings)) {
+                cube.setMappingsVersion(
+                    (cube.getMappingsVersion() != null ? cube.getMappingsVersion() : 0) + 1);
+            }
             cube.setMetadata(updates.getMetadata());
+        }
 
         cube.setUpdatedAt(Instant.now());
         return cubeRepository.save(cube);
@@ -181,6 +205,22 @@ public class CubeService {
         CubeEntity cube = cubeRepository.findById(cubeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
+        // Auto-generate shape if none exists or if mappings have changed
+        Integer currentVersion = cube.getMappingsVersion() != null ? cube.getMappingsVersion() : 0;
+        Object lastGenVersion = cube.getMetadata() != null
+                ? cube.getMetadata().get("lastGeneratedMappingsVersion") : null;
+        int lastGenVersionInt = lastGenVersion instanceof Number n ? n.intValue() : -1;
+
+        if (cube.getShapeId() == null || currentVersion != lastGenVersionInt) {
+            try {
+                generateShape(cubeId, cube.getName() + " Validation Shape",
+                        "http://purl.org/linked-data/cube#Observation");
+                cube = cubeRepository.findById(cubeId).orElseThrow();
+            } catch (Exception e) {
+                log.warn("Auto shape generation failed for cube {}: {}", cubeId, e.getMessage());
+            }
+        }
+
         // Generate pipeline name if not provided
         String finalPipelineName = pipelineName != null ? pipelineName : "Pipeline: " + cube.getName();
 
@@ -221,6 +261,11 @@ public class CubeService {
             cube.setGraphUri(graphUri);
         }
         cube.setUpdatedAt(Instant.now());
+        cubeRepository.save(cube);
+
+        Map<String, Object> meta = cube.getMetadata() != null ? new java.util.HashMap<>(cube.getMetadata()) : new java.util.HashMap<>();
+        meta.put("lastGeneratedMappingsVersion", cube.getMappingsVersion());
+        cube.setMetadata(meta);
         cubeRepository.save(cube);
 
         return new GeneratedArtifact(
@@ -271,6 +316,109 @@ public class CubeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
 
         cube.setPipelineId(null);
+        cube.setUpdatedAt(Instant.now());
+        return cubeRepository.save(cube);
+    }
+
+    @Transactional(readOnly = true)
+    @CircuitBreaker(name = "triplestoreService", fallbackMethod = "getObservationPreviewFallback")
+    public ObservationPage getObservationPreview(UUID cubeId, int page, int size) {
+        CubeEntity cube = cubeRepository.findById(cubeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
+
+        if (cube.getTriplestoreId() == null || cube.getGraphUri() == null) {
+            return new ObservationPage(List.of(), List.of(), 0, page, size);
+        }
+
+        String safeGraphUri = validateGraphUri(cube.getGraphUri());
+        List<ObservationColumn> columns = buildColumnsFromMetadata(cube);
+        if (columns.isEmpty()) {
+            return new ObservationPage(List.of(), columns, 0, page, size);
+        }
+
+        String countSparql = "SELECT (COUNT(DISTINCT ?s) AS ?count) WHERE { GRAPH <" + safeGraphUri
+                + "> { ?s a <http://purl.org/linked-data/cube#Observation> } }";
+
+        StringBuilder selectBuilder = new StringBuilder("SELECT DISTINCT ?s");
+        StringBuilder whereBuilder = new StringBuilder();
+        for (ObservationColumn col : columns) {
+            String varName = col.name().replaceAll("[^a-zA-Z0-9]", "_");
+            selectBuilder.append(" ?").append(varName);
+            whereBuilder.append("  OPTIONAL { ?s <").append(col.propertyUri()).append("> ?").append(varName).append(" . }\n");
+        }
+        int offset = page * size;
+        String selectSparql = selectBuilder + " WHERE { GRAPH <" + safeGraphUri
+                + "> {\n  ?s a <http://purl.org/linked-data/cube#Observation> .\n"
+                + whereBuilder + "} } LIMIT " + size + " OFFSET " + offset;
+
+        String queryUrl = triplestoreServiceUrl + "/api/v1/triplestores/" + cube.getTriplestoreId() + "/query";
+
+        long totalCount = 0;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> countResult = restTemplate.postForObject(
+                    queryUrl, Map.of("query", countSparql), Map.class);
+            if (countResult != null && countResult.containsKey("results")) {
+                totalCount = extractCount(countResult);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to count observations for cube {}: {}", cubeId, e.getMessage());
+        }
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> selectResult = restTemplate.postForObject(
+                    queryUrl, Map.of("query", selectSparql), Map.class);
+            if (selectResult != null) {
+                items = extractObservationRows(selectResult);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch observations for cube {}: {}", cubeId, e.getMessage());
+        }
+
+        return new ObservationPage(items, columns, totalCount, page, size);
+    }
+
+    private ObservationPage getObservationPreviewFallback(UUID cubeId, int page, int size, Throwable t) {
+        log.error("Triplestore service unavailable for observation preview cubeId={}: {}", cubeId, t.getMessage());
+        return new ObservationPage(List.of(), List.of(), 0, page, size);
+    }
+
+    @CircuitBreaker(name = "triplestoreService")
+    public byte[] exportCube(UUID cubeId, String format) {
+        CubeEntity cube = cubeRepository.findById(cubeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
+
+        if (cube.getTriplestoreId() == null || cube.getGraphUri() == null) {
+            throw new IllegalStateException("Cube has no triplestore or graph URI configured");
+        }
+
+        String exportUrl = triplestoreServiceUrl + "/api/v1/triplestores/"
+                + cube.getTriplestoreId() + "/graphs/"
+                + java.net.URLEncoder.encode(cube.getGraphUri(), java.nio.charset.StandardCharsets.UTF_8)
+                + "/export?format=" + format;
+
+        try {
+            return restTemplate.getForObject(exportUrl, byte[].class);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to export cube: " + e.getMessage(), e);
+        }
+    }
+
+    public CubeEntity unlistCube(UUID cubeId) {
+        CubeEntity cube = cubeRepository.findById(cubeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cube", cubeId.toString()));
+
+        if (cube.getTriplestoreId() != null && cube.getGraphUri() != null) {
+            String dropUrl = triplestoreServiceUrl + "/api/v1/triplestores/"
+                    + cube.getTriplestoreId() + "/graphs/"
+                    + java.net.URLEncoder.encode(cube.getGraphUri(), java.nio.charset.StandardCharsets.UTF_8);
+            restTemplate.delete(dropUrl);
+        }
+
+        cube.setStatus("draft");
+        cube.setLastPublished(null);
         cube.setUpdatedAt(Instant.now());
         return cubeRepository.save(cube);
     }
@@ -448,6 +596,8 @@ public class CubeService {
         json.append("        \"cubeId\": \"").append(cube.getId()).append("\",\n");
         json.append("        \"observationBaseUri\": \"").append(cube.getUri()).append("/observation/\",\n");
         json.append("        \"emitUndefined\": true,\n");
+        json.append("        \"emitConstraint\": true,\n");
+        json.append("        \"emitObservationSet\": true,\n");
 
         // Add dimensions
         json.append("        \"dimensions\": {\n");
@@ -639,5 +789,68 @@ public class CubeService {
         }
 
         return storagePath;
+    }
+
+    @SuppressWarnings("unchecked")
+    private long extractCount(Map<String, Object> sparqlResult) {
+        try {
+            Map<String, Object> results = (Map<String, Object>) sparqlResult.get("results");
+            List<Map<String, Object>> bindings = (List<Map<String, Object>>) results.get("bindings");
+            if (bindings != null && !bindings.isEmpty()) {
+                Map<String, Object> countBinding = (Map<String, Object>) bindings.get(0).get("count");
+                return Long.parseLong((String) countBinding.get("value"));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse count result: {}", e.getMessage());
+        }
+        return 0;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractObservationRows(Map<String, Object> sparqlResult) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            Map<String, Object> results = (Map<String, Object>) sparqlResult.get("results");
+            List<Map<String, Object>> bindings = (List<Map<String, Object>>) results.get("bindings");
+            if (bindings != null) {
+                for (Map<String, Object> binding : bindings) {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<String, Object> entry : binding.entrySet()) {
+                        if (entry.getValue() instanceof Map<?, ?> valMap) {
+                            row.put(entry.getKey(), valMap.get("value"));
+                        }
+                    }
+                    rows.add(row);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse observation rows: {}", e.getMessage());
+        }
+        return rows;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ObservationColumn> buildColumnsFromMetadata(CubeEntity cube) {
+        List<ObservationColumn> columns = new ArrayList<>();
+        Map<String, Object> metadata = cube.getMetadata();
+        if (metadata != null && metadata.containsKey("columnMappings")) {
+            Object mappingsObj = metadata.get("columnMappings");
+            if (mappingsObj instanceof List<?> mappings) {
+                for (Object m : mappings) {
+                    if (m instanceof Map<?, ?> mapping) {
+                        String role = (String) mapping.get("role");
+                        if (role != null && !"ignore".equals(role)) {
+                            columns.add(new ObservationColumn(
+                                (String) mapping.get("name"),
+                                (String) mapping.get("predicateUri"),
+                                role,
+                                (String) mapping.get("datatype")
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        return columns;
     }
 }

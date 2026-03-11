@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 import io.rdfforge.dimension.dto.GeneratedArtifact;
+import io.rdfforge.dimension.dto.ObservationPage;
 
 @RestController
 @RequestMapping("/api/v1/cubes")
@@ -136,6 +137,62 @@ public class CubeController {
     @Operation(summary = "Unlink pipeline from cube", description = "Remove the link to the pipeline")
     public ResponseEntity<CubeEntity> unlinkPipeline(@PathVariable UUID id) {
         CubeEntity updated = cubeService.unlinkPipeline(id);
+        return ResponseEntity.ok(updated);
+    }
+
+    private static final java.util.Set<String> VALID_EXPORT_FORMATS =
+        java.util.Set.of("turtle", "ntriples", "jsonld", "trig");
+
+    @GetMapping("/{id}/observations")
+    @Operation(summary = "Preview observations", description = "Get paginated observation preview from cube's triplestore")
+    public ResponseEntity<ObservationPage> getObservations(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        if (size > 100) size = 100;
+        ObservationPage result = cubeService.getObservationPreview(id, page, size);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/export")
+    @Operation(summary = "Export cube RDF", description = "Export cube as RDF in specified format")
+    public ResponseEntity<byte[]> exportCube(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "turtle") String format) {
+        if (!VALID_EXPORT_FORMATS.contains(format)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        byte[] data = cubeService.exportCube(id, format);
+
+        String cubeName = cubeService.findById(id)
+                .map(c -> c.getName().replaceAll("[^a-zA-Z0-9_-]", "_"))
+                .orElse("cube-export");
+
+        String contentType = switch (format) {
+            case "ntriples" -> "application/n-triples";
+            case "jsonld" -> "application/ld+json";
+            case "trig" -> "application/trig";
+            default -> "text/turtle";
+        };
+
+        String extension = switch (format) {
+            case "ntriples" -> ".nt";
+            case "jsonld" -> ".jsonld";
+            case "trig" -> ".trig";
+            default -> ".ttl";
+        };
+
+        return ResponseEntity.ok()
+                .header("Content-Type", contentType)
+                .header("Content-Disposition", "attachment; filename=\"" + cubeName + extension + "\"")
+                .body(data);
+    }
+
+    @PostMapping("/{id}/unlist")
+    @Operation(summary = "Unlist cube", description = "Drop named graph from triplestore and set cube to draft status")
+    public ResponseEntity<CubeEntity> unlistCube(@PathVariable UUID id) {
+        CubeEntity updated = cubeService.unlistCube(id);
         return ResponseEntity.ok(updated);
     }
 }
