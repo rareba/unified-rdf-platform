@@ -40,13 +40,8 @@
             ],
             "scripts": [],
             "optimization": true,
-            "aot": true,
-            "buildOptimizer": true,
             "sourceMap": false,
-            "namedChunks": false,
-            "extractLicenses": true,
-            "vendorChunk": false,
-            "commonChunk": true
+            "extractLicenses": true
           },
           "configurations": {
             "production": {
@@ -72,17 +67,12 @@
                 "fonts": true
               },
               "sourceMap": false,
-              "namedChunks": false,
-              "extractLicenses": true,
-              "vendorChunk": false,
-              "commonChunk": true
+              "extractLicenses": true
             },
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true,
-              "namedChunks": true,
-              "vendorChunk": true
+              "sourceMap": true
             },
             "offline": {
               "fileReplacements": [
