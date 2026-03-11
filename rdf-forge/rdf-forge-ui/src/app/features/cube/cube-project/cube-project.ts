@@ -18,6 +18,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CubeService } from '../../../core/services/cube.service';
 import { Cube } from '../../../core/models/cube.model';
 import { CsvMappingTab } from './csv-mapping-tab/csv-mapping-tab';
+import { TransformTab } from './transform-tab/transform-tab';
 
 export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
@@ -32,7 +33,8 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
     MatProgressSpinnerModule,
     MatSnackBarModule,
     MatDialogModule,
-    CsvMappingTab
+    CsvMappingTab,
+    TransformTab
   ],
   template: `
     <div class="cube-project-container">
@@ -84,10 +86,12 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Transform">
             <ng-template matTabContent>
-              <div class="tab-placeholder">
-                <mat-icon>transform</mat-icon>
-                <p>Transform tab — coming soon</p>
-              </div>
+              @if (cube()) {
+                <app-transform-tab
+                  [cube]="cube()!"
+                  (cubeUpdated)="onCubeUpdated($event)">
+                </app-transform-tab>
+              }
             </ng-template>
           </mat-tab>
 
