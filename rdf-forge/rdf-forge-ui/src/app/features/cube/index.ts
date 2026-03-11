@@ -9,3 +9,4 @@ export {
   CubeComponent,
   ColumnMapping
 } from './cube-definition-editor/cube-definition-editor';
+export { CubeProject } from './cube-project/cube-project';

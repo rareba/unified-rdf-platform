@@ -56,8 +56,21 @@ export const routes: Routes = [
   },
   {
     path: 'cubes',
-    loadComponent: () => import('./features/cube/cube-wizard/cube-wizard').then(m => m.CubeWizard),
-    canActivate: [authGuard]
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/cube/cube-list/cube-list').then(m => m.CubeList)
+      },
+      {
+        path: 'new',
+        loadComponent: () => import('./features/cube/cube-project/cube-project').then(m => m.CubeProject)
+      },
+      {
+        path: ':id',
+        loadComponent: () => import('./features/cube/cube-project/cube-project').then(m => m.CubeProject)
+      }
+    ]
   },
   {
     path: 'data',
