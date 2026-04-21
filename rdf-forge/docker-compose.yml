@@ -14,17 +14,19 @@
 # WARNING: Backend services (8001-8006) should only be exposed in development.
 # For production, use docker-compose.production.yml which restricts network access.
 
+# WARNING: Default values on ${VAR:-default} are DEV ONLY. For any non-local
+# deployment copy .env.example to .env and override every secret below.
 services:
   postgres:
     image: postgres:16-alpine
     container_name: rdf-forge-postgres
     environment:
-      POSTGRES_DB: rdfforge
-      POSTGRES_USER: rdfforge
-      POSTGRES_PASSWORD: rdfforge_secret
+      POSTGRES_DB: ${POSTGRES_DB:-rdfforge}
+      POSTGRES_USER: ${POSTGRES_USER:-rdfforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
       POSTGRES_MULTIPLE_DATABASES: keycloak
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     networks:
       - rdf-forge-network
     volumes:
@@ -32,7 +34,7 @@ services:
       - ./docker/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/01-create-dbs.sh
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/02-init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rdfforge"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdfforge}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -57,8 +59,8 @@ services:
     image: minio/minio:latest
     container_name: rdf-forge-minio
     environment:
-      MINIO_ROOT_USER: rdfforge
-      MINIO_ROOT_PASSWORD: rdfforge_secret
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rdfforge}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rdfforge_dev_only}
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
@@ -81,10 +83,13 @@ services:
     depends_on:
       minio:
         condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rdfforge}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rdfforge_dev_only}
     entrypoint: >
       /bin/sh -c "
       sleep 5;
-      mc alias set minio http://minio:9000 rdfforge rdfforge_secret;
+      mc alias set minio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
       mc mb minio/rdf-forge-data --ignore-existing;
       mc mb minio/rdf-forge-shapes --ignore-existing;
       mc mb minio/rdf-forge-pipelines --ignore-existing;
@@ -95,7 +100,8 @@ services:
     image: stain/jena-fuseki:latest
     container_name: rdf-forge-fuseki
     environment:
-      ADMIN_PASSWORD: admin
+      ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-admin_dev_only}
+      FUSEKI_DATASET_1: ds
       JVM_ARGS: "-Xmx2g"
     ports:
       - "127.0.0.1:3030:3030"
@@ -115,22 +121,25 @@ services:
       dockerfile: Dockerfile
     container_name: rdf-forge-ui
     ports:
-      - "3000:80"
+      - "4200:80"
     networks:
       - rdf-forge-network
+    volumes:
+      - ./docker/ui-config.json:/usr/share/nginx/html/assets/config.json:ro
     depends_on:
       - gateway
+      - keycloak
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: rdf-forge-keycloak
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_only}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: rdfforge
-      KC_DB_PASSWORD: rdfforge_secret
+      KC_DB_USERNAME: ${POSTGRES_USER:-rdfforge}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
     ports:
       - "127.0.0.1:8080:8080"
     networks:
@@ -144,6 +153,37 @@ services:
       postgres:
         condition: service_healthy
 
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: rdf-forge-auth-service
+    container_name: rdf-forge-auth-service
+    expose:
+      - "8086"
+    networks:
+      - rdf-forge-network
+    environment:
+      SERVER_PORT: 8086
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
+      KEYCLOAK_ADMIN_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_REALM: rdfforge
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
   gateway:
     build:
       context: .
@@ -156,7 +196,9 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8000
       SPRING_PROFILES_ACTIVE: docker
+      AUTH_SERVICE_URL: http://auth-service:8086
       PIPELINE_SERVICE_URL: http://pipeline-service:8001
       SHACL_SERVICE_URL: http://shacl-service:8002
       JOB_SERVICE_URL: http://job-service:8003
@@ -166,6 +208,7 @@ services:
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/rdfforge
       KEYCLOAK_JWK_URI: http://keycloak:8080/realms/rdfforge/protocol/openid-connect/certs
     depends_on:
+      - auth-service
       - pipeline-service
       - job-service
       - shacl-service
@@ -185,10 +228,11 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8001
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
     depends_on:
       postgres:
         condition: service_healthy
@@ -205,10 +249,11 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8002
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,11 +270,13 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8003
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
       SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-rdfforge_redis}
     depends_on:
       postgres:
         condition: service_healthy
@@ -248,13 +295,14 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8004
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: rdfforge
-      MINIO_SECRET_KEY: rdfforge_secret
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rdfforge}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rdfforge_dev_only}
     depends_on:
       postgres:
         condition: service_healthy
@@ -273,10 +321,11 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8005
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
       SHACL_SERVICE_URL: http://shacl-service:8002
       PIPELINE_SERVICE_URL: http://pipeline-service:8001
     depends_on:
@@ -299,10 +348,11 @@ services:
     networks:
       - rdf-forge-network
     environment:
+      SERVER_PORT: 8006
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rdfforge
-      SPRING_DATASOURCE_USERNAME: rdfforge
-      SPRING_DATASOURCE_PASSWORD: rdfforge_secret
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rdfforge}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge_dev_only}
     depends_on:
       postgres:
         condition: service_healthy
@@ -315,8 +365,8 @@ services:
     networks:
       - rdf-forge-network
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_dev_only}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana_data:/var/lib/grafana

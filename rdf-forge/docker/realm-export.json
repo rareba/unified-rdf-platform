@@ -1,4 +1,5 @@
 {
+  "_comment": "DEV realm seed. Users carry NO passwords and client carries NO secret: both are set post-import by docker/keycloak-users.sh using env vars (see docker/README_SECURITY.md). Never add plaintext passwords or client secrets to this file.",
   "realm": "rdfforge",
   "enabled": true,
   "roles": {
@@ -20,13 +21,7 @@
       "email": "admin@rdfforge.io",
       "firstName": "Admin",
       "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admin",
-          "temporary": false
-        }
-      ],
+      "credentials": [],
       "realmRoles": [
         "admin",
         "user"
@@ -38,13 +33,7 @@
       "email": "user@rdfforge.io",
       "firstName": "Demo",
       "lastName": "User",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "user",
-          "temporary": false
-        }
-      ],
+      "credentials": [],
       "realmRoles": [
         "user"
       ]
@@ -56,10 +45,12 @@
       "enabled": true,
       "publicClient": true,
       "redirectUris": [
-        "http://localhost:3000/*"
+        "http://localhost:3000/*",
+        "http://localhost:4200/*"
       ],
       "webOrigins": [
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "http://localhost:4200"
       ],
       "protocol": "openid-connect",
       "fullScopeAllowed": true
@@ -68,7 +59,6 @@
       "clientId": "rdf-forge-gateway",
       "enabled": true,
       "publicClient": false,
-      "secret": "client-secret",
       "protocol": "openid-connect",
       "fullScopeAllowed": true
     }

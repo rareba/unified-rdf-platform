@@ -5,6 +5,7 @@
 **/target/
 **/dist/
 **/build/
+dependency-reduced-pom.xml
 
 # Node
 **/node_modules/
@@ -23,22 +24,36 @@ rdf-forge/rdf-forge-ui/node_modules/
 **/playwright-report/
 **/playwright-results.xml
 **/.angular/
+**/coverage/
 
 # Debug files
 **/debug*.png
 **/debug*.log
 **/*.log
+dev-server.log
 
 # Temporary files
 nul
 **/*.tmp
 **/*.bak
+tmp-*.jar
 
 # Local configuration
 .claude/settings.local.json
 .claude/*.local.md
 .claude_settings.json
 
+# Environment files (secrets)
+.env
+.env.local
+.env.production
+.env.*.local
+
 # Downloaded dependencies
 lindas-cube-link-main/
 lindas-cube-validator-main/
+
+# Fat-jar extraction debris (see STRAY_FILES_TO_REVIEW.md)
+/BOOT-INF/
+/META-INF/
+/io/
