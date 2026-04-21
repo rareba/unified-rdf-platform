@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
-  background: #f8fafc;
+  background: var(--rdf-surface-variant, #f8fafc);
   overflow: hidden;
 }
 
@@ -100,8 +100,8 @@
   display: flex;
   gap: 12px;
   padding: 8px 16px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--rdf-surface, white);
+  border-bottom: 1px solid var(--rdf-border-color, #e2e8f0);
 
   .flex-1 {
     flex: 1;
@@ -152,9 +152,9 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-right: 1px solid #e2e8f0;
-  z-index: 10;
+  background: var(--rdf-surface, white);
+  border-right: 1px solid var(--rdf-border-color, #e2e8f0);
+  z-index: var(--rdf-z-dropdown, 10);
 
   .palette-header {
     display: flex;
@@ -163,9 +163,9 @@
     padding: 12px 16px;
     font-weight: 600;
     font-size: 0.9rem;
-    color: #1e293b;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    color: var(--rdf-text-primary, #1e293b);
+    border-bottom: 1px solid var(--rdf-border-color, #e2e8f0);
+    background: var(--rdf-surface-variant, #f8fafc);
 
     mat-icon {
       font-size: 20px;
@@ -177,8 +177,8 @@
 
   .palette-search {
     padding: 8px 12px;
-    border-bottom: 1px solid #e2e8f0;
-    background: white;
+    border-bottom: 1px solid var(--rdf-border-color, #e2e8f0);
+    background: var(--rdf-surface, white);
 
     .search-field {
       width: 100%;
@@ -188,7 +188,7 @@
       }
 
       ::ng-deep .mat-mdc-text-field-wrapper {
-        background: #f8fafc;
+        background: var(--rdf-surface-variant, #f8fafc);
         padding: 0 8px;
       }
 
@@ -198,7 +198,7 @@
       }
 
       mat-icon[matPrefix] {
-        color: #94a3b8;
+        color: var(--rdf-text-disabled, #94a3b8);
         font-size: 18px;
         width: 18px;
         height: 18px;
@@ -224,7 +224,7 @@
 
     ::ng-deep .mat-expansion-panel {
       box-shadow: none !important;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--rdf-border-color, #e2e8f0);
       border-radius: 8px !important;
 
       &:not(.mat-expanded) {
@@ -280,8 +280,8 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--rdf-surface, white);
+  border: 1px solid var(--rdf-border-color, #e2e8f0);
   border-radius: 8px;
   cursor: grab;
   transition: all 0.2s ease;
@@ -289,7 +289,7 @@
 
   &:hover {
     border-color: var(--primary-color);
-    background: #f8fafc;
+    background: var(--rdf-surface-variant, #f8fafc);
     transform: translateX(4px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
@@ -337,12 +337,12 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: #1e293b;
+      color: var(--rdf-text-primary, #1e293b);
     }
 
     .op-params {
       font-size: 0.7rem;
-      color: #94a3b8;
+      color: var(--rdf-text-disabled, #94a3b8);
     }
   }
 }
@@ -366,7 +366,7 @@
   justify-content: center;
   padding: 3rem 1rem;
   gap: 1rem;
-  color: #94a3b8;
+  color: var(--rdf-text-disabled, #94a3b8);
 }
 
 // Canvas Area with ngx-graph
@@ -377,14 +377,14 @@
   min-width: 0;
   min-height: 0;
   position: relative;
-  background: #f1f5f9;
+  background: var(--rdf-surface-variant, #f1f5f9);
 }
 
 .graph-container {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--rdf-surface-variant, #f8fafc);
   background-image: 
     radial-gradient(#cbd5e1 1px, transparent 1px);
   background-size: 20px 20px;
@@ -399,7 +399,7 @@
     }
 
     ::ng-deep .minimap {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--rdf-border-color, #e2e8f0);
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
@@ -414,14 +414,14 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: white;
+  background: var(--rdf-surface, white);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px;
-  z-index: 50;
+  z-index: var(--rdf-z-dropdown, 50);
 
   button {
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
     width: 36px;
     height: 36px;
 
@@ -433,14 +433,14 @@
 
     &:hover {
       color: var(--primary-color);
-      background: #f1f5f9;
+      background: var(--rdf-surface-variant, #f1f5f9);
     }
   }
 
   .zoom-level {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
     min-width: 48px;
     text-align: center;
     font-family: 'Roboto Mono', monospace;
@@ -529,19 +529,19 @@
     width: 80px;
     height: 80px;
     margin-bottom: 1.5rem;
-    color: #cbd5e1;
+    color: var(--rdf-text-hint, #cbd5e1);
   }
 
   h3 {
     margin: 0 0 0.5rem;
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
     font-size: 1.5rem;
     font-weight: 600;
   }
 
   p {
     margin: 0 0 1.5rem;
-    color: #94a3b8;
+    color: var(--rdf-text-disabled, #94a3b8);
   }
 
   .quick-actions {
@@ -562,12 +562,12 @@
   right: 16px;
   width: 320px;
   max-height: 200px;
-  background: white;
-  border-left: 4px solid #f97316;
+  background: var(--rdf-surface, white);
+  border-left: 4px solid var(--rdf-status-warning, #f97316);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 50;
+  z-index: var(--rdf-z-dropdown, 50);
 
   .validation-header {
     display: flex;
@@ -627,8 +627,8 @@
 // Properties Panel
 .properties-panel {
   width: 360px;
-  background: white;
-  border-left: 1px solid #e2e8f0;
+  background: var(--rdf-surface, white);
+  border-left: 1px solid var(--rdf-border-color, #e2e8f0);
 
   ::ng-deep .mat-sidenav-content {
     overflow: hidden;
@@ -647,8 +647,8 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--rdf-surface-variant, #f8fafc);
+  border-bottom: 1px solid var(--rdf-border-color, #e2e8f0);
 
   .op-type-badge {
     padding: 4px 10px;
@@ -663,12 +663,12 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--rdf-text-primary, #1e293b);
     flex: 1;
   }
 
   .close-btn {
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
   }
 }
 
@@ -680,7 +680,7 @@
   .op-description {
     margin: 0 0 12px;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
     line-height: 1.5;
   }
 
@@ -713,14 +713,14 @@
   height: 100%;
   padding: 2rem;
   text-align: center;
-  color: #94a3b8;
+  color: var(--rdf-text-disabled, #94a3b8);
 
   mat-icon {
     font-size: 48px;
     width: 48px;
     height: 48px;
     margin-bottom: 1rem;
-    color: #cbd5e1;
+    color: var(--rdf-text-hint, #cbd5e1);
   }
 
   p {
@@ -738,13 +738,13 @@
     gap: 8px;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--rdf-text-primary, #1e293b);
 
     mat-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
-      color: #64748b;
+      color: var(--rdf-text-secondary, #64748b);
     }
   }
 }
@@ -754,14 +754,14 @@
   flex-direction: column;
   align-items: center;
   padding: 32px;
-  color: #64748b;
+  color: var(--rdf-text-secondary, #64748b);
   text-align: center;
 
   mat-icon {
     font-size: 36px;
     width: 36px;
     height: 36px;
-    color: #22c55e;
+    color: var(--rdf-status-success, #22c55e);
     margin-bottom: 12px;
   }
 
@@ -772,15 +772,15 @@
 }
 
 .param-card {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--rdf-surface, white);
+  border: 1px solid var(--rdf-border-color, #e2e8f0);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
   transition: border-color 0.2s;
 
   &:hover {
-    border-color: #cbd5e1;
+    border-color: var(--rdf-text-hint, #cbd5e1);
   }
 
   &.required {
@@ -800,7 +800,7 @@
     .param-name {
       font-weight: 600;
       font-size: 0.85rem;
-      color: #1e293b;
+      color: var(--rdf-text-primary, #1e293b);
     }
 
     .param-badge {
@@ -825,7 +825,7 @@
   .param-description {
     margin: 0 0 10px;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
     line-height: 1.4;
   }
 
@@ -861,14 +861,14 @@
   .param-type-hint {
     display: block;
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--rdf-text-disabled, #94a3b8);
     margin-top: 6px;
   }
 
   .param-type-label {
     display: block;
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--rdf-text-disabled, #94a3b8);
     margin-top: 8px;
     font-family: 'Roboto Mono', monospace;
   }
@@ -876,7 +876,7 @@
 
 .optional-params-panel {
   margin-top: 12px;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--rdf-border-color, #e2e8f0) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
 
@@ -890,7 +890,7 @@
       width: 18px;
       height: 18px;
       margin-right: 8px;
-      color: #64748b;
+      color: var(--rdf-text-secondary, #64748b);
     }
   }
 
@@ -930,11 +930,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--rdf-z-modal, 1000);
 }
 
 .dialog-container {
-  background: white;
+  background: var(--rdf-surface, white);
   border-radius: 12px;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.25);
   max-width: 520px;
@@ -955,14 +955,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
-  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(to bottom, var(--rdf-surface-variant, #f8fafc), var(--rdf-surface-variant, #f1f5f9));
+  border-bottom: 1px solid var(--rdf-border-color, #e2e8f0);
 
   h2 {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--rdf-text-primary, #1e293b);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -973,7 +973,7 @@
   }
 
   button {
-    color: #64748b;
+    color: var(--rdf-text-secondary, #64748b);
 
     mat-icon {
       font-size: 22px;
@@ -994,8 +994,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid var(--rdf-border-color, #e2e8f0);
+  background: var(--rdf-surface-variant, #f8fafc);
 
   button {
     font-size: 0.9rem;
@@ -1071,8 +1071,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 10px 14px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--rdf-surface-variant, #f8fafc);
+    border: 1px solid var(--rdf-border-color, #e2e8f0);
     border-radius: 8px;
     font-size: 0.85rem;
 
@@ -1091,7 +1091,7 @@
 
 .hint-text {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--rdf-text-secondary, #64748b);
   margin: 8px 0;
 }
 
@@ -1125,8 +1125,8 @@
   align-items: flex-start;
   gap: 14px;
   padding: 18px;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--rdf-surface, white);
+  border: 1px solid var(--rdf-border-color, #e2e8f0);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1167,13 +1167,13 @@
       margin: 0 0 6px;
       font-size: 1.05rem;
       font-weight: 600;
-      color: #1e293b;
+      color: var(--rdf-text-primary, #1e293b);
     }
 
     p {
       margin: 0 0 10px;
       font-size: 0.85rem;
-      color: #64748b;
+      color: var(--rdf-text-secondary, #64748b);
       line-height: 1.4;
     }
   }
@@ -1190,12 +1190,12 @@
     }
 
     .template-steps {
-      color: #94a3b8;
+      color: var(--rdf-text-disabled, #94a3b8);
     }
   }
 
   .template-arrow {
-    color: #cbd5e1;
+    color: var(--rdf-text-hint, #cbd5e1);
     margin-top: 8px;
     transition: all 0.2s ease;
   }
@@ -1218,7 +1218,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: var(--rdf-z-dropdown, 100);
   }
 
   .toolbar {
@@ -1237,5 +1237,117 @@
         }
       }
     }
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * List-view DAG fallback (ngx-graph replacement for Angular 21).
+ * Numbered vertical list with up/down reorder + dependency chips.
+ * ------------------------------------------------------------------- */
+.pipeline-node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: none; // step index is rendered explicitly
+}
+
+.pipeline-node-item {
+  background: var(--mdc-theme-surface, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.35);
+  }
+
+  &.selected,
+  &[aria-current="true"] {
+    border-color: var(--mdc-theme-primary, #3f51b5);
+    box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.2);
+  }
+
+  .pipeline-node-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border-left: 4px solid transparent;
+    padding-left: 8px;
+  }
+
+  .pipeline-node-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .pipeline-node-type {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+  }
+
+  .pipeline-node-title {
+    flex: 1 1 auto;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  .pipeline-node-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .pipeline-node-id {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 4px;
+    word-break: break-all;
+  }
+
+  .pipeline-node-deps {
+    font-size: 12px;
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .pipeline-node-dep {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.06);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 600px) {
+  .pipeline-node-item .pipeline-node-head {
+    row-gap: 4px;
+  }
+  .pipeline-node-item .pipeline-node-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
   }
 }

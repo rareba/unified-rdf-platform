@@ -566,6 +566,44 @@ export class PipelineDesigner implements OnInit, OnDestroy, AfterViewInit {
       .map(link => link.source);
   }
 
+  /** Downstream node ids (i.e. dependents) for a given node in the DAG. */
+  downstreamOf(nodeId: string): string[] {
+    return this.links()
+      .filter(link => link.source === nodeId)
+      .map(link => link.target);
+  }
+
+  /** Move a node earlier in the linear pipeline order. */
+  moveNodeUp(nodeId: string): void {
+    this.nodes.update(nodes => {
+      const idx = nodes.findIndex(n => n.id === nodeId);
+      if (idx <= 0) return nodes;
+      const copy = [...nodes];
+      const [n] = copy.splice(idx, 1);
+      copy.splice(idx - 1, 0, n);
+      return copy;
+    });
+    this.update$.next(true);
+  }
+
+  /** Move a node later in the linear pipeline order. */
+  moveNodeDown(nodeId: string): void {
+    this.nodes.update(nodes => {
+      const idx = nodes.findIndex(n => n.id === nodeId);
+      if (idx < 0 || idx >= nodes.length - 1) return nodes;
+      const copy = [...nodes];
+      const [n] = copy.splice(idx, 1);
+      copy.splice(idx + 1, 0, n);
+      return copy;
+    });
+    this.update$.next(true);
+  }
+
+  /** Stable 1-based step position for a node in the current ordering. */
+  stepIndex(nodeId: string): number {
+    return this.nodes().findIndex(n => n.id === nodeId) + 1;
+  }
+
   // Node selection
   onNodeSelect(node: GraphNode): void {
     this.selectedNode.set({ ...node });

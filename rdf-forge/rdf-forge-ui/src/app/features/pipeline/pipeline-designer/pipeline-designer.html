@@ -177,28 +177,57 @@
       <div class="graph-container pipeline-step-list" data-testid="pipeline-step-list"
            (click)="$event.stopPropagation()">
         @if (nodes().length > 0) {
-          <ol class="pipeline-node-list">
-            @for (node of nodes(); track node.id) {
+          <ol class="pipeline-node-list" aria-label="Pipeline steps">
+            @for (node of nodes(); track node.id; let i = $index, first = $first, last = $last) {
               <li class="pipeline-node-item"
                   data-testid="pipeline-node"
                   [class.selected]="selectedNode()?.id === node.id"
+                  [attr.aria-current]="selectedNode()?.id === node.id ? 'true' : null"
                   (click)="onNodeSelect(node)">
                 <div class="pipeline-node-head"
                      [style.border-left-color]="getTypeColor(node.operationType)">
+                  <span class="pipeline-node-step-index" aria-hidden="true">{{ i + 1 }}</span>
                   <span class="pipeline-node-type">{{ node.operationType }}</span>
                   <span class="pipeline-node-title">{{ node.operationName }}</span>
-                  <button mat-icon-button class="pipeline-node-delete"
-                          (click)="removeNode(node.id); $event.stopPropagation()"
-                          aria-label="Delete step">
-                    <mat-icon>close</mat-icon>
-                  </button>
+                  <div class="pipeline-node-actions">
+                    <button mat-icon-button
+                            class="pipeline-node-move"
+                            [disabled]="first"
+                            (click)="moveNodeUp(node.id); $event.stopPropagation()"
+                            matTooltip="Move step earlier"
+                            aria-label="Move step earlier">
+                      <mat-icon>arrow_upward</mat-icon>
+                    </button>
+                    <button mat-icon-button
+                            class="pipeline-node-move"
+                            [disabled]="last"
+                            (click)="moveNodeDown(node.id); $event.stopPropagation()"
+                            matTooltip="Move step later"
+                            aria-label="Move step later">
+                      <mat-icon>arrow_downward</mat-icon>
+                    </button>
+                    <button mat-icon-button class="pipeline-node-delete"
+                            (click)="removeNode(node.id); $event.stopPropagation()"
+                            matTooltip="Delete step"
+                            aria-label="Delete step">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
                 </div>
                 <div class="pipeline-node-id">{{ node.id }}</div>
                 @if (upstreamOf(node.id).length > 0) {
-                  <div class="pipeline-node-deps">
+                  <div class="pipeline-node-deps" data-testid="upstream-deps">
                     depends on:
                     @for (up of upstreamOf(node.id); track up) {
                       <span class="pipeline-node-dep">{{ up }}</span>
+                    }
+                  </div>
+                }
+                @if (downstreamOf(node.id).length > 0) {
+                  <div class="pipeline-node-deps" data-testid="downstream-deps">
+                    feeds into:
+                    @for (dn of downstreamOf(node.id); track dn) {
+                      <span class="pipeline-node-dep">{{ dn }}</span>
                     }
                   </div>
                 }
