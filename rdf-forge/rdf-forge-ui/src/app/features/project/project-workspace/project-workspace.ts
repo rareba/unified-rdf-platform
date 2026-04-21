@@ -73,6 +73,7 @@ export class ProjectWorkspace implements OnInit, OnDestroy {
     { path: 'ontology',   label: 'Ontology',   icon: 'schema' },
     { path: 'mapping',    label: 'Mapping',    icon: 'transform' },
     { path: 'validation', label: 'Validation', icon: 'verified' },
+    { path: 'reconciliation', label: 'Reconciliation', icon: 'link' },
     { path: 'publish',    label: 'Publish',    icon: 'cloud_upload' },
     { path: 'lineage',    label: 'Lineage',    icon: 'account_tree' },
     { path: 'docs',       label: 'Docs',       icon: 'description' }
