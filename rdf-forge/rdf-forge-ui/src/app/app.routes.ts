@@ -147,6 +147,17 @@ export const routes: Routes = [
     ]
   },
   {
+    path: 'mappings',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: ':id',
+        loadComponent: () =>
+          import('./features/mapping/mapping-studio').then(m => m.MappingStudio)
+      }
+    ]
+  },
+  {
     path: 'data',
     loadComponent: () => import('./features/data/data-manager/data-manager').then(m => m.DataManager),
     canActivate: [authGuard]
@@ -155,6 +166,16 @@ export const routes: Routes = [
     path: 'dimensions',
     loadComponent: () => import('./features/dimension/dimension-manager/dimension-manager').then(m => m.DimensionManager),
     canActivate: [authGuard]
+  },
+  {
+    path: 'ontologies',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: ':id',
+        loadComponent: () => import('./features/ontology/ontology-detail').then(m => m.OntologyDetail)
+      }
+    ]
   },
   {
     path: 'triplestore',

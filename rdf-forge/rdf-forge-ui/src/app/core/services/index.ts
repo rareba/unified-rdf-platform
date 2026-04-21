@@ -14,3 +14,6 @@ export * from './error-tracking.service';
 export * from './notification.service';
 export * from './keyboard-shortcuts.service';
 export * from './project.service';
+export * from './ontology.service';
+export * from './validation.service';
+export * from './mapping.service';

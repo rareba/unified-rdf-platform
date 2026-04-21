@@ -7,3 +7,6 @@ export * from './triplestore.model';
 export * from './provider.model';
 export * from './cube.model';
 export * from './project.model';
+export * from './ontology.model';
+export * from './validation.model';
+export * from './mapping.model';

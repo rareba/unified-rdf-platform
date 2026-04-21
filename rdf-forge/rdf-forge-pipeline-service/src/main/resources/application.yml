@@ -61,6 +61,17 @@ management:
       process: true
       system: true
 
+rdf-forge:
+  mapping:
+    # Hard caps for synchronous preview/explain in the Mapping Studio — callers
+    # submit rows inline; the service never loads entire data sources on the
+    # preview path. Raise these with care: every row runs through the executor
+    # under an HTTP request.
+    preview:
+      max-rows: 50
+    explain:
+      max-rows: 5
+
 logging:
   level:
     io.rdfforge: DEBUG
