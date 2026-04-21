@@ -58,6 +58,7 @@ public class AuthenticatedShaclClient {
     private final ObjectMapper objectMapper;
     private final String baseUrl;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuthenticatedShaclClient(
             RestTemplateBuilder builder,
             ObjectMapper objectMapper,
