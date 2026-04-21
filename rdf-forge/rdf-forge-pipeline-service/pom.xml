@@ -58,7 +58,7 @@
 
         <dependency>
             <groupId>io.hypersistence</groupId>
-            <artifactId>hypersistence-utils-hibernate-66</artifactId>
+            <artifactId>hypersistence-utils-hibernate-63</artifactId>
         </dependency>
 
         <dependency>
@@ -80,6 +80,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- H2 for @DataJpaTest slice — needs an embedded DB when Testcontainers is not set up. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
