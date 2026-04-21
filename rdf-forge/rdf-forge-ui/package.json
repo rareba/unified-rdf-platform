@@ -28,14 +28,6 @@
   },
   "private": true,
   "packageManager": "npm@11.5.2",
-  "overrides": {
-    "@swimlane/ngx-graph": {
-      "@angular/animations": "$@angular/animations",
-      "@angular/common": "$@angular/common",
-      "@angular/core": "$@angular/core",
-      "@angular/cdk": "$@angular/cdk"
-    }
-  },
   "dependencies": {
     "@angular/animations": "^21.0.2",
     "@angular/cdk": "^21.0.1",
@@ -50,11 +42,9 @@
     "@oblique/oblique": "^15.1.1",
     "@popperjs/core": "^2.11.8",
     "@stomp/stompjs": "^7.2.1",
-    "@swimlane/ngx-graph": "^11.0.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "angular-oauth2-oidc": "^20.0.0",
-    "dagre": "^0.8.5",
     "js-cookie": "^3.0.5",
     "keycloak-js": "^24.0.5",
     "rxjs": "~7.8.0",
@@ -74,7 +64,6 @@
     "@angular/compiler-cli": "^21.0.0",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.49.0",
-    "@types/dagre": "^0.7.53",
     "@types/jasmine": "^5.1.13",
     "@types/sockjs-client": "^1.5.4",
     "angular-eslint": "^21.0.1",

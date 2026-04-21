@@ -1,9 +1,9 @@
-<div class="pipeline-designer-container">
+<div class="pipeline-designer-container" role="main" aria-label="Pipeline Designer">
   <!-- Header -->
-  <mat-toolbar color="primary" class="toolbar">
+  <mat-toolbar color="primary" class="toolbar" role="toolbar" aria-label="Pipeline actions">
     <div class="header-left">
-      <button mat-icon-button (click)="cancel()" matTooltip="Back to Pipelines">
-        <mat-icon>arrow_back</mat-icon>
+      <button mat-icon-button (click)="cancel()" matTooltip="Back to Pipelines" aria-label="Back to Pipelines">
+        <mat-icon aria-hidden="true">arrow_back</mat-icon>
       </button>
       <h1>{{ isNew() ? 'New Pipeline' : 'Edit Pipeline' }}</h1>
       @if (!isNew()) {
@@ -12,9 +12,11 @@
     </div>
     <div class="actions">
       @if (validationErrors().length > 0) {
-        <span class="status-chip error" (click)="validate()">
-          <mat-icon>error</mat-icon>
-          {{ validationErrors().length }} issues
+        <span class="status-chip error" (click)="validate()" role="button" tabindex="0"
+              (keydown.enter)="validate()" (keydown.space)="validate(); $event.preventDefault()"
+              [attr.aria-label]="validationErrors().length + ' validation ' + (validationErrors().length === 1 ? 'issue' : 'issues') + ', click to review'">
+          <mat-icon aria-hidden="true">error</mat-icon>
+          {{ validationErrors().length }} {{ validationErrors().length === 1 ? 'issue' : 'issues' }}
         </span>
       } @else if (nodes().length > 0) {
         <span class="status-chip success">
@@ -67,9 +69,9 @@
   <!-- Main Content -->
   <div class="designer-content">
     <!-- Operations Palette -->
-    <div class="palette">
+    <div class="palette" role="region" aria-label="Operations palette">
       <div class="palette-header">
-        <mat-icon>apps</mat-icon>
+        <mat-icon aria-hidden="true">apps</mat-icon>
         <span>Operations</span>
       </div>
       <div class="palette-search">
@@ -78,8 +80,8 @@
           <input matInput [ngModel]="operationSearch()" (ngModelChange)="operationSearch.set($event)"
             placeholder="Search operations..." />
           @if (operationSearch()) {
-            <button matSuffix mat-icon-button (click)="operationSearch.set('')">
-              <mat-icon>close</mat-icon>
+            <button matSuffix mat-icon-button (click)="operationSearch.set('')" aria-label="Clear search">
+              <mat-icon aria-hidden="true">close</mat-icon>
             </button>
           }
         </mat-form-field>
@@ -144,153 +146,65 @@
          (dragover)="$event.preventDefault()"
          (click)="onBackgroundClick()">
       <!-- Graph Controls -->
-      <div class="graph-controls">
-        <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom In">
-          <mat-icon>zoom_in</mat-icon>
+      <div class="graph-controls" role="toolbar" aria-label="Graph controls">
+        <button mat-icon-button (click)="zoomIn()" matTooltip="Zoom In" aria-label="Zoom in">
+          <mat-icon aria-hidden="true">zoom_in</mat-icon>
         </button>
-        <span class="zoom-level">{{ (zoomLevel() * 100).toFixed(0) }}%</span>
-        <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom Out">
-          <mat-icon>zoom_out</mat-icon>
-        </button>
-        <mat-divider [vertical]="true" class="control-divider"></mat-divider>
-        <button mat-icon-button (click)="fitToScreen()" matTooltip="Fit to Screen">
-          <mat-icon>fit_screen</mat-icon>
-        </button>
-        <button mat-icon-button (click)="resetZoom()" matTooltip="Reset View">
-          <mat-icon>center_focus_strong</mat-icon>
+        <span class="zoom-level" aria-live="polite" aria-atomic="true">{{ (zoomLevel() * 100).toFixed(0) }}%</span>
+        <button mat-icon-button (click)="zoomOut()" matTooltip="Zoom Out" aria-label="Zoom out">
+          <mat-icon aria-hidden="true">zoom_out</mat-icon>
         </button>
         <mat-divider [vertical]="true" class="control-divider"></mat-divider>
-        <button mat-icon-button (click)="autoLayout()" matTooltip="Auto Layout">
-          <mat-icon>account_tree</mat-icon>
+        <button mat-icon-button (click)="fitToScreen()" matTooltip="Fit to Screen" aria-label="Fit to screen">
+          <mat-icon aria-hidden="true">fit_screen</mat-icon>
+        </button>
+        <button mat-icon-button (click)="resetZoom()" matTooltip="Reset View" aria-label="Reset view">
+          <mat-icon aria-hidden="true">center_focus_strong</mat-icon>
+        </button>
+        <mat-divider [vertical]="true" class="control-divider"></mat-divider>
+        <button mat-icon-button (click)="autoLayout()" matTooltip="Auto Layout" aria-label="Auto layout">
+          <mat-icon aria-hidden="true">account_tree</mat-icon>
         </button>
       </div>
 
-      <!-- ngx-graph Component -->
-      <div class="graph-container" (click)="$event.stopPropagation()">
+      <!-- Pipeline step list view.
+           Visual DAG temporarily rendered as a vertical list with
+           upstream/downstream dependencies. ngx-graph was removed
+           because @swimlane/ngx-graph does not have an Angular 21-
+           compatible release yet; the npm `overrides` that kept it
+           type-installable did not produce a working runtime.
+           See docs/PIPELINE_DESIGNER_MIGRATION.md. -->
+      <div class="graph-container pipeline-step-list" data-testid="pipeline-step-list"
+           (click)="$event.stopPropagation()">
         @if (nodes().length > 0) {
-          <ngx-graph
-            #graph
-            class="pipeline-graph"
-            [view]="[graphWidth, graphHeight]"
-            [showMiniMap]="true"
-            [autoZoom]="autoZoom"
-            [panningEnabled]="panningEnabled"
-            [enableZoom]="true"
-            [zoomLevel]="zoomLevel()"
-            [zoomSpeed]="0.1"
-            [center$]="center$"
-            [zoomToFit$]="zoomToFit$"
-            [update$]="update$"
-            [nodes]="nodes()"
-            [links]="links()"
-            [layout]="'dagre'"
-            (select)="onNodeSelect($event)"
-            (zoomChange)="onZoomChange($event)">
-
-            <!-- Custom Node Template -->
-            <ng-template #nodeTemplate let-node>
-              <svg:g class="pipeline-node-graph" 
-                     [class.selected]="selectedNode()?.id === node.id"
-                     (click)="onNodeSelect(node)">
-                <!-- Node Background -->
-                <svg:rect
-                  class="node-rect"
-                  [attr.width]="node.dimension?.width || 200"
-                  [attr.height]="node.dimension?.height || 100"
-                  rx="8"
-                  ry="8"
-                  [attr.stroke]="getTypeColor(node.operationType)"
-                  [attr.fill]="getTypeBgColor(node.operationType)"
-                  stroke-width="2"
-                />
-                
-                <!-- Node Header -->
-                <svg:rect
-                  class="node-header-rect"
-                  [attr.width]="(node.dimension?.width || 200) - 4"
-                  height="28"
-                  x="2"
-                  y="2"
-                  rx="6"
-                  ry="6"
-                  [attr.fill]="getTypeColor(node.operationType)"
-                />
-
-                <!-- Type Label -->
-                <svg:text
-                  class="node-type-label"
-                  x="12"
-                  y="20"
-                  fill="white"
-                  font-size="10"
-                  font-weight="bold">
-                  {{ node.operationType }}
-                </svg:text>
-
-                <!-- Delete Button -->
-                <svg:g class="node-delete-btn" (click)="removeNode(node.id); $event.stopPropagation()">
-                  <svg:circle cx="185" cy="16" r="8" fill="#ef4444" />
-                  <svg:text x="185" y="20" fill="white" font-size="10" text-anchor="middle">×</svg:text>
-                </svg:g>
-
-                <!-- Node Title -->
-                <svg:text
-                  class="node-title"
-                  x="12"
-                  y="55"
-                  fill="#1e293b"
-                  font-size="14"
-                  font-weight="600">
-                  {{ node.operationName }}
-                </svg:text>
-
-                <!-- Node ID -->
-                <svg:text
-                  class="node-id"
-                  x="12"
-                  y="78"
-                  fill="#64748b"
-                  font-size="9"
-                  font-family="monospace">
-                  {{ node.id.substring(0, 12) }}
-                </svg:text>
-
-                <!-- Config Indicator -->
-                @if (selectedNode()?.id === node.id) {
-                  <svg:circle cx="180" cy="80" r="4" fill="#3b82f6" />
+          <ol class="pipeline-node-list">
+            @for (node of nodes(); track node.id) {
+              <li class="pipeline-node-item"
+                  data-testid="pipeline-node"
+                  [class.selected]="selectedNode()?.id === node.id"
+                  (click)="onNodeSelect(node)">
+                <div class="pipeline-node-head"
+                     [style.border-left-color]="getTypeColor(node.operationType)">
+                  <span class="pipeline-node-type">{{ node.operationType }}</span>
+                  <span class="pipeline-node-title">{{ node.operationName }}</span>
+                  <button mat-icon-button class="pipeline-node-delete"
+                          (click)="removeNode(node.id); $event.stopPropagation()"
+                          aria-label="Delete step">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <div class="pipeline-node-id">{{ node.id }}</div>
+                @if (upstreamOf(node.id).length > 0) {
+                  <div class="pipeline-node-deps">
+                    depends on:
+                    @for (up of upstreamOf(node.id); track up) {
+                      <span class="pipeline-node-dep">{{ up }}</span>
+                    }
+                  </div>
                 }
-              </svg:g>
-            </ng-template>
-
-            <!-- Custom Link Template -->
-            <ng-template #linkTemplate let-link>
-              <svg:g class="pipeline-link">
-                <svg:path
-                  class="link-line"
-                  [attr.d]="link.line"
-                  stroke="#64748b"
-                  stroke-width="2"
-                  fill="none"
-                  marker-end="url(#arrow)"
-                />
-                <!-- Delete Button on Link -->
-                <svg:g class="link-delete-btn" 
-                       (click)="removeLink(link.id); $event.stopPropagation()"
-                       [attr.transform]="'translate(' + (link.midPoint?.x || 0) + ',' + (link.midPoint?.y || 0) + ')'">
-                  <svg:circle r="8" fill="white" stroke="#ef4444" stroke-width="1.5" />
-                  <svg:text y="3" fill="#ef4444" font-size="10" text-anchor="middle">×</svg:text>
-                </svg:g>
-              </svg:g>
-            </ng-template>
-
-            <!-- Arrow Marker Definition -->
-            <svg:defs>
-              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
-                      markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
-              </marker>
-            </svg:defs>
-          </ngx-graph>
+              </li>
+            }
+          </ol>
         } @else {
           <!-- Empty State -->
           <div class="canvas-empty">
@@ -309,12 +223,12 @@
 
       <!-- Validation Panel -->
       @if (validationErrors().length > 0) {
-        <div class="validation-panel">
+        <div class="validation-panel" role="region" aria-label="Validation issues">
           <div class="validation-header">
-            <mat-icon>warning</mat-icon>
+            <mat-icon aria-hidden="true">warning</mat-icon>
             <span>Validation Issues ({{ validationErrors().length }})</span>
-            <button mat-icon-button (click)="validate()" class="close-btn">
-              <mat-icon>close</mat-icon>
+            <button mat-icon-button (click)="validate()" class="close-btn" aria-label="Dismiss validation panel">
+              <mat-icon aria-hidden="true">close</mat-icon>
             </button>
           </div>
           <ul class="validation-list">
@@ -340,8 +254,8 @@
                 {{ op.type }}
               </div>
               <h3>{{ op.name }}</h3>
-              <button mat-icon-button (click)="propertiesPanelOpen.set(false)" class="close-btn">
-                <mat-icon>close</mat-icon>
+              <button mat-icon-button (click)="propertiesPanelOpen.set(false)" class="close-btn" aria-label="Close properties panel">
+                <mat-icon aria-hidden="true">close</mat-icon>
               </button>
             </div>
 
@@ -505,12 +419,12 @@
 
   <!-- Run Dialog -->
   @if (runDialogVisible()) {
-    <div class="dialog-overlay" (click)="runDialogVisible.set(false)">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-overlay" (click)="runDialogVisible.set(false)" role="presentation">
+      <div class="dialog-container" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="run-dialog-title" aria-modal="true">
         <div class="dialog-header">
-          <h2>Run Pipeline</h2>
-          <button mat-icon-button (click)="runDialogVisible.set(false)">
-            <mat-icon>close</mat-icon>
+          <h2 id="run-dialog-title">Run Pipeline</h2>
+          <button mat-icon-button (click)="runDialogVisible.set(false)" aria-label="Close dialog">
+            <mat-icon aria-hidden="true">close</mat-icon>
           </button>
         </div>
 
@@ -547,8 +461,8 @@
               <input matInput [ngModel]="newVarValue()" (ngModelChange)="newVarValue.set($event)" placeholder="Value" />
             </mat-form-field>
             <button mat-icon-button color="primary" (click)="addRunVariable()"
-              [disabled]="!newVarKey() || !newVarValue()">
-              <mat-icon>add</mat-icon>
+              [disabled]="!newVarKey() || !newVarValue()" aria-label="Add variable">
+              <mat-icon aria-hidden="true">add</mat-icon>
             </button>
           </div>
 
@@ -557,8 +471,8 @@
               @for (v of runVariables() | keyvalue; track v.key) {
                 <div class="variable-item">
                   <span><strong>{{ v.key }}:</strong> {{ v.value }}</span>
-                  <button mat-icon-button (click)="removeRunVariable(v.key)">
-                    <mat-icon>close</mat-icon>
+                  <button mat-icon-button (click)="removeRunVariable(v.key)" [attr.aria-label]="'Remove variable ' + v.key">
+                    <mat-icon aria-hidden="true">close</mat-icon>
                   </button>
                 </div>
               }
@@ -579,12 +493,12 @@
 
   <!-- JSON Dialog -->
   @if (jsonDialogVisible()) {
-    <div class="dialog-overlay" (click)="jsonDialogVisible.set(false)">
-      <div class="dialog-container large" (click)="$event.stopPropagation()">
+    <div class="dialog-overlay" (click)="jsonDialogVisible.set(false)" role="presentation">
+      <div class="dialog-container large" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="json-dialog-title" aria-modal="true">
         <div class="dialog-header">
-          <h2>Pipeline JSON Definition</h2>
-          <button mat-icon-button (click)="jsonDialogVisible.set(false)">
-            <mat-icon>close</mat-icon>
+          <h2 id="json-dialog-title">Pipeline JSON Definition</h2>
+          <button mat-icon-button (click)="jsonDialogVisible.set(false)" aria-label="Close dialog">
+            <mat-icon aria-hidden="true">close</mat-icon>
           </button>
         </div>
 
@@ -629,15 +543,15 @@
 
   <!-- Templates Dialog -->
   @if (templatesDialogVisible()) {
-    <div class="dialog-overlay" (click)="templatesDialogVisible.set(false)">
-      <div class="dialog-container large" (click)="$event.stopPropagation()">
+    <div class="dialog-overlay" (click)="templatesDialogVisible.set(false)" role="presentation">
+      <div class="dialog-container large" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="templates-dialog-title" aria-modal="true">
         <div class="dialog-header">
-          <h2>
-            <mat-icon>dashboard_customize</mat-icon>
+          <h2 id="templates-dialog-title">
+            <mat-icon aria-hidden="true">dashboard_customize</mat-icon>
             Pipeline Templates
           </h2>
-          <button mat-icon-button (click)="templatesDialogVisible.set(false)">
-            <mat-icon>close</mat-icon>
+          <button mat-icon-button (click)="templatesDialogVisible.set(false)" aria-label="Close dialog">
+            <mat-icon aria-hidden="true">close</mat-icon>
           </button>
         </div>
 
@@ -646,7 +560,8 @@
 
           <div class="templates-grid">
             @for (template of pipelineTemplates; track template.id) {
-              <div class="template-card" (click)="applyTemplate(template)">
+              <div class="template-card" (click)="applyTemplate(template)" role="button" tabindex="0"
+                   (keydown.enter)="applyTemplate(template)" [attr.aria-label]="'Apply template: ' + template.name">
                 <div class="template-icon" [style.background-color]="getTemplateCategoryColor(template.category)">
                   <mat-icon>{{ template.icon }}</mat-icon>
                 </div>

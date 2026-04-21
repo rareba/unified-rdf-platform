@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, AfterViewInit, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, KeyValuePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +20,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
-import { NgxGraphModule, GraphComponent, NgxGraphZoomOptions } from '@swimlane/ngx-graph';
+// ngx-graph removed until @swimlane/ngx-graph ships Angular 21 support.
+// The designer now renders the DAG as a vertical step list with dependency
+// badges. See docs/PIPELINE_DESIGNER_MIGRATION.md for the migration plan.
 import { Subject, Observable } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PipelineService } from '../../../core/services';
@@ -34,7 +36,7 @@ import {
   OperationParameter,
   PipelineDefinition
 } from '../../../core/models';
-import * as dagre from 'dagre';
+// dagre import removed - ngx-graph handles layout internally via [layout]="'dagre'"
 
 interface OperationGroup {
   type: OperationType;
@@ -95,14 +97,13 @@ interface GraphLink {
     MatToolbarModule,
     MatSidenavModule,
     MatListModule,
-    NgxGraphModule,
     KeyValuePipe
   ],
   templateUrl: './pipeline-designer.html',
   styleUrl: './pipeline-designer.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PipelineDesigner implements OnInit, OnDestroy {
+export class PipelineDesigner implements OnInit, OnDestroy, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly pipelineService = inject(PipelineService);
@@ -111,7 +112,8 @@ export class PipelineDesigner implements OnInit, OnDestroy {
   private readonly logger = inject(LoggerService);
   private readonly destroy$ = new Subject<void>();
 
-  @ViewChild('graph') graphComponent!: GraphComponent;
+  // @ViewChild('graph') graphComponent!: GraphComponent;
+  //   ngx-graph removed — see comment at top of imports block.
   @ViewChild('graphContainer', { static: false }) graphContainer!: ElementRef<HTMLDivElement>;
 
   // State
@@ -165,16 +167,16 @@ export class PipelineDesigner implements OnInit, OnDestroy {
   selectedNode = signal<GraphNode | null>(null);
   selectedOperation = signal<Operation | null>(null);
 
-  // Graph configuration
+  // Graph configuration - dynamically sized in ngAfterViewInit
   graphWidth = 1200;
   graphHeight = 800;
-  autoZoom = true;
   panningEnabled = true;
   zoomLevel = signal(1);
 
-  // Center$ and zoom$ observables required by ngx-graph
+  // Legacy graph observables — kept as no-op subjects so any lingering
+  // code paths that `.next()` through them don't blow up.
   center$: Subject<boolean> = new Subject();
-  zoomToFit$: Subject<NgxGraphZoomOptions> = new Subject<NgxGraphZoomOptions>();
+  zoomToFit$: Subject<unknown> = new Subject<unknown>();
   update$: Subject<boolean> = new Subject();
 
   // Dialogs
@@ -214,7 +216,7 @@ export class PipelineDesigner implements OnInit, OnDestroy {
       icon: 'verified',
       category: 'validation',
       steps: [
-        { operation: 'fetch-cube', params: { endpoint: 'http://localhost:7200/repositories/rdf-forge' } },
+        { operation: 'fetch-cube', params: { endpoint: '' } },
         { operation: 'validate-shacl', params: { onViolation: 'FAIL' } }
       ]
     },
@@ -226,7 +228,7 @@ export class PipelineDesigner implements OnInit, OnDestroy {
       category: 'publish',
       steps: [
         { operation: 'fetch-cube', params: {} },
-        { operation: 'graph-store-put', params: { endpoint: 'http://localhost:7200/repositories/rdf-forge' } }
+        { operation: 'graph-store-put', params: { endpoint: '' } }
       ]
     },
     {
@@ -334,6 +336,17 @@ export class PipelineDesigner implements OnInit, OnDestroy {
     }
   }
 
+  ngAfterViewInit(): void {
+    // Size the graph to the actual container dimensions
+    if (this.graphContainer) {
+      const rect = this.graphContainer.nativeElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        this.graphWidth = rect.width;
+        this.graphHeight = rect.height;
+      }
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -387,10 +400,12 @@ export class PipelineDesigner implements OnInit, OnDestroy {
 
       const loadedNodes: GraphNode[] = steps.map((step: any, index: number) => {
         const op = this.getOperationById(step.operation);
+        const opName = op?.name || step.operation;
         const node: GraphNode = {
           id: step.id || `step-${index}`,
+          label: opName,
           operationId: step.operation,
-          operationName: op?.name || step.operation,
+          operationName: opName,
           operationType: op?.type || 'TRANSFORM',
           params: step.params || step.parameters || {},
           dimension: { width: 200, height: 100 }
@@ -472,6 +487,7 @@ export class PipelineDesigner implements OnInit, OnDestroy {
   addNode(op: Operation, x: number, y: number): void {
     const newNode: GraphNode = {
       id: `node-${Date.now()}`,
+      label: op.name,
       operationId: op.id,
       operationName: op.name,
       operationType: op.type,
@@ -543,6 +559,13 @@ export class PipelineDesigner implements OnInit, OnDestroy {
     this.update$.next(true);
   }
 
+  /** Upstream node ids (i.e. dependencies) for a given node in the DAG. */
+  upstreamOf(nodeId: string): string[] {
+    return this.links()
+      .filter(link => link.target === nodeId)
+      .map(link => link.source);
+  }
+
   // Node selection
   onNodeSelect(node: GraphNode): void {
     this.selectedNode.set({ ...node });
@@ -595,47 +618,19 @@ export class PipelineDesigner implements OnInit, OnDestroy {
     }
   }
 
-  // Auto layout using dagre
+  // Auto layout: ngx-graph already computes dagre layout via [layout]="'dagre'",
+  // so we just need to trigger an update and fit the result to screen.
   autoLayout(): void {
-    const nodes = this.nodes();
-    const links = this.links();
+    if (this.nodes().length === 0) return;
 
-    if (nodes.length === 0) return;
-
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({ rankdir: 'LR', ranksep: 100, nodesep: 50 });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    // Add nodes
-    nodes.forEach(node => {
-      g.setNode(node.id, { width: 200, height: 100 });
-    });
-
-    // Add edges
-    links.forEach(link => {
-      g.setEdge(link.source, link.target);
-    });
-
-    // Calculate layout
-    dagre.layout(g);
-
-    // Update node positions
-    const updatedNodes = nodes.map(node => {
-      const graphNode = g.node(node.id);
-      if (graphNode) {
-        return {
-          ...node,
-          x: graphNode.x,
-          y: graphNode.y
-        };
-      }
-      return node;
-    });
-
-    this.nodes.set(updatedNodes);
-    this.center$.next(true);
+    // Trigger ngx-graph to re-run its built-in dagre layout
     this.update$.next(true);
+    // After layout completes, fit the graph to the visible area
+    setTimeout(() => this.zoomToFit$.next({}), 50);
   }
+
+  // Custom color function for ngx-graph to prevent ColorHelper null errors
+  nodeColorFn = (label: string) => '#6b7280';
 
   // Type colors
   getTypeColor(type: OperationType | undefined | null): string {
@@ -664,6 +659,12 @@ export class PipelineDesigner implements OnInit, OnDestroy {
 
   // Save & Run
   save(): void {
+    const pipelineName = this.name().trim();
+    if (!pipelineName) {
+      this.snackBar.open('Pipeline name is required', 'Close', { duration: 3000 });
+      return;
+    }
+
     const definition: PipelineDefinition = {
       steps: this.nodes().map(node => ({
         id: node.id,
@@ -819,6 +820,7 @@ export class PipelineDesigner implements OnInit, OnDestroy {
       if (op) {
         const node: GraphNode = {
           id: `node-${Date.now()}-${index}`,
+          label: op.name,
           operationId: op.id,
           operationName: op.name,
           operationType: op.type,
