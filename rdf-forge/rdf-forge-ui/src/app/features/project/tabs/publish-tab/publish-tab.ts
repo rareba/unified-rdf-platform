@@ -1,25 +1,30 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { PhasePlaceholder } from '../../shared/phase-placeholder/phase-placeholder';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ProjectContextService } from '../../services/project-context.service';
+import { ReleaseList } from '../../../release/release-list';
 
+/**
+ * Project workspace "Publish" tab. Thin wrapper that scopes the embedded
+ * {@link ReleaseList} component to the currently-active project supplied by
+ * {@link ProjectContextService}. Replaces the Phase 6 placeholder.
+ */
 @Component({
   selector: 'app-publish-tab',
   standalone: true,
-  imports: [PhasePlaceholder],
+  imports: [CommonModule, ReleaseList],
   template: `
-    <app-phase-placeholder
-      icon="cloud_upload"
-      title="Publish + Release Factory"
-      phase="Phase 6"
-      description="Build reproducible releases of your project data. Tag, sign, and publish to any triplestore, object store, or SPARQL endpoint — with full audit trails."
-      [features]="[
-        'Semantic-versioned releases (X.Y.Z)',
-        'Multi-target publishing (GraphDB, Fuseki, S3)',
-        'Release notes and changelog',
-        'Signed DCAT-AP catalogue entries',
-        'Promotion between environments (dev → stage → prod)'
-      ]">
-    </app-phase-placeholder>
+    @if (projectId()) {
+      <app-release-list [projectId]="projectId()!"></app-release-list>
+    } @else {
+      <p class="hint">No project selected.</p>
+    }
   `,
+  styles: [`
+    .hint { padding: 24px; color: var(--rdf-text-secondary); text-align: center; }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PublishTab {}
+export class PublishTab {
+  private readonly ctx = inject(ProjectContextService);
+  readonly projectId = computed(() => this.ctx.projectId());
+}

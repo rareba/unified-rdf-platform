@@ -19,6 +19,9 @@ public interface PipelineRepository extends JpaRepository<PipelineEntity, UUID> 
     /** Used by ProjectService.summary() — counts pipelines belonging to a project. */
     long countByProjectId(UUID projectId);
 
+    /** Used by lineage graph — stable order by recent activity. */
+    List<PipelineEntity> findByProjectIdOrderByUpdatedAtDesc(UUID projectId);
+
     @Query("SELECT p FROM PipelineEntity p WHERE (:projectId IS NULL OR p.projectId = :projectId)")
     Page<PipelineEntity> findAllByOptionalProjectId(@Param("projectId") UUID projectId, Pageable pageable);
 

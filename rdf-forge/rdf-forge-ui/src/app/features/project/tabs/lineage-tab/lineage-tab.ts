@@ -1,25 +1,30 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { PhasePlaceholder } from '../../shared/phase-placeholder/phase-placeholder';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ProjectContextService } from '../../services/project-context.service';
+import { LineageGraphComponent } from '../../../lineage/lineage-graph';
 
+/**
+ * Project workspace "Lineage" tab. Thin wrapper that scopes the embedded
+ * {@link LineageGraphComponent} to the currently-active project supplied by
+ * {@link ProjectContextService}. Replaces the Phase 6 placeholder.
+ */
 @Component({
   selector: 'app-lineage-tab',
   standalone: true,
-  imports: [PhasePlaceholder],
+  imports: [CommonModule, LineageGraphComponent],
   template: `
-    <app-phase-placeholder
-      icon="account_tree"
-      title="Provenance / Lineage"
-      phase="Phase 6"
-      description="Trace every triple back to its source. PROV-O graphs link raw inputs, transformations, validation outcomes, and released cubes in one navigable view."
-      [features]="[
-        'End-to-end PROV-O lineage graph',
-        'Drill from cube back to source row',
-        'Activity + agent annotations',
-        'Exportable provenance bundles',
-        'SPARQL-queryable provenance store'
-      ]">
-    </app-phase-placeholder>
+    @if (projectId()) {
+      <app-lineage-graph [projectId]="projectId()!"></app-lineage-graph>
+    } @else {
+      <p class="hint">No project selected.</p>
+    }
   `,
+  styles: [`
+    .hint { padding: 24px; color: var(--rdf-text-secondary); text-align: center; }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LineageTab {}
+export class LineageTab {
+  private readonly ctx = inject(ProjectContextService);
+  readonly projectId = computed(() => this.ctx.projectId());
+}
