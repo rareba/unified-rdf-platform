@@ -10,6 +10,7 @@
 export const environment = {
   production: true,
   apiBaseUrl: '/api/v1',
+  baseUri: 'https://api.rdf-forge.example.com/',
   auth: {
     enabled: true,
     keycloak: {

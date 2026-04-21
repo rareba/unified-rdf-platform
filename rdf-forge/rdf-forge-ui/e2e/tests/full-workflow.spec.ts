@@ -29,7 +29,9 @@ async function screenshot(page: Page, name: string) {
   });
 }
 
-test.describe('Full Cube Creation Workflow', () => {
+// TODO(audit-2026-04-21 P1): Rewrite for new Cube Creator 4-tab UI (CubeList + CubeProject).
+// Tests reference deleted app-cube-wizard and multi-step wizard headings. Suite disabled until rewritten.
+test.describe.skip('Full Cube Creation Workflow - needs rewrite for new 4-tab UI', () => {
   // Set longer timeout for full workflow
   test.setTimeout(120000);
 

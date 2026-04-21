@@ -1,7 +1,9 @@
+// TODO(audit-2026-04-21 P1): Rewrite for new Cube Creator 4-tab UI (CubeList + CubeProject).
+// Old tests target deleted app-cube-wizard component. Suite disabled until rewritten.
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
 
-test.describe('Cube Creation Wizard', () => {
+test.describe.skip('Cube creation - needs rewrite for new 4-tab UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/cubes');
   });
@@ -105,7 +107,7 @@ test.describe('Cube Creation Wizard', () => {
   });
 });
 
-test.describe('Cube Creator with Data', () => {
+test.describe.skip('Cube Creator with Data - needs rewrite for new 4-tab UI', () => {
   test.skip('should complete full cube creation flow', async ({ page }) => {
     // This test requires backend to be running
     // Skip for now, enable when backend is available

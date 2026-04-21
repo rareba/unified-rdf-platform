@@ -16,6 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 
 import { Cube } from '../../../core/models/cube.model';
+import { environment } from '../../../../environments/environment';
 
 export interface CubeMetadataDialogData {
   mode: 'create' | 'edit';
@@ -161,12 +162,12 @@ export class CubeMetadataDialog implements OnInit {
     this.dialogRef.close(result);
   }
 
-  // TODO: Base URI should come from environment config or project settings
   private generateUri(name: string): string {
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
-    return `https://cube.example.org/${slug}`;
+    const base = environment.baseUri.endsWith('/') ? environment.baseUri : `${environment.baseUri}/`;
+    return `${base}cubes/${slug}`;
   }
 }

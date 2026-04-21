@@ -48,14 +48,14 @@ interface MappingForm {
     MatTooltipModule
   ],
   template: `
-    @if (mapping()) {
+    @if (mapping(); as currentMapping) {
       <div class="mapping-editor-overlay" (click)="onOverlayClick($event)">
         <div class="mapping-editor-panel" role="dialog" aria-label="Edit column mapping">
 
           <div class="editor-header">
             <h3 class="editor-title">
               <mat-icon>edit</mat-icon>
-              Edit Mapping: {{ mapping()!.name }}
+              Edit Mapping: {{ currentMapping.name }}
             </h3>
             <button mat-icon-button (click)="onCancel()" aria-label="Close">
               <mat-icon>close</mat-icon>
@@ -308,10 +308,11 @@ export class ColumnMappingEditor implements OnChanges {
   }
 
   onSave(): void {
-    if (this.form.invalid || !this.mapping()) return;
+    const current = this.mapping();
+    if (this.form.invalid || !current) return;
     const v = this.form.getRawValue();
     const updated: ColumnMapping = {
-      ...this.mapping()!,
+      ...current,
       predicateUri:  v.predicateUri || undefined,
       role:          v.role,
       datatype:      v.datatype || undefined,

@@ -16,7 +16,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CubeService } from '../../../core/services/cube.service';
-import { Cube } from '../../../core/models/cube.model';
+import { NotificationService } from '../../../core/services/notification.service';
+import { Cube, CubeCreateRequest } from '../../../core/models/cube.model';
+import { CubeMetadataDialogResult } from '../shared/cube-metadata-dialog';
 import { CsvMappingTab } from './csv-mapping-tab/csv-mapping-tab';
 import { TransformTab } from './transform-tab/transform-tab';
 import { CubeDesignerTab } from './cube-designer-tab/cube-designer-tab';
@@ -50,10 +52,10 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
         @if (loading()) {
           <mat-spinner diameter="24" class="topbar-spinner"></mat-spinner>
-        } @else if (cube()) {
-          <span class="cube-name">{{ cube()!.name }}</span>
-          <span class="status-badge status-{{ cube()!.status ?? 'draft' }}">
-            {{ getStatusLabel(cube()!.status) }}
+        } @else if (cube(); as currentCube) {
+          <span class="cube-name">{{ currentCube.name }}</span>
+          <span class="status-badge status-{{ currentCube.status ?? 'draft' }}">
+            {{ getStatusLabel(currentCube.status) }}
           </span>
         } @else {
           <span class="cube-name">New Cube</span>
@@ -79,9 +81,9 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="CSV Mapping">
             <ng-template matTabContent>
-              @if (cube()) {
+              @if (cube(); as currentCube) {
                 <app-csv-mapping-tab
-                  [cube]="cube()!"
+                  [cube]="currentCube"
                   (cubeUpdated)="onCubeUpdated($event)">
                 </app-csv-mapping-tab>
               }
@@ -90,9 +92,9 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Transform">
             <ng-template matTabContent>
-              @if (cube()) {
+              @if (cube(); as currentCube) {
                 <app-transform-tab
-                  [cube]="cube()!"
+                  [cube]="currentCube"
                   (cubeUpdated)="onCubeUpdated($event)">
                 </app-transform-tab>
               }
@@ -101,9 +103,9 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Cube Designer">
             <ng-template matTabContent>
-              @if (cube()) {
+              @if (cube(); as currentCube) {
                 <app-cube-designer-tab
-                  [cube]="cube()!"
+                  [cube]="currentCube"
                   (cubeUpdated)="onCubeUpdated($event)">
                 </app-cube-designer-tab>
               }
@@ -112,9 +114,9 @@ export type CubeTab = 'mapping' | 'transform' | 'designer' | 'publish';
 
           <mat-tab label="Publish">
             <ng-template matTabContent>
-              @if (cube()) {
+              @if (cube(); as currentCube) {
                 <app-publish-tab
-                  [cube]="cube()!"
+                  [cube]="currentCube"
                   (cubeUpdated)="onCubeUpdated($event)">
                 </app-publish-tab>
               }
@@ -198,6 +200,7 @@ export class CubeProject implements OnInit, OnDestroy {
   private readonly cubeService = inject(CubeService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly notifications = inject(NotificationService);
   private readonly destroy$ = new Subject<void>();
 
   readonly cube = signal<Cube | null>(null);
@@ -250,37 +253,59 @@ export class CubeProject implements OnInit, OnDestroy {
       });
   }
 
-  private openNewCubeDialog(): void {
-    import('../shared/cube-metadata-dialog').then(m => {
-      const ref = this.dialog.open(m.CubeMetadataDialog, {
-        width: '480px',
-        data: { mode: 'create' }
-      });
+  private async openNewCubeDialog(): Promise<void> {
+    let module: typeof import('../shared/cube-metadata-dialog');
+    try {
+      module = await import('../shared/cube-metadata-dialog');
+    } catch (err) {
+      console.error('Failed to load cube metadata dialog module', err);
+      this.notifications.error('Unable to open dialog. Check your connection and try again.');
+      this.goBack();
+      return;
+    }
 
-      ref.afterClosed().pipe(takeUntil(this.destroy$)).subscribe(result => {
-        if (!result) {
-          this.goBack();
-          return;
-        }
+    const ref = this.dialog.open(module.CubeMetadataDialog, {
+      width: '480px',
+      data: { mode: 'create' }
+    });
 
-        this.loading.set(true);
-        this.cubeService
-          .create(result)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: cube => {
-              this.cube.set(cube);
-              this.loading.set(false);
-              this.router.navigate(['/cubes', cube.id], { replaceUrl: true });
-            },
-            error: err => {
-              console.error('Failed to create cube', err);
-              this.loading.set(false);
-              this.snackBar.open('Failed to create cube', 'Dismiss', { duration: 4000 });
-              this.goBack();
-            }
-          });
-      });
+    ref.afterClosed().pipe(takeUntil(this.destroy$)).subscribe((result: CubeMetadataDialogResult | undefined) => {
+      if (!result) {
+        this.goBack();
+        return;
+      }
+
+      // Transform dialog result into CubeCreateRequest,
+      // packing extra metadata fields into the metadata bag
+      const { name, description, uri, publisherUri, theme, contactPoint } = result;
+      const createRequest: CubeCreateRequest = {
+        uri: uri ?? '',
+        name,
+        description,
+        metadata: {
+          ...(publisherUri ? { publisherUri } : {}),
+          ...(theme ? { theme } : {}),
+          ...(contactPoint ? { contactPoint } : {}),
+        },
+      };
+
+      this.loading.set(true);
+      this.cubeService
+        .create(createRequest)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: cube => {
+            this.cube.set(cube);
+            this.loading.set(false);
+            this.router.navigate(['/cubes', cube.id], { replaceUrl: true });
+          },
+          error: err => {
+            console.error('Failed to create cube', err);
+            this.loading.set(false);
+            this.snackBar.open('Failed to create cube', 'Dismiss', { duration: 4000 });
+            this.goBack();
+          }
+        });
     });
   }
 

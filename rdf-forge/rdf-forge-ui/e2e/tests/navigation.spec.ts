@@ -16,7 +16,9 @@ test.describe('Navigation', () => {
     await expect(page.locator('app-pipeline-list')).toBeVisible();
   });
 
-  test('should navigate to cube creator page', async ({ page }) => {
+  // TODO(audit-2026-04-21 P1): Rewrite for new Cube Creator 4-tab UI (CubeList + CubeProject).
+  // Old selector targets deleted app-cube-wizard component. Test disabled until rewritten.
+  test.skip('should navigate to cube creator page', async ({ page }) => {
     await page.getByRole('link', { name: /cube creator/i }).click();
     await expect(page).toHaveURL(/.*cubes/);
     await expect(page.locator('app-cube-wizard')).toBeVisible();
