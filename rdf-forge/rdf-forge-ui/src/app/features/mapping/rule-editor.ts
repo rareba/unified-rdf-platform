@@ -94,8 +94,8 @@ interface RuleEditorData {
           <mat-form-field appearance="outline">
             <mat-label>URI template</mat-label>
             <input matInput [(ngModel)]="rule.uriTemplate" name="uriTemplate"
-                   placeholder="\${baseUri}person/\${id}">
-            <mat-hint>Use \${baseUri}, \${row.col} or bare \${col}.</mat-hint>
+                   [placeholder]="uriTemplatePlaceholder">
+            <mat-hint>{{ uriTemplateHint }}</mat-hint>
           </mat-form-field>
         }
 
@@ -178,6 +178,11 @@ export class RuleEditor {
   private readonly ref = inject(MatDialogRef<RuleEditor>);
 
   rule: MappingRule;
+  // Literal $ signs in backtick-template strings are JS interpolation markers;
+  // exposing the placeholder/hint as typed fields sidesteps the Angular parser
+  // NG5002 complaint that fires on raw `${...}` inside an inline template.
+  readonly uriTemplatePlaceholder = '${baseUri}person/${id}';
+  readonly uriTemplateHint = 'Use ${baseUri}, ${row.col} or bare ${col}.';
   transformType: TransformType | null = null;
   substringStart: number | null = null;
   substringEnd: number | null = null;

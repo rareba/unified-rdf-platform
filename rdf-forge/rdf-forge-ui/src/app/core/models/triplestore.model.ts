@@ -1,7 +1,14 @@
-export type TriplestoreType = 'FUSEKI' | 'STARDOG' | 'GRAPHDB' | 'NEPTUNE' | 'VIRTUOSO' | 'BLAZEGRAPH';
+export type TriplestoreType =
+  | 'FUSEKI' | 'STARDOG' | 'GRAPHDB' | 'NEPTUNE' | 'VIRTUOSO' | 'BLAZEGRAPH';
 export type AuthType = 'none' | 'basic' | 'apikey' | 'oauth2';
 export type HealthStatus = 'healthy' | 'unhealthy' | 'unknown';
-export type RdfFormat = 'turtle' | 'rdfxml' | 'ntriples' | 'jsonld';
+/**
+ * Lowercase format slugs accepted by the triplestore SPARQL/graph import and
+ * export endpoints. Intentionally distinct from the uppercase enum used by
+ * the ontology service (see `ontology.model.ts#RdfFormat`) because the two
+ * surfaces come from different backend components.
+ */
+export type TriplestoreRdfFormat = 'turtle' | 'rdfxml' | 'ntriples' | 'jsonld';
 
 export interface TriplestoreConnection {
   id: string;
@@ -58,7 +65,7 @@ export interface PropertyValue {
 export interface QueryResult {
   variables: string[];
   bindings: Record<string, { type: string; value: string; datatype?: string; language?: string }>[];
-  executionTime: number;
+  executionTimeMs: number;
 }
 
 export interface ConnectionTestResult {

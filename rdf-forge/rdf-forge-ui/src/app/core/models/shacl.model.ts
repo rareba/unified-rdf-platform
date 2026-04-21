@@ -1,5 +1,5 @@
 export type ContentFormat = 'turtle' | 'jsonld' | 'TURTLE' | 'JSON_LD';
-export type ValidationSeverity = 'Violation' | 'Warning' | 'Info';
+export type ShaclSeverity = 'Violation' | 'Warning' | 'Info';
 
 export interface Shape {
   id: string;
@@ -61,7 +61,7 @@ export interface ValidationViolation {
   path?: string;
   value?: unknown;
   message: string;
-  severity: ValidationSeverity;
+  severity: ShaclSeverity;
   constraint: string;
   sourceShape: string;
 }

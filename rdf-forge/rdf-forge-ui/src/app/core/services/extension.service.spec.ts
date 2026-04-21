@@ -34,9 +34,13 @@ describe('ExtensionService', () => {
 
   afterEach(() => http.verify());
 
+  // ApiService.getArray appends a default ?size=N page-size query parameter;
+  // specs must match the real outgoing URL including that parameter.
+  const ADMIN_EXT = `${environment.apiBaseUrl}/admin/extensions?size=20`;
+
   it('listAll calls only the aggregated endpoint', () => {
     service.listAll().subscribe(list => expect(list).toEqual(sample));
-    const req = http.expectOne(`${environment.apiBaseUrl}/admin/extensions`);
+    const req = http.expectOne(ADMIN_EXT);
     expect(req.request.method).toBe('GET');
     req.flush(sample);
   });
@@ -47,14 +51,14 @@ describe('ExtensionService', () => {
       next: () => fail('should not emit on meta failure'),
       error: () => { failed = true; }
     });
-    const meta = http.expectOne(`${environment.apiBaseUrl}/admin/extensions`);
+    const meta = http.expectOne(ADMIN_EXT);
     meta.flush('boom', { status: 500, statusText: 'Server Error' });
     expect(failed).toBe(true);
   });
 
   it('listByKind filters via the aggregated endpoint', () => {
     service.listByKind('FORMAT').subscribe(list => expect(list).toEqual(sample));
-    const r = http.expectOne(`${environment.apiBaseUrl}/admin/extensions?kind=FORMAT`);
+    const r = http.expectOne(`${environment.apiBaseUrl}/admin/extensions?kind=FORMAT&size=20`);
     expect(r.request.method).toBe('GET');
     r.flush(sample);
   });

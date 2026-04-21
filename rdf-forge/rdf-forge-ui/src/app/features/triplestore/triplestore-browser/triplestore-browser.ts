@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -17,6 +17,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { OverlayModule } from '@angular/cdk/overlay';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { TriplestoreService, ProviderService } from '../../../core/services';
 import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { LoggerService } from '../../../core/services/logger.service';
@@ -28,7 +30,7 @@ import {
   QueryResult,
   TriplestoreType,
   AuthType,
-  RdfFormat,
+  TriplestoreRdfFormat,
   TriplestoreProviderInfo
 } from '../../../core/models';
 
@@ -63,7 +65,8 @@ interface QueryTemplate {
   styleUrl: './triplestore-browser.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TriplestoreBrowser implements OnInit {
+export class TriplestoreBrowser implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   private readonly triplestoreService = inject(TriplestoreService);
   private readonly providerService = inject(ProviderService);
   private readonly snackBar = inject(MatSnackBar);
@@ -114,7 +117,7 @@ export class TriplestoreBrowser implements OnInit {
 
   editConnection = signal<Partial<TriplestoreConnection & ConnectionCreateRequest>>({});
 
-  uploadForm = signal<{ graphUri: string; content: string; format: RdfFormat }>({
+  uploadForm = signal<{ graphUri: string; content: string; format: TriplestoreRdfFormat }>({
     graphUri: '',
     content: '',
     format: 'turtle'
@@ -138,7 +141,7 @@ export class TriplestoreBrowser implements OnInit {
     { label: 'OAuth 2.0', value: 'oauth2' }
   ];
 
-  rdfFormats: { label: string; value: RdfFormat }[] = [
+  rdfFormats: { label: string; value: TriplestoreRdfFormat }[] = [
     { label: 'Turtle', value: 'turtle' },
     { label: 'RDF/XML', value: 'rdfxml' },
     { label: 'N-Triples', value: 'ntriples' },
@@ -200,14 +203,19 @@ export class TriplestoreBrowser implements OnInit {
     this.loadConnections();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadTriplestoreProviders(): void {
-    this.providerService.getTriplestoreProviders().subscribe({
+    this.providerService.getTriplestoreProviders().pipe(takeUntil(this.destroy$)).subscribe({
       next: (providers) => {
         this.triplestoreProviders.set(providers);
         // Update the type options from the API
         const types = providers.map(p => ({
           label: p.displayName,
-          value: p.type.toLowerCase() as TriplestoreType
+          value: p.type.toUpperCase() as TriplestoreType
         }));
         if (types.length > 0) {
           this.triplestoreTypes.set(types);
@@ -222,7 +230,7 @@ export class TriplestoreBrowser implements OnInit {
 
   loadConnections(): void {
     this.loading.set(true);
-    this.triplestoreService.list().subscribe({
+    this.triplestoreService.list().pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.connections.set(data);
         if (data.length > 0) {
@@ -248,10 +256,14 @@ export class TriplestoreBrowser implements OnInit {
 
   loadGraphs(connectionId: string): void {
     this.graphsLoading.set(true);
-    this.triplestoreService.getGraphs(connectionId).subscribe({
+    this.triplestoreService.getGraphs(connectionId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.graphs.set(data);
         this.graphsLoading.set(false);
+        // Auto-select the first graph so Browse Resources isn't empty
+        if (data.length > 0 && !this.selectedGraph()) {
+          this.selectGraph(data[0]);
+        }
       },
       error: () => {
         this.graphs.set([]);
@@ -270,7 +282,7 @@ export class TriplestoreBrowser implements OnInit {
     if (!conn) return;
 
     this.resourcesLoading.set(true);
-    this.triplestoreService.getGraphResources(conn.id, graphUri, { limit: 100, offset: 0 }).subscribe({
+    this.triplestoreService.getGraphResources(conn.id, graphUri, { limit: 100, offset: 0 }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.resources.set(data);
         this.resourcesLoading.set(false);
@@ -289,7 +301,7 @@ export class TriplestoreBrowser implements OnInit {
     if (!conn || !graph || !query) return;
 
     this.resourcesLoading.set(true);
-    this.triplestoreService.searchResources(conn.id, graph.uri, query).subscribe({
+    this.triplestoreService.searchResources(conn.id, graph.uri, query).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.resources.set(data);
         this.resourcesLoading.set(false);
@@ -306,7 +318,7 @@ export class TriplestoreBrowser implements OnInit {
     const graph = this.selectedGraph();
     if (!conn || !graph) return;
 
-    this.triplestoreService.getResource(conn.id, graph.uri, resource.uri).subscribe({
+    this.triplestoreService.getResource(conn.id, graph.uri, resource.uri).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.selectedResource.set(data);
         this.resourceDialogVisible.set(true);
@@ -322,7 +334,7 @@ export class TriplestoreBrowser implements OnInit {
     this.newConnection.set({
       name: '',
       type: 'FUSEKI',
-      url: 'http://localhost:3030/',
+      url: '',
       defaultGraph: '',
       authType: 'none',
       authConfig: {},
@@ -343,7 +355,7 @@ export class TriplestoreBrowser implements OnInit {
       return;
     }
 
-    this.triplestoreService.create(conn).subscribe({
+    this.triplestoreService.create(conn).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open('Connection created successfully', 'Close', { duration: 3000 });
         this.connectionDialogVisible.set(false);
@@ -359,7 +371,7 @@ export class TriplestoreBrowser implements OnInit {
     const conn = this.editConnection();
     if (!conn.id) return;
 
-    this.triplestoreService.update(conn.id, conn).subscribe({
+    this.triplestoreService.update(conn.id, conn).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open('Connection updated successfully', 'Close', { duration: 3000 });
         this.editConnectionDialogVisible.set(false);
@@ -377,7 +389,7 @@ export class TriplestoreBrowser implements OnInit {
       message: `Are you sure you want to delete "${conn.name}"?`,
       confirmText: 'Delete',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (confirmed) {
         this.deleteConnection(conn);
       }
@@ -385,7 +397,7 @@ export class TriplestoreBrowser implements OnInit {
   }
 
   deleteConnection(conn: TriplestoreConnection): void {
-    this.triplestoreService.delete(conn.id).subscribe({
+    this.triplestoreService.delete(conn.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open('Connection deleted successfully', 'Close', { duration: 3000 });
         if (this.selectedConnection()?.id === conn.id) {
@@ -401,7 +413,7 @@ export class TriplestoreBrowser implements OnInit {
 
   testConnection(conn: TriplestoreConnection): void {
     this.testingConnection.set(true);
-    this.triplestoreService.test(conn.id).subscribe({
+    this.triplestoreService.test(conn.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         if (result.success) {
           this.snackBar.open(`Connection successful (${result.latencyMs}ms)`, 'Close', { duration: 3000 });
@@ -424,11 +436,11 @@ export class TriplestoreBrowser implements OnInit {
     if (!conn) return;
 
     this.queryLoading.set(true);
-    this.triplestoreService.executeSparql(conn.id, this.sparqlQuery(), this.selectedGraph()?.uri).subscribe({
+    this.triplestoreService.executeSparql(conn.id, this.sparqlQuery(), this.selectedGraph()?.uri).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.queryResult.set(result);
         this.queryLoading.set(false);
-        this.snackBar.open(`${result.bindings.length} results in ${result.executionTime}ms`, 'Close', { duration: 3000 });
+        this.snackBar.open(`${result.bindings.length} results in ${result.executionTimeMs}ms`, 'Close', { duration: 3000 });
       },
       error: (err) => {
         this.snackBar.open(err.error?.message || 'Query execution failed', 'Close', { duration: 3000 });
@@ -461,7 +473,7 @@ export class TriplestoreBrowser implements OnInit {
     }
 
     this.uploadingRdf.set(true);
-    this.triplestoreService.uploadRdf(conn.id, form.graphUri, form.content, form.format).subscribe({
+    this.triplestoreService.uploadRdf(conn.id, form.graphUri, form.content, form.format).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.snackBar.open(`${result.triplesLoaded} triples loaded`, 'Close', { duration: 3000 });
         this.uploadingRdf.set(false);
@@ -481,7 +493,7 @@ export class TriplestoreBrowser implements OnInit {
       message: `Are you sure you want to delete graph "${graph.uri}"? This will remove ${this.formatNumber(graph.tripleCount)} triples.`,
       confirmText: 'Delete',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (confirmed) {
         this.deleteGraph(graph);
       }
@@ -492,7 +504,7 @@ export class TriplestoreBrowser implements OnInit {
     const conn = this.selectedConnection();
     if (!conn) return;
 
-    this.triplestoreService.deleteGraph(conn.id, graph.uri).subscribe({
+    this.triplestoreService.deleteGraph(conn.id, graph.uri).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open('Graph deleted successfully', 'Close', { duration: 3000 });
         if (this.selectedGraph()?.uri === graph.uri) {
@@ -506,11 +518,11 @@ export class TriplestoreBrowser implements OnInit {
     });
   }
 
-  exportGraph(graph: Graph, format: RdfFormat = 'turtle'): void {
+  exportGraph(graph: Graph, format: TriplestoreRdfFormat = 'turtle'): void {
     const conn = this.selectedConnection();
     if (!conn) return;
 
-    this.triplestoreService.exportGraph(conn.id, graph.uri, format).subscribe({
+    this.triplestoreService.exportGraph(conn.id, graph.uri, format).pipe(takeUntil(this.destroy$)).subscribe({
       next: (content) => {
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -604,7 +616,7 @@ export class TriplestoreBrowser implements OnInit {
     this.uploadForm.update(f => ({ ...f, content: value }));
   }
 
-  updateUploadFormat(value: RdfFormat): void {
+  updateUploadFormat(value: TriplestoreRdfFormat): void {
     this.uploadForm.update(f => ({ ...f, format: value }));
   }
 

@@ -1,4 +1,5 @@
 import { Injectable, inject, computed } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, of, switchMap } from 'rxjs';
 import { ApiService } from './api.service';
 import { SettingsService } from './settings.service';
@@ -9,7 +10,7 @@ import {
   Graph,
   Resource,
   QueryResult,
-  RdfFormat
+  TriplestoreRdfFormat
 } from '../models';
 
 @Injectable({
@@ -17,6 +18,7 @@ import {
 })
 export class TriplestoreService {
   private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
   private readonly settingsService = inject(SettingsService);
 
   /**
@@ -73,27 +75,28 @@ export class TriplestoreService {
   }
 
   getGraphResources(connectionId: string, graphUri: string, params?: { limit?: number; offset?: number }): Observable<Resource[]> {
-    // Apply default result limit if not specified
     const effectiveParams = {
       ...params,
-      limit: params?.limit ?? this.resultLimit()
+      limit: params?.limit ?? this.resultLimit(),
+      graphUri
     };
     return this.api.getArray<Resource>(
-      `/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/resources`,
+      `/triplestores/${connectionId}/resources`,
       effectiveParams
     );
   }
 
   searchResources(connectionId: string, graphUri: string, query: string): Observable<Resource[]> {
     return this.api.getArray<Resource>(
-      `/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/search`,
-      { q: query, limit: this.resultLimit() }
+      `/triplestores/${connectionId}/resources/search`,
+      { q: query, limit: this.resultLimit(), graphUri }
     );
   }
 
   getResource(connectionId: string, graphUri: string, resourceUri: string): Observable<Resource> {
     return this.api.get<Resource>(
-      `/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/resources/${encodeURIComponent(resourceUri)}`
+      `/triplestores/${connectionId}/resource`,
+      { graphUri, resourceUri }
     );
   }
 
@@ -119,7 +122,7 @@ export class TriplestoreService {
     return this.executeSparql(defaultId, query, graph);
   }
 
-  uploadRdf(connectionId: string, graphUri: string, content: string, format: RdfFormat): Observable<{ triplesLoaded: number }> {
+  uploadRdf(connectionId: string, graphUri: string, content: string, format: TriplestoreRdfFormat): Observable<{ triplesLoaded: number }> {
     return this.api.post<{ triplesLoaded: number }>(
       `/triplestores/${connectionId}/upload`,
       { graphUri, content, format },
@@ -131,11 +134,11 @@ export class TriplestoreService {
     return this.api.delete<void>(`/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}`);
   }
 
-  exportGraph(connectionId: string, graphUri: string, format: RdfFormat): Observable<string> {
-    return this.api.get<string>(
-      `/triplestores/${connectionId}/graphs/${encodeURIComponent(graphUri)}/export`,
-      { format },
-      { operationType: 'sparql' }
-    );
+  exportGraph(connectionId: string, graphUri: string, format: TriplestoreRdfFormat): Observable<string> {
+    const params = new HttpParams().set('graphUri', graphUri).set('format', format);
+    return this.http.get(`/api/v1/triplestores/${connectionId}/export`, {
+      params,
+      responseType: 'text'
+    });
   }
 }

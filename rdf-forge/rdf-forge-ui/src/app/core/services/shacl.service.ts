@@ -12,6 +12,7 @@ import {
 } from '../models';
 
 export interface ShapeListParams {
+  projectId?: string;
   search?: string;
   category?: string;
   isTemplate?: boolean;

@@ -123,7 +123,7 @@ export interface ExplainResponse {
   rows: RowExplain[];
 }
 
-export interface ValidationIssue {
+export interface MappingValidationIssue {
   ruleId: string | null;
   field: string;
   code: string;
@@ -132,7 +132,7 @@ export interface ValidationIssue {
 
 export interface MappingValidationResponse {
   valid: boolean;
-  issues: ValidationIssue[];
+  issues: MappingValidationIssue[];
 }
 
 export interface MappingValidationRequest {
