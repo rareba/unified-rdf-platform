@@ -1,2 +1,3 @@
 io.rdfforge.common.config.NoAuthSecurityConfig
 io.rdfforge.common.security.CurrentUserAutoConfiguration
+io.rdfforge.common.exception.ExceptionHandlerAutoConfiguration
