@@ -5,8 +5,82 @@ import { adminGuard } from './core/guards/admin.guard';
 export const routes: Routes = [
   {
     path: '',
+    pathMatch: 'full',
     loadComponent: () => import('./features/dashboard/dashboard').then(m => m.Dashboard),
     canActivate: [authGuard]
+  },
+  {
+    path: 'projects',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/project/project-list/project-list').then(m => m.ProjectList)
+      },
+      {
+        path: 'new',
+        loadComponent: () =>
+          import('./features/project/project-form/project-form').then(m => m.ProjectForm)
+      },
+      {
+        path: ':id/edit',
+        loadComponent: () =>
+          import('./features/project/project-form/project-form').then(m => m.ProjectForm)
+      },
+      {
+        path: ':id',
+        loadComponent: () =>
+          import('./features/project/project-workspace/project-workspace').then(
+            m => m.ProjectWorkspace
+          ),
+        children: [
+          { path: '', redirectTo: 'overview', pathMatch: 'full' },
+          {
+            path: 'overview',
+            loadComponent: () =>
+              import('./features/project/tabs/overview-tab/overview-tab').then(m => m.OverviewTab)
+          },
+          {
+            path: 'data',
+            loadComponent: () =>
+              import('./features/project/tabs/data-tab/data-tab').then(m => m.DataTab)
+          },
+          {
+            path: 'ontology',
+            loadComponent: () =>
+              import('./features/project/tabs/ontology-tab/ontology-tab').then(m => m.OntologyTab)
+          },
+          {
+            path: 'mapping',
+            loadComponent: () =>
+              import('./features/project/tabs/mapping-tab/mapping-tab').then(m => m.MappingTab)
+          },
+          {
+            path: 'validation',
+            loadComponent: () =>
+              import('./features/project/tabs/validation-tab/validation-tab').then(
+                m => m.ValidationTab
+              )
+          },
+          {
+            path: 'publish',
+            loadComponent: () =>
+              import('./features/project/tabs/publish-tab/publish-tab').then(m => m.PublishTab)
+          },
+          {
+            path: 'lineage',
+            loadComponent: () =>
+              import('./features/project/tabs/lineage-tab/lineage-tab').then(m => m.LineageTab)
+          },
+          {
+            path: 'docs',
+            loadComponent: () =>
+              import('./features/project/tabs/docs-tab/docs-tab').then(m => m.DocsTab)
+          }
+        ]
+      }
+    ]
   },
   {
     path: 'pipelines',
@@ -125,6 +199,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: ''
+    loadComponent: () => import('./features/not-found/not-found').then(m => m.NotFound)
   }
 ];

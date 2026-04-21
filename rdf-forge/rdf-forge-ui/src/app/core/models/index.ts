@@ -6,3 +6,4 @@ export * from './dimension.model';
 export * from './triplestore.model';
 export * from './provider.model';
 export * from './cube.model';
+export * from './project.model';

@@ -1,0 +1,81 @@
+<div class="overview-tab">
+  @if (summary(); as project) {
+    <section class="counts-section">
+      <h2 class="section-title">At a glance</h2>
+      <div class="counts-grid">
+        @for (card of countCards(); track card.key) {
+          <mat-card class="count-card">
+            <div class="count-icon">
+              <mat-icon>{{ card.icon }}</mat-icon>
+            </div>
+            <div class="count-body">
+              <span class="count-label">{{ card.label }}</span>
+              <span class="count-value">{{ card.value }}</span>
+            </div>
+          </mat-card>
+        }
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <mat-card class="summary-card">
+        <mat-card-header>
+          <mat-card-title>Recent activity</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (project.lastActivity) {
+            <div class="summary-row">
+              <mat-icon>history</mat-icon>
+              <div>
+                <span class="summary-label">Last activity</span>
+                <span class="summary-value">{{ project.lastActivity | date:'medium' }}</span>
+              </div>
+            </div>
+          } @else {
+            <p class="summary-empty">No recent activity yet.</p>
+          }
+          <p class="todo-note">
+            <mat-icon class="note-icon">info</mat-icon>
+            Detailed activity timeline will appear here once pipeline runs and
+            publishing events are wired in.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card">
+        <mat-card-header>
+          <mat-card-title>Validation status</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="summary-empty">
+            Health + validation indicators will be rendered in Phase 5
+            once the Validation Cockpit is online.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card">
+        <mat-card-header>
+          <mat-card-title>Last release</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (project.lastRelease) {
+            <div class="summary-row">
+              <mat-icon>rocket_launch</mat-icon>
+              <div>
+                <span class="summary-label">Released</span>
+                <span class="summary-value">{{ project.lastRelease | date:'medium' }}</span>
+              </div>
+            </div>
+          } @else {
+            <p class="summary-empty">No releases published yet.</p>
+            <a mat-stroked-button color="primary" routerLink="../publish">
+              <mat-icon>cloud_upload</mat-icon>
+              Go to Publish
+            </a>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+</div>

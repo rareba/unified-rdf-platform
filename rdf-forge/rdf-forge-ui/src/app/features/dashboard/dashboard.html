@@ -38,6 +38,37 @@
     <app-skeleton-loader></app-skeleton-loader>
   }
 
+  <!-- Recent Projects -->
+  @if (!loading() && !error() && recentProjects().length > 0) {
+    <section class="recent-projects" role="region" aria-labelledby="recent-projects-title">
+      <div class="section-header">
+        <h2 id="recent-projects-title">Recent Projects</h2>
+        <button mat-button color="primary" (click)="navigateTo('/projects')">View all</button>
+      </div>
+      <div class="recent-projects-grid">
+        @for (project of recentProjects(); track project.id) {
+          <mat-card class="recent-project-card"
+                    tabindex="0"
+                    role="button"
+                    [attr.aria-label]="'Open project ' + project.name"
+                    (click)="navigateTo('/projects/' + project.id)"
+                    (keydown.enter)="navigateTo('/projects/' + project.id)">
+            <mat-icon class="recent-project-icon" aria-hidden="true">folder_special</mat-icon>
+            <div class="recent-project-body">
+              <span class="recent-project-name">{{ project.name }}</span>
+              @if (project.description) {
+                <span class="recent-project-description">{{ project.description }}</span>
+              }
+              <span class="recent-project-meta">
+                Updated {{ formatDate(project.updatedAt) }}
+              </span>
+            </div>
+          </mat-card>
+        }
+      </div>
+    </section>
+  }
+
   <!-- Stats Grid -->
   @if (!loading() && !error()) {
     <div class="stats-grid" role="region" aria-labelledby="dashboard-title">
@@ -86,20 +117,20 @@
     <section class="quick-actions" role="region" aria-labelledby="quick-actions-title">
       <h2 id="quick-actions-title">Quick Actions</h2>
       <div class="actions-grid">
-        <mat-card class="action-card" (click)="startWorkflow('csv-to-cube')" tabindex="0" (keydown.enter)="startWorkflow('csv-to-cube')">
-          <mat-icon>view_in_ar</mat-icon>
+        <mat-card class="action-card" (click)="startWorkflow('csv-to-cube')" tabindex="0" (keydown.enter)="startWorkflow('csv-to-cube')" role="button" aria-label="CSV to Cube">
+          <mat-icon aria-hidden="true">view_in_ar</mat-icon>
           <span>CSV to Cube</span>
         </mat-card>
-        <mat-card class="action-card" (click)="startWorkflow('validate-cube')" tabindex="0" (keydown.enter)="startWorkflow('validate-cube')">
-          <mat-icon>verified</mat-icon>
+        <mat-card class="action-card" (click)="startWorkflow('validate-cube')" tabindex="0" (keydown.enter)="startWorkflow('validate-cube')" role="button" aria-label="Validate Shapes">
+          <mat-icon aria-hidden="true">verified</mat-icon>
           <span>Validate Shapes</span>
         </mat-card>
-        <mat-card class="action-card" (click)="startWorkflow('publish-graphdb')" tabindex="0" (keydown.enter)="startWorkflow('publish-graphdb')">
-          <mat-icon>cloud_upload</mat-icon>
+        <mat-card class="action-card" (click)="startWorkflow('publish-graphdb')" tabindex="0" (keydown.enter)="startWorkflow('publish-graphdb')" role="button" aria-label="Publish to GraphDB">
+          <mat-icon aria-hidden="true">cloud_upload</mat-icon>
           <span>Publish to GraphDB</span>
         </mat-card>
-        <mat-card class="action-card" (click)="navigateTo('/pipelines/new')" tabindex="0" (keydown.enter)="navigateTo('/pipelines/new')">
-          <mat-icon>add_circle</mat-icon>
+        <mat-card class="action-card" (click)="navigateTo('/pipelines/new')" tabindex="0" (keydown.enter)="navigateTo('/pipelines/new')" role="button" aria-label="New Pipeline">
+          <mat-icon aria-hidden="true">add_circle</mat-icon>
           <span>New Pipeline</span>
         </mat-card>
       </div>
@@ -132,7 +163,7 @@
             <td mat-cell *matCellDef="let job">{{ formatDuration(job.duration) }}</td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="navigateTo('/jobs/' + row.id)"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="navigateTo('/jobs/' + row.id)" tabindex="0" (keydown.enter)="navigateTo('/jobs/' + row.id)" style="cursor: pointer"></tr>
         </table>
       </section>
     }

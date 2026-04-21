@@ -1,0 +1,122 @@
+.overview-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section-title {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.counts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.count-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.count-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--rdf-surface-variant, rgba(59, 130, 246, 0.12));
+  color: var(--rdf-primary, #3b82f6);
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.count-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.count-label {
+  font-size: 0.8rem;
+  color: var(--rdf-text-secondary);
+}
+
+.count-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.summary-card {
+  mat-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  mat-icon {
+    color: var(--rdf-primary, #3b82f6);
+  }
+
+  .summary-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--rdf-text-secondary);
+  }
+
+  .summary-value {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+}
+
+.summary-empty {
+  margin: 0;
+  color: var(--rdf-text-secondary);
+  font-size: 0.9rem;
+}
+
+.todo-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--rdf-surface-variant, rgba(0, 0, 0, 0.03));
+  color: var(--rdf-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+
+  .note-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--rdf-text-secondary);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+}

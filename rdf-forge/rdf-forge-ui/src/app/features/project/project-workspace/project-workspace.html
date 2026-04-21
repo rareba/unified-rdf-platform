@@ -1,0 +1,90 @@
+<div class="workspace-container">
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="48"></mat-spinner>
+    </div>
+  } @else if (error(); as err) {
+    <div class="error-state">
+      <mat-icon class="error-icon">error_outline</mat-icon>
+      <h2>Project not available</h2>
+      <p>{{ err }}</p>
+      <div class="error-actions">
+        <button mat-stroked-button (click)="retry()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
+        <button mat-button color="primary" (click)="backToList()">
+          Back to Projects
+        </button>
+      </div>
+    </div>
+  } @else if (summary(); as project) {
+    <header class="workspace-header">
+      <div class="header-main">
+        <button mat-icon-button (click)="backToList()" aria-label="Back to Projects">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <div class="header-text">
+          <div class="title-row">
+            <h1 class="project-name">{{ project.name }}</h1>
+            <span class="status-badge" [ngClass]="statusClass()">
+              {{ statusLabel(project.status) }}
+            </span>
+          </div>
+          @if (project.description) {
+            <p class="project-description">{{ project.description }}</p>
+          }
+          <div class="header-meta">
+            <span class="meta-item">
+              <mat-icon class="meta-icon">link</mat-icon>
+              <code>{{ project.baseUri }}</code>
+            </span>
+            <span class="meta-item">
+              <mat-icon class="meta-icon">schedule</mat-icon>
+              Updated {{ project.updatedAt | date:'mediumDate' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button mat-stroked-button (click)="editProject()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button mat-icon-button [matMenuTriggerFor]="projectMenu" aria-label="More actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #projectMenu="matMenu">
+          @if (project.status === 'ACTIVE') {
+            <button mat-menu-item (click)="archiveProject()">
+              <mat-icon>archive</mat-icon>
+              <span>Archive</span>
+            </button>
+          } @else {
+            <button mat-menu-item (click)="unarchiveProject()">
+              <mat-icon>unarchive</mat-icon>
+              <span>Unarchive</span>
+            </button>
+          }
+        </mat-menu>
+      </div>
+    </header>
+
+    <nav class="workspace-tabs" aria-label="Workspace sections">
+      @for (tab of tabs; track tab.path) {
+        <a class="workspace-tab"
+           [routerLink]="[tab.path]"
+           routerLinkActive="active"
+           [attr.aria-label]="tab.label">
+          <mat-icon>{{ tab.icon }}</mat-icon>
+          <span>{{ tab.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <section class="workspace-content">
+      <router-outlet></router-outlet>
+    </section>
+  }
+</div>

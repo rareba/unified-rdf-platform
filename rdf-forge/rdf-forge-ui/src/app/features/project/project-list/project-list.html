@@ -1,0 +1,133 @@
+<div class="project-list-container">
+  <div class="project-list-header">
+    <div class="header-title">
+      <h1>Projects</h1>
+      @if (!loading()) {
+        <span class="project-count">
+          {{ filteredProjects().length }}
+          project{{ filteredProjects().length === 1 ? '' : 's' }}
+        </span>
+      }
+    </div>
+
+    <div class="header-actions">
+      <mat-form-field appearance="outline" class="status-field">
+        <mat-label>Status</mat-label>
+        <mat-select
+          [value]="statusFilter()"
+          (valueChange)="onStatusChange($event)">
+          @for (opt of statusOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search projects</mat-label>
+        <input
+          matInput
+          type="text"
+          placeholder="Search by name, description, or base URI"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="onSearchChange($event)" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <button mat-raised-button color="primary" (click)="createProject()">
+        <mat-icon>add</mat-icon>
+        New Project
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="48"></mat-spinner>
+    </div>
+  } @else if (filteredProjects().length === 0) {
+    <div class="empty-state">
+      <mat-icon class="empty-icon">folder_special</mat-icon>
+      @if (searchTerm()) {
+        <h2>No projects found</h2>
+        <p>No projects match "{{ searchTerm() }}". Try a different search term.</p>
+      } @else {
+        <h2>No projects yet</h2>
+        <p>A project groups your data sources, ontology, mappings, and published cubes.</p>
+        <button mat-raised-button color="primary" (click)="createProject()">
+          <mat-icon>add</mat-icon>
+          Create your first Project
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="project-grid">
+      @for (project of filteredProjects(); track trackByProjectId($index, project)) {
+        <mat-card class="project-card" (click)="openProject(project)"
+                  (keydown.enter)="openProject(project)" tabindex="0">
+          <mat-card-header>
+            <mat-card-title>{{ project.name }}</mat-card-title>
+            <div class="card-actions" (click)="$event.stopPropagation()">
+              <button
+                mat-icon-button
+                [matMenuTriggerFor]="projectMenu"
+                aria-label="Project options">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #projectMenu="matMenu">
+                <button mat-menu-item (click)="openProject(project)">
+                  <mat-icon>open_in_new</mat-icon>
+                  <span>Open</span>
+                </button>
+                <button mat-menu-item (click)="editProject(project, $event)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                @if (project.status === 'ACTIVE') {
+                  <button mat-menu-item (click)="archiveProject(project, $event)">
+                    <mat-icon>archive</mat-icon>
+                    <span>Archive</span>
+                  </button>
+                } @else {
+                  <button mat-menu-item (click)="unarchiveProject(project, $event)">
+                    <mat-icon>unarchive</mat-icon>
+                    <span>Unarchive</span>
+                  </button>
+                }
+                <button mat-menu-item class="delete-action"
+                        (click)="deleteProject(project, $event)">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
+            </div>
+          </mat-card-header>
+
+          <mat-card-content>
+            <div class="status-row">
+              <span class="status-badge" [ngClass]="getStatusClass(project.status)">
+                {{ project.status }}
+              </span>
+            </div>
+
+            @if (project.description) {
+              <p class="project-description">{{ project.description }}</p>
+            } @else {
+              <p class="project-description no-description">No description provided</p>
+            }
+
+            <div class="project-meta">
+              <div class="meta-item">
+                <mat-icon class="meta-icon">link</mat-icon>
+                <span class="meta-uri">{{ project.baseUri }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon class="meta-icon">schedule</mat-icon>
+                <span>Updated {{ project.updatedAt | date:'mediumDate' }}</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

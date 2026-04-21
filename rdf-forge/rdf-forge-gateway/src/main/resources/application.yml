@@ -26,7 +26,7 @@ spring:
         - id: pipeline-service
           uri: ${PIPELINE_SERVICE_URL:http://rdf-forge-pipeline-service:8001}
           predicates:
-            - Path=/api/v1/pipelines/**,/api/v1/operations/**,/api/v1/templates/**
+            - Path=/api/v1/pipelines/**,/api/v1/operations/**,/api/v1/templates/**,/api/v1/git-sync/**,/api/v1/projects/**
         
         - id: shacl-service
           uri: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
@@ -53,7 +53,7 @@ spring:
         - id: dimension-service
           uri: ${DIMENSION_SERVICE_URL:http://rdf-forge-dimension-service:8005}
           predicates:
-            - Path=/api/v1/dimensions/**,/api/v1/hierarchies/**
+            - Path=/api/v1/dimensions/**,/api/v1/hierarchies/**,/api/v1/cubes/**
         
         - id: triplestore-service
           uri: ${TRIPLESTORE_SERVICE_URL:http://rdf-forge-triplestore-service:8006}

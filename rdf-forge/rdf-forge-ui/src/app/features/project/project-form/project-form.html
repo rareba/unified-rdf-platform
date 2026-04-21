@@ -1,0 +1,62 @@
+<div class="project-form-container">
+  <div class="form-header">
+    <button mat-icon-button (click)="cancel()" aria-label="Cancel">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <h1>{{ isEditMode() ? 'Edit Project' : 'New Project' }}</h1>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="48"></mat-spinner>
+    </div>
+  } @else {
+    <mat-card class="form-card">
+      <mat-card-content>
+        <form [formGroup]="form" (ngSubmit)="save()" class="project-form">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Project name</mat-label>
+            <input matInput formControlName="name"
+                   placeholder="e.g. Swiss Statistics Cubes"
+                   maxlength="255"
+                   required />
+            @if (nameError; as error) {
+              <mat-error>{{ error }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description"
+                      rows="3"
+                      placeholder="What this project is for"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Base URI</mat-label>
+            <input matInput formControlName="baseUri"
+                   placeholder="https://example.org/myproject/"
+                   required />
+            <mat-hint>Used to mint IRIs for resources in this project</mat-hint>
+            @if (baseUriError; as error) {
+              <mat-error>{{ error }}</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button type="button" mat-button (click)="cancel()" [disabled]="saving()">
+              Cancel
+            </button>
+            <button type="submit" mat-raised-button color="primary"
+                    [disabled]="saving() || form.invalid">
+              @if (saving()) {
+                <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
+              }
+              {{ isEditMode() ? 'Save changes' : 'Create Project' }}
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

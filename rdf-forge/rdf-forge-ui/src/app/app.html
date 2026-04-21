@@ -3,7 +3,9 @@
   <!-- Header -->
   <header class="ob-header">
     <div class="ob-header-controls">
-      <button mat-icon-button (click)="toggleSidebar()" class="ob-nav-toggle">
+      <button mat-icon-button (click)="toggleSidebar()" class="ob-nav-toggle"
+              [attr.aria-label]="sidebarCollapsed() ? 'Expand navigation' : 'Collapse navigation'"
+              aria-controls="main-nav">
         <mat-icon>{{ sidebarCollapsed() ? 'menu' : 'menu_open' }}</mat-icon>
       </button>
       <div class="ob-logo">
@@ -18,59 +20,65 @@
   </header>
 
   <!-- Navigation Sidebar -->
-  <nav class="ob-nav" [class.collapsed]="sidebarCollapsed()">
-    <ul class="ob-nav-list">
+  <nav class="ob-nav" [class.collapsed]="sidebarCollapsed()" id="main-nav" aria-label="Main navigation">
+    <ul class="ob-nav-list" role="list">
       <li>
-        <a class="ob-nav-item" routerLink="/" routerLinkActive="ob-active" [routerLinkActiveOptions]="{exact: true}">
-          <mat-icon>home</mat-icon>
+        <a class="ob-nav-item" routerLink="/" routerLinkActive="ob-active" [routerLinkActiveOptions]="{exact: true}" aria-label="Dashboard">
+          <mat-icon aria-hidden="true">home</mat-icon>
           @if (!sidebarCollapsed()) { <span>Dashboard</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/pipelines" routerLinkActive="ob-active">
-          <mat-icon>account_tree</mat-icon>
+        <a class="ob-nav-item" routerLink="/projects" routerLinkActive="ob-active" aria-label="Projects">
+          <mat-icon aria-hidden="true">folder_special</mat-icon>
+          @if (!sidebarCollapsed()) { <span>Projects</span> }
+        </a>
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/pipelines" routerLinkActive="ob-active" aria-label="Pipelines">
+          <mat-icon aria-hidden="true">account_tree</mat-icon>
           @if (!sidebarCollapsed()) { <span>Pipelines</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/shacl" routerLinkActive="ob-active">
-          <mat-icon>check_box</mat-icon>
+        <a class="ob-nav-item" routerLink="/shacl" routerLinkActive="ob-active" aria-label="SHACL Studio">
+          <mat-icon aria-hidden="true">check_box</mat-icon>
           @if (!sidebarCollapsed()) { <span>SHACL Studio</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/cubes" routerLinkActive="ob-active">
-          <mat-icon>view_in_ar</mat-icon>
+        <a class="ob-nav-item" routerLink="/cubes" routerLinkActive="ob-active" aria-label="Cubes">
+          <mat-icon aria-hidden="true">view_in_ar</mat-icon>
           @if (!sidebarCollapsed()) { <span>Cubes</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/jobs" routerLinkActive="ob-active">
-          <mat-icon>sync</mat-icon>
+        <a class="ob-nav-item" routerLink="/jobs" routerLinkActive="ob-active" aria-label="Jobs">
+          <mat-icon aria-hidden="true">sync</mat-icon>
           @if (!sidebarCollapsed()) { <span>Jobs</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/data" routerLinkActive="ob-active">
-          <mat-icon>storage</mat-icon>
+        <a class="ob-nav-item" routerLink="/data" routerLinkActive="ob-active" aria-label="Data Sources">
+          <mat-icon aria-hidden="true">storage</mat-icon>
           @if (!sidebarCollapsed()) { <span>Data Sources</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/dimensions" routerLinkActive="ob-active">
-          <mat-icon>share</mat-icon>
+        <a class="ob-nav-item" routerLink="/dimensions" routerLinkActive="ob-active" aria-label="Dimensions">
+          <mat-icon aria-hidden="true">share</mat-icon>
           @if (!sidebarCollapsed()) { <span>Dimensions</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/triplestore" routerLinkActive="ob-active">
-          <mat-icon>dns</mat-icon>
+        <a class="ob-nav-item" routerLink="/triplestore" routerLinkActive="ob-active" aria-label="Triplestore">
+          <mat-icon aria-hidden="true">dns</mat-icon>
           @if (!sidebarCollapsed()) { <span>Triplestore</span> }
         </a>
       </li>
       <li>
-        <a class="ob-nav-item" routerLink="/settings" routerLinkActive="ob-active">
-          <mat-icon>settings</mat-icon>
+        <a class="ob-nav-item" routerLink="/settings" routerLinkActive="ob-active" aria-label="Settings">
+          <mat-icon aria-hidden="true">settings</mat-icon>
           @if (!sidebarCollapsed()) { <span>Settings</span> }
         </a>
       </li>
@@ -79,32 +87,32 @@
           @if (!sidebarCollapsed()) { <span class="ob-nav-section">Administration</span> }
         </li>
         <li>
-          <a class="ob-nav-item" routerLink="/admin/users" routerLinkActive="ob-active">
-            <mat-icon>people</mat-icon>
+          <a class="ob-nav-item" routerLink="/admin/users" routerLinkActive="ob-active" aria-label="Users">
+            <mat-icon aria-hidden="true">people</mat-icon>
             @if (!sidebarCollapsed()) { <span>Users</span> }
           </a>
         </li>
         <li>
-          <a class="ob-nav-item" routerLink="/admin/roles" routerLinkActive="ob-active">
-            <mat-icon>admin_panel_settings</mat-icon>
+          <a class="ob-nav-item" routerLink="/admin/roles" routerLinkActive="ob-active" aria-label="Roles">
+            <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
             @if (!sidebarCollapsed()) { <span>Roles</span> }
           </a>
         </li>
         <li>
-          <a class="ob-nav-item" routerLink="/admin/tokens" routerLinkActive="ob-active">
-            <mat-icon>vpn_key</mat-icon>
+          <a class="ob-nav-item" routerLink="/admin/tokens" routerLinkActive="ob-active" aria-label="API Tokens">
+            <mat-icon aria-hidden="true">vpn_key</mat-icon>
             @if (!sidebarCollapsed()) { <span>API Tokens</span> }
           </a>
         </li>
         <li>
-          <a class="ob-nav-item" routerLink="/admin/git-sync" routerLinkActive="ob-active">
-            <mat-icon>sync</mat-icon>
+          <a class="ob-nav-item" routerLink="/admin/git-sync" routerLinkActive="ob-active" aria-label="Git Sync">
+            <mat-icon aria-hidden="true">sync</mat-icon>
             @if (!sidebarCollapsed()) { <span>Git Sync</span> }
           </a>
         </li>
         <li>
-          <a class="ob-nav-item" routerLink="/admin/system" routerLinkActive="ob-active">
-            <mat-icon>monitor_heart</mat-icon>
+          <a class="ob-nav-item" routerLink="/admin/system" routerLinkActive="ob-active" aria-label="System">
+            <mat-icon aria-hidden="true">monitor_heart</mat-icon>
             @if (!sidebarCollapsed()) { <span>System</span> }
           </a>
         </li>

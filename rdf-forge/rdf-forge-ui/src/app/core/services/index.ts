@@ -13,3 +13,4 @@ export * from './global-error-handler.service';
 export * from './error-tracking.service';
 export * from './notification.service';
 export * from './keyboard-shortcuts.service';
+export * from './project.service';

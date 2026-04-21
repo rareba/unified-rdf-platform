@@ -10,9 +10,9 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { forkJoin, catchError, of, Subject, retry, takeUntil, timer } from 'rxjs';
-import { PipelineService, JobService, DataService, ShaclService } from '../../core/services';
+import { PipelineService, JobService, DataService, ShaclService, ProjectService } from '../../core/services';
 import { LoggerService } from '../../core/services/logger.service';
-import { Job, Operation } from '../../core/models';
+import { Job, Operation, Project } from '../../core/models';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader';
 
 interface DashboardStats {
@@ -54,6 +54,7 @@ export class Dashboard implements OnInit, OnDestroy {
   private readonly jobService = inject(JobService);
   private readonly dataService = inject(DataService);
   private readonly shaclService = inject(ShaclService);
+  private readonly projectService = inject(ProjectService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly logger = inject(LoggerService);
   private readonly destroy$ = new Subject<void>();
@@ -63,6 +64,7 @@ export class Dashboard implements OnInit, OnDestroy {
   stats = signal<DashboardStats>({ pipelines: 0, completedJobs: 0, shapes: 0, dataSources: 0 });
   recentJobs = signal<Job[]>([]);
   operations = signal<Operation[]>([]);
+  recentProjects = signal<Project[]>([]);
 
   displayedColumns = ['pipelineName', 'status', 'startedAt', 'duration'];
 
@@ -138,11 +140,15 @@ export class Dashboard implements OnInit, OnDestroy {
       operations: this.pipelineService.getOperations().pipe(
         catchError(() => of([])),
         retry({ count: 2, delay: 1000 })
+      ),
+      projects: this.projectService.list('ACTIVE').pipe(
+        catchError(() => of([] as Project[])),
+        retry({ count: 2, delay: 1000 })
       )
     }).pipe(
       takeUntil(this.destroy$)
     ).subscribe({
-      next: ({ pipelines, jobs, shapes, dataSources, operations }) => {
+      next: ({ pipelines, jobs, shapes, dataSources, operations, projects }) => {
         this.stats.set({
           pipelines: pipelines.length,
           completedJobs: jobs.filter(j => j.status?.toLowerCase() === 'completed').length,
@@ -162,6 +168,15 @@ export class Dashboard implements OnInit, OnDestroy {
         }));
 
         this.recentJobs.set(enrichedJobs);
+
+        // Show most-recently-updated projects first, take top 5
+        const sortedProjects = [...projects].sort((a, b) => {
+          const at = new Date(a.updatedAt ?? a.createdAt).getTime();
+          const bt = new Date(b.updatedAt ?? b.createdAt).getTime();
+          return bt - at;
+        });
+        this.recentProjects.set(sortedProjects.slice(0, 5));
+
         this.loading.set(false);
       },
       error: (err) => {
@@ -195,13 +210,13 @@ export class Dashboard implements OnInit, OnDestroy {
 
   getGroupColor(type: string): string {
     const colors: Record<string, string> = {
-      'SOURCE': '#3b82f6',
+      'SOURCE': 'var(--rdf-primary, #3b82f6)',
       'TRANSFORM': '#8b5cf6',
-      'CUBE': '#f59e0b',
-      'VALIDATION': '#22c55e',
+      'CUBE': 'var(--rdf-status-warning, #f59e0b)',
+      'VALIDATION': 'var(--rdf-status-success, #22c55e)',
       'OUTPUT': '#ec4899'
     };
-    return colors[type] || '#64748b';
+    return colors[type] || 'var(--rdf-text-secondary, #64748b)';
   }
 
   getStatusColor(status: string): string {
@@ -222,7 +237,7 @@ export class Dashboard implements OnInit, OnDestroy {
     return value.toString();
   }
 
-  formatDate(date: Date | undefined): string {
+  formatDate(date: Date | string | undefined): string {
     if (!date) return '-';
     return new Intl.DateTimeFormat(undefined, {
       month: 'short',
@@ -234,7 +249,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   formatDuration(ms: number | undefined): string {
     if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60000) return `${Math.round(ms / 1000)}s`;
     if (ms < 3600000) return `${Math.round(ms / 60000)}m`;
     return `${Math.round(ms / 3600000)}h`;
