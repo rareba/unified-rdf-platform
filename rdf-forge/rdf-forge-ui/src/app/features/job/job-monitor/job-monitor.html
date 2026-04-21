@@ -52,7 +52,7 @@
   </div>
 
   <!-- Progress Bar -->
-  @if (!loading() && job() && job()!.status?.toLowerCase() === 'running') {
+  @if (!loading() && job() && job()!.status.toLowerCase() === 'running') {
     <div class="progress-section" role="region" aria-label="Job progress">
       <div class="progress-info">
         <span class="progress-label">Processing...</span>
@@ -93,7 +93,7 @@
     <div class="log-stats" role="region" aria-label="Log statistics">
       <span class="stats-item">
         <mat-icon>list</mat-icon>
-        {{ filteredLogs().length }} lines
+        {{ filteredLogs().length }} {{ filteredLogs().length === 1 ? 'line' : 'lines' }}
       </span>
     </div>
   </div>
@@ -119,7 +119,7 @@
       </div>
     } @else {
       <div class="log-entries">
-        @for (log of filteredLogs(); track $index) {
+        @for (log of filteredLogs(); track log.id) {
           <div class="log-entry" [class]="getLogClass(log.level)" role="listitem">
             <span class="log-timestamp">{{ formatDate(log.timestamp) }}</span>
             <span class="log-level">{{ log.level }}</span>

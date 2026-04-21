@@ -58,7 +58,7 @@ import { ExtensionDescriptor, EXTENSION_KIND_LABELS } from '../../core/models';
         }
       </dl>
 
-      @if (ext.capabilities?.length) {
+      @if (ext.capabilities.length) {
         <h3>Capabilities</h3>
         <div class="chips">
           @for (cap of ext.capabilities; track cap) {

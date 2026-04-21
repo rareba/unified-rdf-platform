@@ -1,120 +1,168 @@
 <div class="shacl-studio" role="main" aria-label="SHACL Studio">
   <header class="studio-header">
-    <h1>SHACL Studio</h1>
+    <div class="header-top">
+      <h1>SHACL Studio</h1>
+      <span class="spacer"></span>
+      <button mat-stroked-button (click)="loadExample()">
+        <mat-icon>play_circle</mat-icon>
+        Load Example
+      </button>
+    </div>
     <p class="subtitle">Design, validate, and manage RDF shapes</p>
   </header>
 
   <!-- Shape Form -->
-  <div class="shape-form-section" [formGroup]="shapeForm">
-    <div class="form-row">
-      <div class="form-field">
-        <label for="shapeName">Shape Name</label>
-        <input id="shapeName" formControlName="name" placeholder="e.g., PersonShape" />
-        @if (hasErrors('name')) {
-          <span class="error-text">{{ getErrorMessage('name') }}</span>
-        }
+  <mat-card class="shape-form-card" [formGroup]="shapeForm">
+    <mat-card-content>
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field-half">
+          <mat-label>Shape Name</mat-label>
+          <input matInput formControlName="name" placeholder="e.g., PersonShape" />
+          @if (hasErrors('name')) {
+            <mat-error>{{ getErrorMessage('name') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field-half">
+          <mat-label>Description</mat-label>
+          <input matInput formControlName="description" placeholder="Describe the shape..." />
+          @if (hasErrors('description')) {
+            <mat-error>{{ getErrorMessage('description') }}</mat-error>
+          }
+        </mat-form-field>
       </div>
-      <div class="form-field">
-        <label for="shapeDescription">Description</label>
-        <input id="shapeDescription" formControlName="description" placeholder="Describe the shape..." />
-        @if (hasErrors('description')) {
-          <span class="error-text">{{ getErrorMessage('description') }}</span>
-        }
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field-third">
+          <mat-label>Validation Profile</mat-label>
+          <mat-select formControlName="profile">
+            <mat-option [value]="null">-- None --</mat-option>
+            @for (profile of availableProfiles; track profile.id) {
+              <mat-option [value]="profile.id">{{ profile.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-checkbox formControlName="autoValidate" class="auto-validate-checkbox">
+          Auto-validate on change
+        </mat-checkbox>
       </div>
-    </div>
 
-    <div class="form-field">
-      <label for="profileSelect">Validation Profile</label>
-      <select id="profileSelect" formControlName="profile">
-        <option [ngValue]="null">-- None --</option>
-        @for (profile of availableProfiles; track profile.id) {
-          <option [ngValue]="profile.id">{{ profile.name }}</option>
+      <mat-divider></mat-divider>
+
+      <!-- Turtle Editor -->
+      <div class="editor-section">
+        <mat-form-field appearance="outline" class="editor-field">
+          <mat-label>Turtle Content</mat-label>
+          <textarea
+            matInput
+            formControlName="content"
+            rows="18"
+            placeholder="@prefix sh: <http://www.w3.org/ns/shacl#> .&#10;..."
+            class="code-editor"
+            spellcheck="false"
+            aria-label="Turtle code editor"></textarea>
+          @if (hasErrors('content')) {
+            <mat-error>{{ getErrorMessage('content') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+
+    <!-- Actions -->
+    <mat-card-actions align="end">
+      <button mat-button (click)="toggleVisualization()">
+        <mat-icon>{{ showVisualization ? 'visibility_off' : 'visibility' }}</mat-icon>
+        {{ showVisualization ? 'Hide' : 'Show' }} Visualization
+      </button>
+      <button mat-raised-button color="primary" (click)="validateContent(true)" [disabled]="isValidating">
+        @if (isValidating) {
+          <ng-container>
+            <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
+            Validating...
+          </ng-container>
+        } @else {
+          <mat-icon>check_circle</mat-icon>
+          <span>Validate</span>
         }
-      </select>
-    </div>
-
-    <div class="form-field">
-      <label>
-        <input type="checkbox" formControlName="autoValidate" />
-        Auto-validate on change
-      </label>
-    </div>
-
-    <!-- Turtle Editor -->
-    <div class="editor-section">
-      <label for="shapeContent">Turtle Content</label>
-      <textarea
-        id="shapeContent"
-        formControlName="content"
-        rows="16"
-        placeholder="@prefix sh: <http://www.w3.org/ns/shacl#> .&#10;..."
-        class="code-editor"
-        spellcheck="false"
-        aria-label="Turtle code editor"></textarea>
-      @if (hasErrors('content')) {
-        <span class="error-text">{{ getErrorMessage('content') }}</span>
-      }
-    </div>
-  </div>
-
-  <!-- Actions -->
-  <div class="actions-row">
-    <button (click)="validateContent(true)" [disabled]="isValidating" class="btn btn-primary">
-      @if (isValidating) {
-        Validating...
-      } @else {
-        Validate
-      }
-    </button>
-    <button (click)="saveShape()" [disabled]="isSaving || shapeForm.invalid" class="btn btn-primary">
-      @if (isSaving) {
-        Saving...
-      } @else {
-        Save Shape
-      }
-    </button>
-    <button (click)="loadExample()" class="btn btn-secondary">
-      Load Example
-    </button>
-    <button (click)="toggleVisualization()" class="btn btn-secondary">
-      {{ showVisualization ? 'Hide' : 'Show' }} Visualization
-    </button>
-  </div>
+      </button>
+      <button mat-raised-button color="accent" (click)="saveShape()" [disabled]="isSaving || shapeForm.invalid">
+        @if (isSaving) {
+          <ng-container>
+            <mat-spinner diameter="18" class="inline-spinner"></mat-spinner>
+            Saving...
+          </ng-container>
+        } @else {
+          <mat-icon>save</mat-icon>
+          <span>Save Shape</span>
+        }
+      </button>
+    </mat-card-actions>
+  </mat-card>
 
   <!-- Validation Errors -->
   @if (validationErrors.length > 0) {
-    <div class="validation-errors" role="alert">
-      <h3>Validation Errors ({{ validationErrors.length }})</h3>
-      <ul>
-        @for (error of validationErrors; track $index) {
-          <li>{{ error.message || 'Validation error' }}</li>
-        }
-      </ul>
-      <!-- Suggested Fixes -->
-      @if (suggestedFixes.length > 0) {
-        <div class="suggested-fixes">
-          <h4>Suggestions</h4>
-          @for (fix of suggestedFixes; track fix.errorId) {
-            <div class="fix-item">
-              <span>{{ fix.suggestion }}</span>
-              <button (click)="applyFix(fix)" class="btn btn-small">Apply</button>
+    <mat-card class="validation-errors-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="error-icon">error</mat-icon>
+        <mat-card-title>Validation Errors ({{ validationErrors.length }})</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="error-list">
+          @for (error of validationErrors; track error.message ?? $index) {
+            <div class="error-item">
+              <mat-icon class="error-item-icon">warning</mat-icon>
+              <span>{{ error.message || 'Validation error' }}</span>
             </div>
           }
         </div>
-      }
-      <button (click)="clearValidationErrors()" class="btn btn-secondary">Clear Errors</button>
-    </div>
+
+        <!-- Suggested Fixes -->
+        @if (suggestedFixes.length > 0) {
+          <mat-divider></mat-divider>
+          <div class="suggested-fixes">
+            <h4>
+              <mat-icon>lightbulb</mat-icon>
+              Suggestions
+            </h4>
+            @for (fix of suggestedFixes; track fix.errorId) {
+              <div class="fix-item">
+                <span>{{ fix.suggestion }}</span>
+                <button mat-stroked-button (click)="applyFix(fix)" class="apply-btn">Apply</button>
+              </div>
+            }
+          </div>
+        }
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button (click)="clearValidationErrors()">
+          <mat-icon>clear_all</mat-icon>
+          Clear Errors
+        </button>
+      </mat-card-actions>
+    </mat-card>
   }
 
   <!-- Validation Result -->
   @if (validationResult) {
-    <div class="validation-result" [class.conforms]="validationResult.conforms">
-      <span>{{ validationResult.conforms ? 'Data conforms to shape' : 'Validation issues found' }}</span>
-    </div>
+    <mat-card class="validation-result-card" [class.conforms]="validationResult.conforms" [class.error]="!validationResult.conforms">
+      <mat-card-content class="result-content">
+        <mat-icon>{{ validationResult.conforms ? 'check_circle' : 'cancel' }}</mat-icon>
+        <span>{{ validationResult.conforms ? 'Data conforms to shape' : 'Validation issues found' }}</span>
+      </mat-card-content>
+    </mat-card>
   }
 
   <!-- Visualization -->
   @if (showVisualization && visualizationData) {
-    <app-shape-visualizer [data]="visualizationData"></app-shape-visualizer>
+    <mat-card class="visualization-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>account_tree</mat-icon>
+        <mat-card-title>Shape Visualization</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <app-shape-visualizer [data]="visualizationData"></app-shape-visualizer>
+      </mat-card-content>
+    </mat-card>
   }
 </div>

@@ -234,7 +234,7 @@
               </div>
               <div class="detail-item">
                 <label>Format</label>
-                <span class="format-chip" [class]="getFormatClass(source.format)">{{ source.format?.toUpperCase() }}</span>
+                <span class="format-chip" [class]="getFormatClass(source.format)">{{ source.format.toUpperCase() }}</span>
               </div>
               <div class="detail-item">
                 <label>Size</label>
@@ -302,9 +302,9 @@
           } @else if (preview()) {
             <div class="preview-header">
               <div class="preview-info">
-                <span><strong>{{ preview()!.columns?.length || 0 }}</strong> columns</span>
+                <span><strong>{{ preview()!.columns.length || 0 }}</strong> columns</span>
                 <span class="separator">|</span>
-                <span>Showing <strong>{{ preview()!.data?.length || 0 }}</strong> of <strong>{{ preview()!.totalRows | number }}</strong> rows</span>
+                <span>Showing <strong>{{ preview()!.data.length || 0 }}</strong> of <strong>{{ preview()!.totalRows | number }}</strong> rows</span>
               </div>
             </div>
             <div class="preview-table-container">

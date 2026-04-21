@@ -156,13 +156,15 @@ describe('Dashboard', () => {
   });
 
   it('should get group color', () => {
-    expect(component.getGroupColor('SOURCE')).toBe('#3b82f6');
-    expect(component.getGroupColor('TRANSFORM')).toBe('#8b5cf6');
-    expect(component.getGroupColor('CUBE')).toBe('#f59e0b');
-    expect(component.getGroupColor('VALIDATION')).toBe('#22c55e');
-    expect(component.getGroupColor('OUTPUT')).toBe('#ec4899');
-    expect(component.getGroupColor('UNKNOWN')).toBe('#64748b');
-    expect(component.getGroupColor('OTHER' as any)).toBe('#64748b');
+    // Palette now uses CSS custom properties with hex fallbacks so themes can
+    // override without losing rendering; test checks the hex fallback is present.
+    expect(component.getGroupColor('SOURCE')).toContain('#3b82f6');
+    expect(component.getGroupColor('TRANSFORM')).toContain('#8b5cf6');
+    expect(component.getGroupColor('CUBE')).toContain('#f59e0b');
+    expect(component.getGroupColor('VALIDATION')).toContain('#22c55e');
+    expect(component.getGroupColor('OUTPUT')).toContain('#ec4899');
+    expect(component.getGroupColor('UNKNOWN')).toContain('#64748b');
+    expect(component.getGroupColor('OTHER' as any)).toContain('#64748b');
   });
 
   it('should format date correctly', () => {

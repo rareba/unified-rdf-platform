@@ -149,8 +149,15 @@ describe('KeyboardShortcutsService', () => {
       key: 'h',
       altKey: true
     });
-
-    document.dispatchEvent(event);
+    // Browsers define KeyboardEvent.isTrusted as non-configurable, so we
+    // can't redefine it from a synthetic event. Invoke the service's
+    // internal listener directly — that's the same handler
+    // document.addEventListener('keydown', listener) would invoke, minus
+    // the real browser's isTrusted enforcement which only blocks attacker-
+    // synthesised events.
+    (service as any).listener({ ...event, key: event.key, altKey: event.altKey,
+        ctrlKey: false, shiftKey: false, metaKey: false, target: null,
+        isTrusted: true, preventDefault: () => {}, stopPropagation: () => {} });
     tick();
 
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/']);
@@ -161,8 +168,15 @@ describe('KeyboardShortcutsService', () => {
       key: 'p',
       altKey: true
     });
-
-    document.dispatchEvent(event);
+    // Browsers define KeyboardEvent.isTrusted as non-configurable, so we
+    // can't redefine it from a synthetic event. Invoke the service's
+    // internal listener directly — that's the same handler
+    // document.addEventListener('keydown', listener) would invoke, minus
+    // the real browser's isTrusted enforcement which only blocks attacker-
+    // synthesised events.
+    (service as any).listener({ ...event, key: event.key, altKey: event.altKey,
+        ctrlKey: false, shiftKey: false, metaKey: false, target: null,
+        isTrusted: true, preventDefault: () => {}, stopPropagation: () => {} });
     tick();
 
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/pipelines']);
@@ -220,8 +234,15 @@ describe('KeyboardShortcutsService', () => {
       key: 'h',
       altKey: true
     });
-
-    document.dispatchEvent(event);
+    // Browsers define KeyboardEvent.isTrusted as non-configurable, so we
+    // can't redefine it from a synthetic event. Invoke the service's
+    // internal listener directly — that's the same handler
+    // document.addEventListener('keydown', listener) would invoke, minus
+    // the real browser's isTrusted enforcement which only blocks attacker-
+    // synthesised events.
+    (service as any).listener({ ...event, key: event.key, altKey: event.altKey,
+        ctrlKey: false, shiftKey: false, metaKey: false, target: null,
+        isTrusted: true, preventDefault: () => {}, stopPropagation: () => {} });
     tick();
 
     expect(activatedSpy).toHaveBeenCalledWith('nav-home');

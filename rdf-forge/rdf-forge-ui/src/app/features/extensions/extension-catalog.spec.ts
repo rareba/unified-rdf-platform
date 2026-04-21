@@ -47,7 +47,7 @@ describe('ExtensionCatalog', () => {
   afterEach(() => http.verify());
 
   it('loads extensions and exposes tabs per kind', () => {
-    const req = http.expectOne(`${environment.apiBaseUrl}/admin/extensions`);
+    const req = http.expectOne(`${environment.apiBaseUrl}/admin/extensions?size=20`);
     req.flush(sample);
     fixture.detectChanges();
 
@@ -59,7 +59,7 @@ describe('ExtensionCatalog', () => {
   });
 
   it('filters by free-text', () => {
-    const req = http.expectOne(`${environment.apiBaseUrl}/admin/extensions`);
+    const req = http.expectOne(`${environment.apiBaseUrl}/admin/extensions?size=20`);
     req.flush(sample);
     fixture.detectChanges();
 

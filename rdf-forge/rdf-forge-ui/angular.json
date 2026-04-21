@@ -41,7 +41,14 @@
             "scripts": [],
             "optimization": true,
             "sourceMap": false,
-            "extractLicenses": true
+            "extractLicenses": true,
+            "allowedCommonJsDependencies": [
+              "@stomp/stompjs",
+              "sockjs-client",
+              "dagre",
+              "webcola",
+              "js-sha256"
+            ]
           },
           "configurations": {
             "production": {
@@ -157,7 +164,8 @@
           "options": {
             "polyfills": [
               "zone.js",
-              "zone.js/testing"
+              "zone.js/testing",
+              "src/test-global-polyfill.ts"
             ],
             "tsConfig": "tsconfig.spec.json",
             "assets": [

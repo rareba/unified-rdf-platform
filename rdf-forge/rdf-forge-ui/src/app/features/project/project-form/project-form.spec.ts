@@ -35,7 +35,10 @@ describe('ProjectForm', () => {
       imports: [ProjectForm],
       providers: [
         provideNoopAnimations(),
-        provideRouter([]),
+        provideRouter([
+          { path: 'projects/:id', children: [] },
+          { path: 'projects', children: [] }
+        ]),
         { provide: ProjectService, useValue: projectServiceSpy },
         { provide: MatSnackBar, useValue: snackBarSpy },
         {

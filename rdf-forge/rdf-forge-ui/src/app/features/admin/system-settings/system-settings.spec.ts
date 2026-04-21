@@ -4,23 +4,29 @@ import { provideHttpClient } from '@angular/common/http';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SystemSettings } from './system-settings';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { environment } from '../../../../environments/environment';
+import { of } from 'rxjs';
 
 describe('SystemSettings', () => {
   let component: SystemSettings;
   let fixture: ComponentFixture<SystemSettings>;
   let httpMock: HttpTestingController;
   let snackBar: jasmine.SpyObj<MatSnackBar>;
+  let confirmationService: jasmine.SpyObj<ConfirmationService>;
 
   beforeEach(async () => {
     snackBar = jasmine.createSpyObj('MatSnackBar', ['open']);
+    confirmationService = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationService.confirm.and.returnValue(of(true));
 
     await TestBed.configureTestingModule({
       imports: [SystemSettings, NoopAnimationsModule],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MatSnackBar, useValue: snackBar }
+        { provide: MatSnackBar, useValue: snackBar },
+        { provide: ConfirmationService, useValue: confirmationService }
       ]
     }).compileComponents();
 
@@ -35,11 +41,11 @@ describe('SystemSettings', () => {
 
   function flushInitialRequests() {
     // System info request
-    const infoReq = httpMock.expectOne(`${environment.apiBaseUrl}/system/info`);
+    const infoReq = httpMock.expectOne(`${environment.apiBaseUrl}/admin/system/info`);
     infoReq.flush({ version: '1.0.0', buildTime: '2024-01-01', environment: 'dev' });
 
     // Health check requests - one for each service
-    const services = ['health', 'pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
+    const services = ['pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
     services.forEach(service => {
       const req = httpMock.expectOne(`${environment.apiBaseUrl}/${service}`);
       req.flush({});
@@ -65,11 +71,11 @@ describe('SystemSettings', () => {
     fixture.detectChanges();
 
     // System info error
-    const infoReq = httpMock.expectOne(`${environment.apiBaseUrl}/system/info`);
+    const infoReq = httpMock.expectOne(`${environment.apiBaseUrl}/admin/system/info`);
     infoReq.error(new ProgressEvent('error'));
 
     // Health check requests
-    const services = ['health', 'pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
+    const services = ['pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
     services.forEach(service => {
       const req = httpMock.expectOne(`${environment.apiBaseUrl}/${service}`);
       req.flush({});
@@ -85,7 +91,7 @@ describe('SystemSettings', () => {
     flushInitialRequests();
     tick();
 
-    expect(component.services().length).toBe(7);
+    expect(component.services().length).toBe(6);
     expect(component.services().every(s => s.status === 'UP')).toBeTrue();
     expect(component.checking()).toBeFalse();
   }));
@@ -94,10 +100,9 @@ describe('SystemSettings', () => {
     fixture.detectChanges();
 
     // System info
-    httpMock.expectOne(`${environment.apiBaseUrl}/system/info`).flush({});
+    httpMock.expectOne(`${environment.apiBaseUrl}/admin/system/info`).flush({});
 
     // Health check requests - some fail
-    httpMock.expectOne(`${environment.apiBaseUrl}/health`).flush({});
     httpMock.expectOne(`${environment.apiBaseUrl}/pipelines`).error(new ProgressEvent('error'));
     httpMock.expectOne(`${environment.apiBaseUrl}/data`).flush({});
     httpMock.expectOne(`${environment.apiBaseUrl}/shapes`).error(new ProgressEvent('error'));
@@ -219,14 +224,14 @@ describe('SystemSettings', () => {
     }));
 
     it('should not restart if not confirmed', () => {
-      spyOn(window, 'confirm').and.returnValue(false);
+      confirmationService.confirm.and.returnValue(of(false));
       component.restartServices();
 
       httpMock.expectNone(`${environment.apiBaseUrl}/admin/restart`);
     });
 
     it('should restart services when confirmed', fakeAsync(() => {
-      spyOn(window, 'confirm').and.returnValue(true);
+      confirmationService.confirm.and.returnValue(of(true));
       component.restartServices();
 
       const req = httpMock.expectOne(`${environment.apiBaseUrl}/admin/restart`);
@@ -244,7 +249,7 @@ describe('SystemSettings', () => {
       tick(5000);
 
       // Health checks after restart
-      const services = ['health', 'pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
+      const services = ['pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
       services.forEach(service => {
         const healthReq = httpMock.expectOne(`${environment.apiBaseUrl}/${service}`);
         healthReq.flush({});
@@ -254,7 +259,7 @@ describe('SystemSettings', () => {
     }));
 
     it('should show error when restart fails', fakeAsync(() => {
-      spyOn(window, 'confirm').and.returnValue(true);
+      confirmationService.confirm.and.returnValue(of(true));
       component.restartServices();
 
       const req = httpMock.expectOne(`${environment.apiBaseUrl}/admin/restart`);
@@ -278,7 +283,7 @@ describe('SystemSettings', () => {
     }));
 
     it('should not clear if not confirmed', () => {
-      spyOn(window, 'confirm').and.returnValue(false);
+      confirmationService.confirm.and.returnValue(of(false));
       spyOn(localStorage, 'clear');
 
       component.clearLocalStorage();
@@ -287,7 +292,7 @@ describe('SystemSettings', () => {
     });
 
     it('should clear local storage when confirmed', () => {
-      spyOn(window, 'confirm').and.returnValue(true);
+      confirmationService.confirm.and.returnValue(of(true));
       spyOn(localStorage, 'clear');
 
       component.clearLocalStorage();
@@ -327,7 +332,7 @@ describe('SystemSettings', () => {
       component.checkHealth();
       expect(component.checking()).toBeTrue();
 
-      const services = ['health', 'pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
+      const services = ['pipelines', 'data', 'shapes', 'jobs', 'dimensions', 'triplestores'];
       services.forEach(service => {
         const req = httpMock.expectOne(`${environment.apiBaseUrl}/${service}`);
         req.flush({});
@@ -336,7 +341,7 @@ describe('SystemSettings', () => {
       tick();
 
       expect(component.checking()).toBeFalse();
-      expect(component.services().length).toBe(7);
+      expect(component.services().length).toBe(6);
     }));
   });
 });

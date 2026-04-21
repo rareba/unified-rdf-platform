@@ -317,8 +317,13 @@ export class QueryWorkbench implements OnInit {
     return this.route.snapshot.queryParamMap.get('projectId');
   });
 
-  /** Parameter names detected in the current query text (e.g. ?foo → "foo"). */
-  readonly detectedParams = computed(() => {
+  /**
+   * Parameter names detected in the current query text (e.g. ?foo → "foo").
+   * Kept as a plain method (not a computed signal) because {@code queryText}
+   * is an ngModel-bound string field, not a signal, and a computed would
+   * never re-evaluate when the user types.
+   */
+  detectedParams(): string[] {
     const seen = new Set<string>();
     const text = this.queryText;
     let match: RegExpExecArray | null;
@@ -327,7 +332,7 @@ export class QueryWorkbench implements OnInit {
       seen.add(match[1]);
     }
     return Array.from(seen);
-  });
+  }
 
   ngOnInit(): void {
     this.triplestoreService.list().subscribe({

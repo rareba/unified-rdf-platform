@@ -213,6 +213,16 @@ describe('DataManager', () => {
   }));
 
   it('should reject drop with invalid file type', fakeAsync(() => {
+    // Populate the underlying formats signal so validExtensions is non-empty.
+    // Without this, an empty allowlist would accept anything.
+    component.formats.set([
+      {
+        id: 'csv', kind: 'FORMAT', name: 'CSV',
+        version: '1.0', description: '', capabilities: [], parameters: {},
+        providedBy: 'rdf-forge-data-service', available: true,
+        extensions: ['csv'], mimeTypes: ['text/csv']
+      } as any
+    ]);
     const file = new File(['content'], 'test.txt', { type: 'text/plain' });
     const dataTransfer = { files: [file] };
     const mockEvent = {

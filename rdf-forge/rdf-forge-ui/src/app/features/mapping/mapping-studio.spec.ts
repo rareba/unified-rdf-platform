@@ -52,6 +52,9 @@ describe('MappingStudio', () => {
     snack.open.and.returnValue(ref as any);
 
     dialog = jasmine.createSpyObj('MatDialog', ['open']);
+    // Default dialog.open -> closed with undefined (no rule added).
+    const defaultDialogRef = { afterClosed: () => of(undefined) } as any;
+    dialog.open.and.returnValue(defaultDialogRef);
 
     await TestBed.configureTestingModule({
       imports: [MappingStudio],
@@ -85,8 +88,10 @@ describe('MappingStudio', () => {
 
   it('preview is triggered after debounce on rule change', fakeAsync(() => {
     tick(); // initial load
-    tick(500); // debounce on initial schedulePreview
-    expect(svc.preview).toHaveBeenCalled();
+    // Provide sample rows so schedulePreview will actually fire runPreview
+    // (it short-circuits on an empty sample to avoid useless backend hits).
+    component.sampleRows.set([{ id: '1' }]);
+    tick(500);
     svc.preview.calls.reset();
     component.deleteRule(0);
     tick(500);
