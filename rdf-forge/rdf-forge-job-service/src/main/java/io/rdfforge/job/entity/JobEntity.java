@@ -70,9 +70,16 @@ public class JobEntity {
     @Column(name = "created_by")
     private UUID createdBy;
     
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
-    
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
     public enum JobStatus {
         PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
     }

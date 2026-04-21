@@ -91,6 +91,23 @@ public class BuildCubeOperation implements Operation {
             throw new OperationException(getId(), "No cube definition provided. Provide either 'cubeDefinition' or 'cubeDefinitionId'");
         }
 
+        // Validate that at least one source of component definitions is present.
+        // Without this, the operation would silently produce an empty DSD.
+        Object dimensionsRaw = cubeDef.get("dimensions");
+        Object columnMappingsRaw = cubeDef.get("columnMappings");
+        boolean hasDimensions = dimensionsRaw instanceof List<?> list && !list.isEmpty();
+        boolean hasColumnMappings = columnMappingsRaw instanceof List<?> list && !list.isEmpty();
+        if (!hasDimensions && !hasColumnMappings) {
+            throw new OperationException(
+                getId(),
+                "At least one of 'dimensions' or 'columnMappings' must be provided and non-empty " +
+                    "for BuildCubeOperation. Received cubeDef keys: " + cubeDef.keySet());
+        }
+        if (columnMappingsRaw instanceof List<?> list && list.isEmpty() && !hasDimensions) {
+            log.warn("BuildCubeOperation: 'columnMappings' is an empty list and 'dimensions' is absent " +
+                "— resulting DSD may be empty.");
+        }
+
         // Determine URIs
         String name = (String) cubeDef.get("name");
         String description = (String) cubeDef.get("description");
@@ -299,10 +316,10 @@ public class BuildCubeOperation implements Operation {
             }
         }
         if (metadata.get("issued") != null) {
-            model.add(cubeResource, dctIssued, model.createTypedLiteral((String) metadata.get("issued"), XSD.date));
+            model.add(cubeResource, dctIssued, model.createTypedLiteral((String) metadata.get("issued"), XSD.date.getURI()));
         }
         if (metadata.get("modified") != null) {
-            model.add(cubeResource, dctModified, model.createTypedLiteral((String) metadata.get("modified"), XSD.date));
+            model.add(cubeResource, dctModified, model.createTypedLiteral((String) metadata.get("modified"), XSD.date.getURI()));
         }
         if (metadata.get("creator") != null) {
             model.add(cubeResource, dctCreator, model.createLiteral((String) metadata.get("creator")));

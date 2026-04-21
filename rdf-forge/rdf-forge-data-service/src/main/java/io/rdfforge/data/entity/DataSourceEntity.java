@@ -51,9 +51,16 @@ public class DataSourceEntity {
     @Column(name = "uploaded_by")
     private UUID uploadedBy;
     
-    @Column(name = "uploaded_at", nullable = false)
-    private Instant uploadedAt = Instant.now();
-    
+    @Column(name = "uploaded_at", nullable = false, updatable = false)
+    private Instant uploadedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (uploadedAt == null) {
+            uploadedAt = Instant.now();
+        }
+    }
+
     public enum DataFormat {
         CSV, JSON, XLSX, PARQUET, XML, TSV
     }

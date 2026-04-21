@@ -54,13 +54,13 @@ public class DimensionEntity {
     private Long valueCount = 0L;
     
     @Column(name = "is_shared")
-    private Boolean isShared = false;
+    private Boolean isShared;
     
     @Column(name = "created_by")
     private UUID createdBy;
     
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
     
     @Column(name = "updated_at")
     private Instant updatedAt;
@@ -141,6 +141,17 @@ public class DimensionEntity {
     public String getHierarchyName() { return hierarchyName; }
     public void setHierarchyName(String hierarchyName) { this.hierarchyName = hierarchyName; }
     
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = Instant.now();

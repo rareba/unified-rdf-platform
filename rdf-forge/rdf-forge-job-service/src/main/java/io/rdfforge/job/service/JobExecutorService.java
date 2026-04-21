@@ -99,10 +99,6 @@ public class JobExecutorService {
                 "Job " + (result.isSuccess() ? "completed successfully" : "failed") +
                 " in " + duration + "ms");
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.info("Job {} was cancelled by user", jobId);
-            handleJobCancellation(jobId);
         } catch (ResourceNotFoundException e) {
             log.error("Job {} failed - resource not found: {}", jobId, e.getMessage());
             handleJobFailure(jobId, "Resource not found: " + e.getMessage(), e);

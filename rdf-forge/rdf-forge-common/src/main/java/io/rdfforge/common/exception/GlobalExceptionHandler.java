@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.util.HashMap;
@@ -271,6 +272,28 @@ public class GlobalExceptionHandler {
         problem.setProperty("retryAfter", rateLimitRetryAfterSeconds);
         
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(problem);
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<ProblemDetail> handleIOException(
+            IOException ex, WebRequest request) {
+
+        String traceId = getOrCreateTraceId();
+        // Full stack trace logged server-side for diagnosis — never leaked in response.
+        log.error("I/O error handling request [traceId={}]", traceId, ex);
+
+        // Do NOT include ex.getMessage() in the response: I/O messages frequently
+        // contain filesystem paths, bucket names, or credentials.
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "A storage or I/O error occurred. Please retry. If the problem persists, " +
+                "contact support with trace ID: " + traceId);
+        problem.setTitle("Storage I/O Error");
+        problem.setType(URI.create("https://rdf-forge.io/errors/io"));
+        problem.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
+        enrichProblemDetail(problem, ERROR_SERVICE_UNAVAILABLE, traceId, request);
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(problem);
     }
 
     @ExceptionHandler(java.util.concurrent.TimeoutException.class)

@@ -53,12 +53,16 @@ public class FileStorageService {
         String sanitizedFilename = sanitizeFilename(file.getOriginalFilename());
         String objectName = sanitizePath(prefix) + "/" + UUID.randomUUID() + "-" + sanitizedFilename;
 
-        getProvider().upload(
-            file.getInputStream(),
-            objectName,
-            file.getContentType(),
-            file.getSize()
-        );
+        // Wrap MultipartFile stream to guarantee close even if provider fails to close it.
+        // InputStream.close() is idempotent, so double-close (by provider + try-with-resources) is safe.
+        try (InputStream is = file.getInputStream()) {
+            getProvider().upload(
+                is,
+                objectName,
+                file.getContentType(),
+                file.getSize()
+            );
+        }
 
         return objectName;
     }

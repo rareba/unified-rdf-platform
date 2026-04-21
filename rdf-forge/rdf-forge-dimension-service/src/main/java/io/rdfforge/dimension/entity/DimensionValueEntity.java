@@ -63,8 +63,8 @@ public class DimensionValueEntity {
     @Column(name = "replaced_by", length = 500)
     private String replacedBy;
     
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
     
     @Column(name = "updated_at")
     private Instant updatedAt;
@@ -120,6 +120,17 @@ public class DimensionValueEntity {
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = Instant.now();

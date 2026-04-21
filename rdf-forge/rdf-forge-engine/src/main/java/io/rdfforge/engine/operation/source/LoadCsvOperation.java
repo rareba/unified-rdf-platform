@@ -63,25 +63,35 @@ public class LoadCsvOperation implements Operation {
             throw new OperationException(getId(), "File path is required");
         }
 
-        try {
-            Path path = resolveFilePath(filePath);
-            if (path == null || !Files.exists(path)) {
-                throw new OperationException(getId(), "File not found: " + filePath);
-            }
+        Path path = resolveFilePath(filePath);
+        if (path == null || !Files.exists(path)) {
+            throw new OperationException(getId(), "File not found: " + filePath);
+        }
 
-            Reader reader = Files.newBufferedReader(path, Charset.forName(encoding));
-            CSVReader csvReader = new CSVReaderBuilder(reader)
+        // NOTE: the Reader/CSVReader are intentionally NOT closed in a try-with-resources
+        // block here because ownership is transferred to the returned lazy Stream via
+        // onClose(). Callers MUST close the Stream (try-with-resources or stream.close())
+        // to release the underlying file descriptor. If construction fails before the
+        // Stream is returned, we close the Reader explicitly in the catch block below.
+        Reader reader = null;
+        CSVReader csvReader = null;
+        try {
+            reader = Files.newBufferedReader(path, Charset.forName(encoding));
+            csvReader = new CSVReaderBuilder(reader)
                 .withSkipLines(skipRows)
                 .build();
 
             String[] headers = hasHeader ? csvReader.readNext() : null;
-            
+
+            // Capture final references for the onClose lambda
+            final CSVReader finalCsvReader = csvReader;
             Stream<Map<String, Object>> rowStream = StreamSupport.stream(
                 new CsvRowSpliterator(csvReader, headers),
                 false
             ).onClose(() -> {
                 try {
-                    csvReader.close();
+                    // CSVReader.close() also closes the underlying Reader
+                    finalCsvReader.close();
                 } catch (IOException e) {
                     log.warn("Error closing CSV reader", e);
                 }
@@ -98,7 +108,23 @@ public class LoadCsvOperation implements Operation {
             return new OperationResult(true, rowStream, null, metadata, null);
 
         } catch (IOException | CsvValidationException e) {
+            // Stream was not returned to caller — close the reader(s) here to prevent FD leak.
+            closeQuietly(csvReader);
+            if (csvReader == null) {
+                closeQuietly(reader);
+            }
             throw new OperationException(getId(), "Error reading CSV: " + e.getMessage(), e);
+        }
+    }
+
+    private static void closeQuietly(Closeable closeable) {
+        if (closeable == null) {
+            return;
+        }
+        try {
+            closeable.close();
+        } catch (IOException e) {
+            log.warn("Error closing CSV resource", e);
         }
     }
 

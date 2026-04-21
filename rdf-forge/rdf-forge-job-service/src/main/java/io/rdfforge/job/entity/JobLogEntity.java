@@ -30,8 +30,15 @@ public class JobLogEntity {
         return job != null ? job.getId() : null;
     }
 
-    @Column(name = "created_at")
-    private Instant timestamp = Instant.now();
+    @Column(name = "created_at", updatable = false)
+    private Instant timestamp;
+
+    @PrePersist
+    protected void onCreate() {
+        if (timestamp == null) {
+            timestamp = Instant.now();
+        }
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
