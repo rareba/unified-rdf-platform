@@ -41,8 +41,10 @@ public class SavedQueryEntity {
     @Column(nullable = false, length = 32)
     private QueryType type;
 
-    @Lob
-    @Column(name = "query_text", nullable = false)
+    // columnDefinition = "TEXT" keeps Postgres TEXT; without it Hibernate maps
+    // @Lob String to Postgres `oid` (large-object), which disagrees with the
+    // V4__create_saved_queries migration that declared the column as TEXT.
+    @Column(name = "query_text", nullable = false, columnDefinition = "TEXT")
     private String queryText;
 
     /** Map of paramName -> { type: 'uri'|'literal'|'string'|'number', default: '...' }. */
