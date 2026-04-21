@@ -107,8 +107,11 @@ public class DataService {
         Path tempFile = null;
 
         try {
-            // Create temp file for safe processing
-            tempFile = Files.createTempFile("upload-", "-" + file.getOriginalFilename());
+            // Create temp file for safe processing. sanitizeFilename strips
+            // path separators and control characters so Files.createTempFile
+            // doesn't reject the suffix (..<slash>..<slash>etc/passwd would
+            // otherwise explode with "Invalid prefix or suffix").
+            tempFile = Files.createTempFile("upload-", "-" + sanitizeFilename(file.getOriginalFilename()));
             Files.copy(file.getInputStream(), tempFile, StandardCopyOption.REPLACE_EXISTING);
 
             // Validate the temp file size matches expected size
@@ -310,7 +313,9 @@ public class DataService {
     }
     
     private String getNameFromFilename(String filename) {
-        if (filename == null) return "Untitled";
+        // MockMultipartFile with a null original-filename reports "" via
+        // MultipartFile.getOriginalFilename(), not null — handle both.
+        if (filename == null || filename.isBlank()) return "Untitled";
         int dotIndex = filename.lastIndexOf('.');
         return dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
     }

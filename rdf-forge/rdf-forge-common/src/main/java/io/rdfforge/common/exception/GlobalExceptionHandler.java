@@ -159,6 +159,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(problem);
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ProblemDetail> handleMissingRequestParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException ex, WebRequest request) {
+        String traceId = getOrCreateTraceId();
+        log.warn("Missing request parameter: {} [traceId={}]", ex.getMessage(), traceId);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Missing Request Parameter");
+        problem.setType(URI.create("https://rdf-forge.io/errors/missing-parameter"));
+        problem.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
+        problem.setProperty("parameter", ex.getParameterName());
+        enrichProblemDetail(problem, ERROR_INVALID_ARGUMENT, traceId, request);
+        return ResponseEntity.badRequest().body(problem);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidationExceptions(
             MethodArgumentNotValidException ex, WebRequest request) {

@@ -33,9 +33,12 @@ import java.util.concurrent.*;
 @Component
 public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclValidator {
 
-    // Default validation timeout: 60 seconds
+    // Default validation timeout: 60 seconds. Field default matches the
+    // Spring placeholder default so plain `new ShaclValidatorService(...)`
+    // outside a Spring context (e.g. from a unit test) still gets 60s and
+    // does not silently time out after 0s.
     @Value("${shacl.validation.timeout.seconds:60}")
-    private int validationTimeoutSeconds;
+    private int validationTimeoutSeconds = 60;
 
     private final Timer validationTimer;
     private final Counter validationsTotal;

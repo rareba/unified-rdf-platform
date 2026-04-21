@@ -123,19 +123,32 @@ public class TriplestoreService {
         TriplestoreConnectionEntity connection = repository.findById(id)
             .orElseThrow(() -> new TriplestoreConnectionException("Connection not found: " + id));
         
-        TriplestoreConnector connector = createConnector(connection);
         long startTime = System.currentTimeMillis();
-        boolean success = connector.testConnection();
+        boolean success = false;
+        String failureMessage = null;
+        try {
+            TriplestoreConnector connector = createConnector(connection);
+            success = connector.testConnection();
+        } catch (RuntimeException ex) {
+            // createConnector() or testConnection() threw before we could
+            // observe a status. Surface the message back to the caller and
+            // still persist the UNHEALTHY result so the row doesn't look
+            // stale.
+            failureMessage = ex.getMessage();
+        }
         long latency = System.currentTimeMillis() - startTime;
-        
+
         connection.setHealthStatus(success ? HealthStatus.HEALTHY : HealthStatus.UNHEALTHY);
         connection.setLastHealthCheck(Instant.now());
         repository.save(connection);
-        
+
+        String message = success
+            ? "Connection successful"
+            : (failureMessage != null ? "Connection failed: " + failureMessage : "Connection failed");
         return Map.of(
             "success", success,
             "latencyMs", latency,
-            "message", success ? "Connection successful" : "Connection failed"
+            "message", message
         );
     }
     

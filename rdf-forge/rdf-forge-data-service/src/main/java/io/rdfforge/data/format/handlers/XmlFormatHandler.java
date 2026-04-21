@@ -120,17 +120,21 @@ public class XmlFormatHandler implements DataFormatHandler {
                 String recordElement = desiredRecord;
                 long totalRows = 0;
                 boolean hasMore = false;
+                boolean skippedOuter = false;
 
                 while (reader.hasNext()) {
                     int event = reader.next();
                     if (event != XMLStreamConstants.START_ELEMENT) {
                         continue;
                     }
-                    if (recordElement == null) {
-                        // Skip the outer document element; the next START_ELEMENT
-                        // is our repeated record element.
-                        recordElement = reader.getLocalName();
+                    if (!skippedOuter && recordElement == null) {
+                        // Skip the outer document element; the next
+                        // START_ELEMENT under it is the repeated record.
+                        skippedOuter = true;
                         continue;
+                    }
+                    if (recordElement == null) {
+                        recordElement = reader.getLocalName();
                     }
                     if (!recordElement.equals(reader.getLocalName())) {
                         continue;
@@ -189,6 +193,7 @@ public class XmlFormatHandler implements DataFormatHandler {
                 String recordElement = desiredRecord;
                 Map<String, Object> nextRow;
                 boolean closed = false;
+                boolean skippedOuter = false;
 
                 @Override
                 public boolean hasNext() {
@@ -198,9 +203,12 @@ public class XmlFormatHandler implements DataFormatHandler {
                         while (reader.hasNext()) {
                             int event = reader.next();
                             if (event != XMLStreamConstants.START_ELEMENT) continue;
+                            if (!skippedOuter && recordElement == null) {
+                                skippedOuter = true;
+                                continue;
+                            }
                             if (recordElement == null) {
                                 recordElement = reader.getLocalName();
-                                continue;
                             }
                             if (!recordElement.equals(reader.getLocalName())) continue;
                             nextRow = readRecord(reader, includeAttributes, trimWhitespace);
