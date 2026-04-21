@@ -18,12 +18,16 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { A11yModule } from '@angular/cdk/a11y';
 import { Subject, takeUntil, finalize } from 'rxjs';
 
 import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { DimensionService } from '../../../core/services';
 import { Dimension, DimensionValue, DimensionType } from '../../../core/models';
 import { LoggerService } from '../../../core/services/logger.service';
+import { ActivatedRoute } from '@angular/router';
+import { SkosImportDialog, SkosImportResult } from '../skos-import-dialog/skos-import-dialog';
+import { MatDialog } from '@angular/material/dialog';
 
 interface ValidationErrors {
   name?: string;
@@ -55,7 +59,8 @@ interface ValidationErrors {
     MatDividerModule,
     MatPaginatorModule,
     MatSortModule,
-    DragDropModule
+    DragDropModule,
+    A11yModule
   ],
   providers: [ConfirmationService],
   templateUrl: './dimension-manager.html',
@@ -68,6 +73,8 @@ export class DimensionManager implements OnInit, OnDestroy {
   private readonly confirmationService = inject(ConfirmationService);
   private readonly fb = inject(FormBuilder);
   private readonly logger = inject(LoggerService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly dialog = inject(MatDialog);
   private destroy$ = new Subject<void>();
 
   loading = signal(true);
@@ -283,22 +290,26 @@ export class DimensionManager implements OnInit, OnDestroy {
     this.createDialogVisible.set(true);
   }
 
+  // Guard against double-click on create/save buttons
+  private saving = signal(false);
+
   createDimension(): void {
     if (this.dimensionForm.invalid) {
       this.markFormGroupTouched(this.dimensionForm);
       return;
     }
+    if (this.saving()) return;
 
     const dim = this.dimensionForm.value;
     if (dim.baseUri && !dim.baseUri.endsWith('/')) {
       dim.baseUri += '/';
     }
 
-    this.loading.set(true);
+    this.saving.set(true);
     this.dimensionService.create(dim as Dimension)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => this.loading.set(false))
+        finalize(() => this.saving.set(false))
       )
       .subscribe({
         next: () => {
@@ -323,19 +334,25 @@ export class DimensionManager implements OnInit, OnDestroy {
       this.markFormGroupTouched(this.editDimensionForm);
       return;
     }
+    if (this.saving()) return;
 
     const dim = this.editDimensionForm.value;
     if (!dim.id) return;
 
+    this.saving.set(true);
     this.dimensionService.update(dim.id, dim)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
+          this.saving.set(false);
           this.snackBar.open('Dimension updated successfully', 'Close', { duration: 3000 });
           this.editDialogVisible.set(false);
           this.loadDimensions();
         },
-        error: (err) => this.handleError(err, 'Failed to update dimension')
+        error: (err) => {
+          this.saving.set(false);
+          this.handleError(err, 'Failed to update dimension');
+        }
       });
   }
 
@@ -418,10 +435,12 @@ export class DimensionManager implements OnInit, OnDestroy {
       this.markFormGroupTouched(this.valueForm);
       return;
     }
+    if (this.saving()) return;
 
     const dim = this.selectedDimension();
     if (!dim?.id) return;
 
+    this.saving.set(true);
     const value = this.valueForm.value;
     const newVal: DimensionValue = {
       dimensionId: dim.id,
@@ -435,12 +454,16 @@ export class DimensionManager implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
+          this.saving.set(false);
           this.snackBar.open('Value added successfully', 'Close', { duration: 3000 });
           this.addValueDialogVisible.set(false);
           this.loadValues(dim.id!);
           this.loadDimensions();
         },
-        error: (err) => this.handleError(err, 'Failed to add value')
+        error: (err) => {
+          this.saving.set(false);
+          this.handleError(err, 'Failed to add value');
+        }
       });
   }
 
@@ -695,6 +718,92 @@ export class DimensionManager implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  /**
+   * Opens the SKOS import dialog, then either persists the selected concepts
+   * as DimensionValue rows (if the currently-selected dimension has a baseUri)
+   * or surfaces a snackbar with instructions to create a dimension first.
+   *
+   * TODO(dimension-service): DimensionValueEntity requires a non-null `code`
+   * and `label`. We synthesize the code from the URI tail — if/when the
+   * backend supports storing a "pure external URI" value (no code) we should
+   * use that path instead. See rdf-forge-dimension-service/
+   *   src/main/java/io/rdfforge/dimension/entity/DimensionValueEntity.java
+   */
+  openSkosImportDialog(): void {
+    const dim = this.selectedDimension();
+    if (!dim?.id) {
+      this.snackBar.open('Select a dimension first', 'Close', { duration: 3000 });
+      return;
+    }
+    const projectId = this.route.snapshot.queryParamMap.get('projectId');
+    if (!projectId) {
+      this.snackBar.open(
+        'SKOS import requires a project context. Open this page from a project workspace.',
+        'Close',
+        { duration: 5000 }
+      );
+      return;
+    }
+    const ref = this.dialog.open(SkosImportDialog, {
+      width: '640px',
+      data: { projectId }
+    });
+    ref.afterClosed().subscribe((result: SkosImportResult | null) => {
+      if (!result || result.selections.length === 0) return;
+      this.importSkosSelections(dim, result);
+    });
+  }
+
+  private importSkosSelections(dim: Dimension, result: SkosImportResult): void {
+    const baseUri = dim.baseUri ?? '';
+    let created = 0;
+    let failed = 0;
+    result.selections.forEach((term, idx) => {
+      const code = this.codeFromUri(term.uri) || `concept-${idx + 1}`;
+      const value: DimensionValue = {
+        dimensionId: dim.id!,
+        code,
+        label: term.label || code,
+        uri: term.uri || (baseUri ? `${baseUri}${code}` : term.uri),
+        description: term.comment
+      };
+      this.dimensionService.addValue(dim.id!, value)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            created += 1;
+            if (created + failed === result.selections.length) this.finishSkosImport(dim, created, failed);
+          },
+          error: () => {
+            failed += 1;
+            if (created + failed === result.selections.length) this.finishSkosImport(dim, created, failed);
+          }
+        });
+    });
+  }
+
+  private finishSkosImport(dim: Dimension, created: number, failed: number): void {
+    const msg = failed === 0
+      ? `Imported ${created} SKOS concept(s)`
+      : `Imported ${created}, ${failed} failed`;
+    this.snackBar.open(msg, 'Close', { duration: 4000 });
+    if (dim.id) this.loadValues(dim.id);
+    this.loadDimensions();
+  }
+
+  private codeFromUri(uri: string): string {
+    if (!uri) return '';
+    const hash = uri.lastIndexOf('#');
+    if (hash >= 0 && hash < uri.length - 1) return this.slug(uri.substring(hash + 1));
+    const slash = uri.lastIndexOf('/');
+    if (slash >= 0 && slash < uri.length - 1) return this.slug(uri.substring(slash + 1));
+    return this.slug(uri);
+  }
+
+  private slug(text: string): string {
+    return text.toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
   }
 
   // Dialog helpers

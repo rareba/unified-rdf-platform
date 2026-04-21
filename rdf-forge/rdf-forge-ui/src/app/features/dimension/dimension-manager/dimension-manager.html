@@ -2,7 +2,7 @@
   <div class="header">
     <div class="header-left">
       <h1>Dimensions</h1>
-      <mat-chip>{{ filteredDimensions().length }} dimensions</mat-chip>
+      <mat-chip>{{ filteredDimensions().length }} {{ filteredDimensions().length === 1 ? 'dimension' : 'dimensions' }}</mat-chip>
     </div>
     <div class="actions">
       <mat-form-field appearance="outline" class="search-field">
@@ -130,14 +130,14 @@
         <tr mat-row *matRowDef="let row; columns: ['name', 'type', 'valueCount', 'uri', 'actions']" class="dim-row"></tr>
       </table>
 
-      <mat-paginator [pageSizeOptions]="[10, 25, 50]" [pageSize]="10" showFirstLastButtons></mat-paginator>
+      <mat-paginator [length]="filteredDimensions().length" [pageSizeOptions]="[10, 25, 50]" [pageSize]="10" showFirstLastButtons></mat-paginator>
     }
   </div>
 
   <!-- Create Dimension Dialog -->
   @if (createDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeCreateDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop" (click)="closeCreateDialog()" (keydown.escape)="closeCreateDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="New Dimension" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>New Dimension</h2>
           <button mat-icon-button (click)="closeCreateDialog()">
@@ -194,8 +194,8 @@
 
   <!-- Edit Dimension Dialog -->
   @if (editDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeEditDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop" (click)="closeEditDialog()" (keydown.escape)="closeEditDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="Edit Dimension" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Edit Dimension</h2>
           <button mat-icon-button (click)="closeEditDialog()">
@@ -248,8 +248,8 @@
 
   <!-- Details Dialog -->
   @if (detailsDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeDetailsDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop" (click)="closeDetailsDialog()" (keydown.escape)="closeDetailsDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="Dimension Details" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Details: {{ selectedDimension()?.name || '' }}</h2>
           <button mat-icon-button (click)="closeDetailsDialog()">
@@ -286,8 +286,8 @@
 
   <!-- Values Management Dialog -->
   @if (valuesDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeValuesDialog()">
-      <div class="dialog-container large-dialog" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop" (click)="closeValuesDialog()" (keydown.escape)="closeValuesDialog()">
+      <div class="dialog-container large-dialog" role="dialog" aria-modal="true" aria-label="Manage Values" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Values: {{ selectedDimension()?.name || '' }}</h2>
           <button mat-icon-button (click)="closeValuesDialog()">
@@ -308,6 +308,11 @@
             <button mat-stroked-button (click)="openImportDialog()">
               <mat-icon>upload</mat-icon>
               Import CSV
+            </button>
+            <button mat-stroked-button (click)="openSkosImportDialog()"
+                    matTooltip="Pick SKOS concepts from a project ontology">
+              <mat-icon>bookmarks</mat-icon>
+              Import from SKOS
             </button>
           </div>
 
@@ -353,7 +358,7 @@
           }
         </div>
         <div class="dialog-actions">
-          <span>{{ filteredValues().length }} values</span>
+          <span>{{ filteredValues().length }} {{ filteredValues().length === 1 ? 'value' : 'values' }}</span>
           <button mat-button (click)="closeValuesDialog()">Close</button>
         </div>
       </div>
@@ -362,8 +367,8 @@
 
   <!-- Add Value Dialog -->
   @if (addValueDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeAddValueDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop dialog-level-2" (click)="closeAddValueDialog()" (keydown.escape)="closeAddValueDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="Add Value" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Add Value</h2>
           <button mat-icon-button (click)="closeAddValueDialog()">
@@ -405,8 +410,8 @@
 
   <!-- Edit Value Dialog -->
   @if (editValueDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeEditValueDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop dialog-level-2" (click)="closeEditValueDialog()" (keydown.escape)="closeEditValueDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="Edit Value" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Edit Value</h2>
           <button mat-icon-button (click)="closeEditValueDialog()">
@@ -448,8 +453,8 @@
 
   <!-- Import CSV Dialog -->
   @if (importDialogVisible()) {
-    <div class="dialog-backdrop" (click)="!importing() && closeImportDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-backdrop dialog-level-2" (click)="!importing() && closeImportDialog()" (keydown.escape)="!importing() && closeImportDialog()">
+      <div class="dialog-container" role="dialog" aria-modal="true" aria-label="Import CSV" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
         <div class="dialog-header">
           <h2>Import Values: {{ selectedDimension()?.name || '' }}</h2>
           @if (!importing()) {
