@@ -27,10 +27,15 @@ import java.util.Set;
 @Slf4j
 public class NoAuthSecurityConfig {
 
-    // Only profiles that must NEVER touch production. "docker" was removed because
-    // production compose sets SPRING_PROFILES_ACTIVE=docker, which previously caused
-    // NoAuth to activate in prod. Keep strictly dev/test-only profiles here.
-    private static final Set<String> ALLOWED_PROFILES = Set.of("noauth", "test", "local");
+    // Only profiles that must NEVER touch production. `docker` is intentionally
+    // absent because the production compose used SPRING_PROFILES_ACTIVE=docker,
+    // which previously caused NoAuth to activate in prod. `graphdb` / `fuseki`
+    // / `standalone` are triplestore-backend or topology selectors used by
+    // the standalone compose and similar dev/demo paths — they never imply
+    // auth by themselves but are legitimately combined with `noauth`.
+    private static final Set<String> ALLOWED_PROFILES = Set.of(
+        "noauth", "test", "local", "standalone", "graphdb", "fuseki"
+    );
 
     @Autowired
     private Environment environment;

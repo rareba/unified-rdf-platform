@@ -34,7 +34,9 @@ public class NoAuthUserFilter implements GlobalFilter, Ordered {
     private static final String USER_ROLES_HEADER = "X-User-Roles";
     private static final String AUTH_TYPE_HEADER = "X-Auth-Type";
     private static final String TOKEN_NAME_HEADER = "X-Token-Name";
-    private static final Set<String> ALLOWED_PROFILES = Set.of("noauth", "test", "local");
+    private static final Set<String> ALLOWED_PROFILES = Set.of(
+        "noauth", "test", "local", "standalone", "graphdb", "fuseki"
+    );
 
     @Autowired
     private Environment environment;
