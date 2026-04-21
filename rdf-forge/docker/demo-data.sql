@@ -411,6 +411,29 @@ INSERT INTO dimension_values (id, dimension_id, uri, code, label, label_lang, hi
 ON CONFLICT (id) DO NOTHING;
 
 -- Demo Triplestore Connection (GraphDB)
+-- The triplestore service uses the 'triplestore' schema (via Flyway),
+-- while init-db.sql creates tables in 'public'. We must update BOTH schemas
+-- so that the running service picks up GraphDB instead of the Fuseki seed.
+
+-- 1) Fix the Flyway-managed triplestore schema: update existing Fuseki -> GraphDB
+UPDATE triplestore.triplestore_connections
+SET name = 'GraphDB Local',
+    type = 'GRAPHDB',
+    url = 'http://graphdb:7200',
+    auth_type = 'NONE',
+    auth_config = '{"repository": "rdf-forge"}',
+    is_default = true,
+    health_status = 'UNKNOWN'
+WHERE is_default = true;
+
+-- If no default row existed in triplestore schema, insert one
+INSERT INTO triplestore.triplestore_connections (id, name, type, url, auth_type, auth_config, is_default, health_status)
+SELECT '77777777-7777-7777-7777-777777777771', 'GraphDB Local', 'GRAPHDB', 'http://graphdb:7200', 'NONE', '{"repository": "rdf-forge"}', true, 'UNKNOWN'
+WHERE NOT EXISTS (SELECT 1 FROM triplestore.triplestore_connections WHERE is_default = true);
+
+-- 2) Also update the public schema table (used by demo-data references)
+UPDATE triplestore_connections SET is_default = false WHERE is_default = true AND id != '77777777-7777-7777-7777-777777777771';
+
 INSERT INTO triplestore_connections (id, project_id, name, type, url, default_graph, auth_type, auth_config, is_default, health_status, created_by, created_at) VALUES
 ('77777777-7777-7777-7777-777777777771', '11111111-1111-1111-1111-111111111111',
  'GraphDB Local',
@@ -422,7 +445,13 @@ INSERT INTO triplestore_connections (id, project_id, name, type, url, default_gr
  true,
  'HEALTHY',
  '00000000-0000-0000-0000-000000000001', NOW())
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  url = EXCLUDED.url,
+  type = EXCLUDED.type,
+  name = EXCLUDED.name,
+  is_default = EXCLUDED.is_default,
+  auth_config = EXCLUDED.auth_config,
+  health_status = EXCLUDED.health_status;
 
 -- Demo Jobs (some completed, some pending)
 INSERT INTO jobs (id, pipeline_id, pipeline_version, status, priority, is_dry_run, triggered_by, started_at, completed_at, metrics, created_by, created_at) VALUES
@@ -457,3 +486,53 @@ INSERT INTO job_logs (job_id, timestamp, level, step, message) VALUES
 ('88888888-8888-8888-8888-888888888882', NOW() - INTERVAL '57 minutes', 'INFO', 'map-to-rdf', 'Generated 420 triples'),
 ('88888888-8888-8888-8888-888888888882', NOW() - INTERVAL '56 minutes', 'INFO', 'graph-store-put', 'Uploading to GraphDB'),
 ('88888888-8888-8888-8888-888888888882', NOW() - INTERVAL '55 minutes', 'INFO', 'graph-store-put', 'Pipeline completed successfully');
+
+-- =============================================================================
+-- Cross-schema sync: copy demo data into Flyway-managed service schemas.
+-- Each Spring Boot service uses its own schema (pipeline, job, shacl, data,
+-- dimension, triplestore) via Flyway migrations, while init-db.sql creates
+-- tables in the public schema. This section copies demo data into the service
+-- schemas so the running microservices can see it.
+-- =============================================================================
+
+-- Pipeline schema (tags column is jsonb instead of varchar[])
+INSERT INTO pipeline.pipelines (id, project_id, name, description, definition, definition_format, tags, version, is_template, created_by, created_at)
+SELECT id, project_id, name, description, definition, definition_format,
+       to_jsonb(tags) AS tags, version, is_template, created_by, created_at
+FROM public.pipelines
+ON CONFLICT (id) DO NOTHING;
+
+-- SHACL schema (tags column is text[], compatible with varchar[])
+INSERT INTO shacl.shapes (id, project_id, uri, name, description, target_class, content_format, content, category, tags, version, created_by, created_at)
+SELECT id, project_id, uri, name, description, target_class, content_format, content, category, tags::text[], version, created_by, created_at
+FROM public.shapes
+ON CONFLICT (id) DO NOTHING;
+
+-- Data schema (public.data_sources has no 'description' or 'created_by' columns)
+INSERT INTO data.data_sources (id, project_id, name, original_filename, storage_path, storage_type, format, size_bytes, row_count, column_count, metadata, uploaded_by, uploaded_at, created_by, created_at)
+SELECT id, project_id, name, original_filename, storage_path, storage_type, format, size_bytes, row_count, column_count, metadata, uploaded_by, uploaded_at, uploaded_by, uploaded_at
+FROM public.data_sources
+ON CONFLICT (id) DO NOTHING;
+
+-- Dimension schema
+INSERT INTO dimension.dimensions (id, project_id, uri, name, description, type, hierarchy_type, is_shared, created_by, created_at)
+SELECT id, project_id, uri, name, description, type, hierarchy_type, is_shared, created_by, created_at
+FROM public.dimensions
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO dimension.dimension_values (id, dimension_id, uri, code, label, label_lang, hierarchy_level, parent_id, sort_order)
+SELECT id, dimension_id, uri, code, label, label_lang, COALESCE(hierarchy_level, 0), parent_id, sort_order
+FROM public.dimension_values
+ON CONFLICT (id) DO NOTHING;
+
+-- Job schema
+INSERT INTO job.jobs (id, pipeline_id, pipeline_version, status, priority, is_dry_run, triggered_by, started_at, completed_at, metrics, created_by, created_at)
+SELECT id, pipeline_id, pipeline_version, status, priority, is_dry_run, triggered_by, started_at, completed_at, metrics, created_by, created_at
+FROM public.jobs
+ON CONFLICT (id) DO NOTHING;
+
+-- job.job_logs has different columns: step_id instead of step, created_at instead of timestamp
+INSERT INTO job.job_logs (job_id, step_id, level, message, created_at)
+SELECT job_id, step, level, message, timestamp
+FROM public.job_logs
+ON CONFLICT DO NOTHING;

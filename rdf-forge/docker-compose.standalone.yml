@@ -94,8 +94,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # init-db.sql creates schemas + legacy public tables BEFORE Flyway
+      # runs. That is safe. demo-data.sql is NOT mounted here because it
+      # inserts into service-owned schemas (pipeline, shacl, data, ...)
+      # that Flyway has not created yet. The `demo-seed` service below
+      # runs demo-data.sql post-Flyway instead.
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./docker/demo-data.sql:/docker-entrypoint-initdb.d/02-demo-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rdfforge}"]
       interval: 10s
@@ -337,6 +341,58 @@ services:
         condition: service_healthy
       graphdb:
         condition: service_healthy
+    networks:
+      - rdf-forge-network
+
+  # ---------------------------------------------------------------------------
+  # Demo-data seeder — runs AFTER every backend service has started its
+  # Flyway migrations. This is the standalone boot path for populating
+  # demo projects, pipelines, shapes, dimensions, jobs and the GraphDB
+  # connection into the service-owned schemas.
+  #
+  # It cannot run during postgres /docker-entrypoint-initdb.d because
+  # pipeline.*, shacl.*, data.*, dimension.*, job.*, triplestore.*
+  # tables only exist after Flyway executes.
+  # ---------------------------------------------------------------------------
+  demo-seed:
+    image: postgres:16-alpine
+    container_name: rdf-forge-demo-seed
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
+    volumes:
+      - ./docker/demo-data.sql:/seed/demo-data.sql:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -eu
+          echo "[demo-seed] waiting for triplestore_connections table (flyway)..."
+          until psql -h postgres -U "${POSTGRES_USER:-rdfforge}" \
+                     -d "${POSTGRES_DB:-rdfforge}" \
+                     -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='triplestore' AND table_name='triplestore_connections'" \
+                | grep -q '^1$$'; do
+            sleep 3
+          done
+          echo "[demo-seed] applying demo-data.sql..."
+          psql -h postgres -U "${POSTGRES_USER:-rdfforge}" -d "${POSTGRES_DB:-rdfforge}" \
+               --set ON_ERROR_STOP=1 -f /seed/demo-data.sql
+          echo "[demo-seed] done."
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pipeline-service:
+        condition: service_started
+      shacl-service:
+        condition: service_started
+      data-service:
+        condition: service_started
+      dimension-service:
+        condition: service_started
+      job-service:
+        condition: service_started
+      triplestore-service:
+        condition: service_started
+    restart: "no"
     networks:
       - rdf-forge-network
 
