@@ -47,10 +47,8 @@
           <mat-card-title>Validation status</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <p class="summary-empty">
-            Health + validation indicators will be rendered in Phase 5
-            once the Validation Cockpit is online.
-          </p>
+          <rdf-validation-status-widget [projectId]="project.id">
+          </rdf-validation-status-widget>
         </mat-card-content>
       </mat-card>
 

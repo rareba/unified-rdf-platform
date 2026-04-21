@@ -1,25 +1,29 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { PhasePlaceholder } from '../../shared/phase-placeholder/phase-placeholder';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Cockpit } from '../../../validation/cockpit';
+import { ProjectContextService } from '../../services/project-context.service';
 
+/**
+ * Project-workspace tab that hosts the Phase 5 Validation Cockpit,
+ * scoped to the current project.
+ */
 @Component({
   selector: 'app-validation-tab',
   standalone: true,
-  imports: [PhasePlaceholder],
+  imports: [CommonModule, Cockpit],
   template: `
-    <app-phase-placeholder
-      icon="verified"
-      title="Validation Cockpit"
-      phase="Phase 5"
-      description="Continuously validate every dataset in the project against its SHACL shapes. Failures, waivers, severity trends — all in one actionable dashboard."
-      [features]="[
-        'Aggregated SHACL report across datasets',
-        'Severity filtering and grouping',
-        'Waiver + exemption workflow',
-        'Trend charts and regression alerts',
-        'Per-shape drill-down'
-      ]">
-    </app-phase-placeholder>
+    @if (projectId(); as pid) {
+      <rdf-validation-cockpit [projectId]="pid"></rdf-validation-cockpit>
+    } @else {
+      <div class="empty">No project selected.</div>
+    }
   `,
+  styles: [`
+    .empty { padding: 24px; text-align: center; color: rgba(0,0,0,0.6); }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ValidationTab {}
+export class ValidationTab {
+  private readonly context = inject(ProjectContextService);
+  readonly projectId = computed(() => this.context.projectId());
+}

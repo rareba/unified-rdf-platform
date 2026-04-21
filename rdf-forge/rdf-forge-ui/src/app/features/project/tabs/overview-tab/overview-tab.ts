@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonModule } from '@angular/material/button';
 import { ProjectContextService } from '../../services/project-context.service';
+import { ValidationStatusWidget } from '../../../validation/validation-status-widget';
 
 interface CountCard {
   key: string;
@@ -33,7 +34,8 @@ const COUNT_META: Record<string, { label: string; icon: string }> = {
     MatCardModule,
     MatIconModule,
     MatChipsModule,
-    MatButtonModule
+    MatButtonModule,
+    ValidationStatusWidget
   ],
   templateUrl: './overview-tab.html',
   styleUrl: './overview-tab.scss',
