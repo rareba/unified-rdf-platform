@@ -64,6 +64,13 @@ export const routes: Routes = [
               )
           },
           {
+            path: 'reconciliation',
+            loadComponent: () =>
+              import('./features/project/tabs/reconciliation-tab/reconciliation-tab').then(
+                m => m.ReconciliationTab
+              )
+          },
+          {
             path: 'publish',
             loadComponent: () =>
               import('./features/project/tabs/publish-tab/publish-tab').then(m => m.PublishTab)
@@ -183,8 +190,18 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'sparql',
+    loadComponent: () => import('./features/sparql/query-workbench').then(m => m.QueryWorkbench),
+    canActivate: [authGuard]
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./features/settings/settings').then(m => m.Settings),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'extensions',
+    loadComponent: () => import('./features/extensions/extension-catalog').then(m => m.ExtensionCatalog),
     canActivate: [authGuard]
   },
   {

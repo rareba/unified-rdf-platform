@@ -26,13 +26,25 @@ spring:
         - id: pipeline-service
           uri: ${PIPELINE_SERVICE_URL:http://rdf-forge-pipeline-service:8001}
           predicates:
-            - Path=/api/v1/pipelines/**,/api/v1/operations/**,/api/v1/templates/**,/api/v1/git-sync/**,/api/v1/projects/**,/api/v1/mappings/**
-        
+            - Path=/api/v1/pipelines/**,/api/v1/operations/**,/api/v1/templates/**,/api/v1/git-sync/**,/api/v1/projects/**,/api/v1/mappings/**,/api/v1/releases/**,/api/v1/lineage/**,/api/v1/comments/**
+
+        # Phase 9: pipeline-service hosts operation + destination extensions.
+        - id: pipeline-extensions
+          uri: ${PIPELINE_SERVICE_URL:http://rdf-forge-pipeline-service:8001}
+          predicates:
+            - Path=/api/v1/extensions/operations,/api/v1/extensions/destinations
+
         - id: shacl-service
           uri: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
           predicates:
-            - Path=/api/v1/shapes/**,/api/v1/validation/**,/api/v1/cubes/validate/**,/api/v1/ontologies/**
-        
+            - Path=/api/v1/shapes/**,/api/v1/validation/**,/api/v1/cubes/validate/**,/api/v1/ontologies/**,/api/v1/docs/**
+
+        # Phase 9: shacl-service hosts cube validator + profile extensions.
+        - id: shacl-extensions
+          uri: ${SHACL_SERVICE_URL:http://rdf-forge-shacl-service:8002}
+          predicates:
+            - Path=/api/v1/extensions/validators,/api/v1/extensions/cube-profiles
+
         - id: job-service
           uri: ${JOB_SERVICE_URL:http://rdf-forge-job-service:8003}
           predicates:
@@ -49,6 +61,12 @@ spring:
           uri: ${DATA_SERVICE_URL:http://rdf-forge-data-service:8004}
           predicates:
             - Path=/api/v1/data/**
+
+        # Phase 9: data-service hosts format + storage-provider extensions.
+        - id: data-extensions
+          uri: ${DATA_SERVICE_URL:http://rdf-forge-data-service:8004}
+          predicates:
+            - Path=/api/v1/extensions/formats,/api/v1/extensions/storage-providers
         
         - id: dimension-service
           uri: ${DIMENSION_SERVICE_URL:http://rdf-forge-dimension-service:8005}
@@ -58,7 +76,13 @@ spring:
         - id: triplestore-service
           uri: ${TRIPLESTORE_SERVICE_URL:http://rdf-forge-triplestore-service:8006}
           predicates:
-            - Path=/api/v1/triplestores/**,/api/v1/sparql/**,/api/v1/graphs/**
+            - Path=/api/v1/triplestores/**,/api/v1/sparql/**,/api/v1/graphs/**,/api/v1/reconciliation/**
+
+        # Phase 9: triplestore-service hosts triplestore-provider + matcher extensions.
+        - id: triplestore-extensions
+          uri: ${TRIPLESTORE_SERVICE_URL:http://rdf-forge-triplestore-service:8006}
+          predicates:
+            - Path=/api/v1/extensions/triplestore-providers,/api/v1/extensions/matchers
       
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin

@@ -1,25 +1,25 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { PhasePlaceholder } from '../../shared/phase-placeholder/phase-placeholder';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ProjectContextService } from '../../services/project-context.service';
+import { DocsViewer } from '../../../docs/docs-viewer';
 
+/**
+ * Project workspace "Docs" tab.
+ * Reads {@code projectId} from {@link ProjectContextService} and mounts
+ * {@link DocsViewer}, which requests the Semantic API HTML from
+ * shacl-service ({@code GET /api/v1/docs/project/{id}?format=HTML}).
+ */
 @Component({
   selector: 'app-docs-tab',
   standalone: true,
-  imports: [PhasePlaceholder],
+  imports: [CommonModule, DocsViewer],
   template: `
-    <app-phase-placeholder
-      icon="description"
-      title="Generated API + Ontology Docs"
-      phase="Phase 10"
-      description="Every project ships with an auto-generated, human-readable documentation site. Classes, shapes, example queries, and change history — all kept in sync with the live data."
-      [features]="[
-        'Auto-generated ontology docs (Widoco-style)',
-        'SHACL shape reference with examples',
-        'SPARQL query cookbook',
-        'DCAT-AP catalogue entry preview',
-        'Publishable as static site'
-      ]">
-    </app-phase-placeholder>
+    @if (context.projectId(); as id) {
+      <app-docs-viewer [projectId]="id"></app-docs-viewer>
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DocsTab {}
+export class DocsTab {
+  readonly context = inject(ProjectContextService);
+}

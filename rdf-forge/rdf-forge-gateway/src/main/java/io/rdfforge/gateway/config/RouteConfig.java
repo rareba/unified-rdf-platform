@@ -34,7 +34,7 @@ public class RouteConfig {
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
             .route("pipeline-service", r -> r
-                .path("/api/v1/pipelines/**", "/api/v1/operations/**", "/api/v1/templates/**", "/api/v1/projects/**", "/api/v1/mappings/**")
+                .path("/api/v1/pipelines/**", "/api/v1/operations/**", "/api/v1/templates/**", "/api/v1/projects/**", "/api/v1/mappings/**", "/api/v1/releases/**", "/api/v1/lineage/**")
                 .filters(f -> f
                     .stripPrefix(0)
                     .addRequestHeader("X-Gateway-Time", String.valueOf(System.currentTimeMillis()))

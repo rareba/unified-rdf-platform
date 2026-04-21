@@ -77,6 +77,18 @@
         </a>
       </li>
       <li>
+        <a class="ob-nav-item" routerLink="/sparql" routerLinkActive="ob-active" aria-label="SPARQL Workbench">
+          <mat-icon aria-hidden="true">code</mat-icon>
+          @if (!sidebarCollapsed()) { <span>SPARQL</span> }
+        </a>
+      </li>
+      <li>
+        <a class="ob-nav-item" routerLink="/extensions" routerLinkActive="ob-active" aria-label="Extensions">
+          <mat-icon aria-hidden="true">extension</mat-icon>
+          @if (!sidebarCollapsed()) { <span>Extensions</span> }
+        </a>
+      </li>
+      <li>
         <a class="ob-nav-item" routerLink="/settings" routerLinkActive="ob-active" aria-label="Settings">
           <mat-icon aria-hidden="true">settings</mat-icon>
           @if (!sidebarCollapsed()) { <span>Settings</span> }
