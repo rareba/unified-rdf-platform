@@ -87,6 +87,15 @@ public class ReleaseEntity {
     private long artifactSizeBytes;
 
     /**
+     * Short human-readable description set only when the release transitions
+     * to {@link ReleaseStatus#FAILED}. Intended for the UI to surface in a
+     * red banner; must not leak bearer tokens, credentials, or stack traces.
+     * Null on any other state.
+     */
+    @Column(name = "failure_reason", columnDefinition = "TEXT")
+    private String failureReason;
+
+    /**
      * Computed asset manifest (jsonb). Contains the list of data source ids,
      * mapping ids, shape ids, ontology ids, triplestore target, validation
      * suite refs and gate result. See ReleaseService for exact keys.

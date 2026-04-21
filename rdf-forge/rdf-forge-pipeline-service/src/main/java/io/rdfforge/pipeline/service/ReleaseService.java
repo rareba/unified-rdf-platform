@@ -6,6 +6,12 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import io.rdfforge.common.exception.PipelineValidationException;
 import io.rdfforge.common.exception.ResourceNotFoundException;
 import io.rdfforge.common.security.AuthUser;
+import io.rdfforge.pipeline.client.AuthenticatedShaclClient;
+import io.rdfforge.pipeline.client.OntologySummary;
+import io.rdfforge.pipeline.client.ShaclClientException;
+import io.rdfforge.pipeline.client.ShapeSummary;
+import io.rdfforge.pipeline.client.ValidationIssueSummary;
+import io.rdfforge.pipeline.client.ValidationRunSummary;
 import io.rdfforge.pipeline.dto.ReleaseBuildResponse;
 import io.rdfforge.pipeline.dto.ReleaseCreateRequest;
 import io.rdfforge.pipeline.dto.ReleaseDto;
@@ -32,35 +38,41 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Release Factory service (Phase 6).
+ * Release Factory service.
  *
  * <p>Lifecycle: a release is created as {@link ReleaseStatus#DRAFT}. Calling
  * {@link #build(UUID, AuthUser)} transitions it to {@code BUILDING}, gathers
- * referenced assets, evaluates any validation gate, assembles a zip bundle,
- * writes the zip to a configurable directory, and transitions to
- * {@code PUBLISHED} (or {@code FAILED} on any step).
+ * referenced assets (mappings in-JVM, ontologies/shapes/validation via
+ * {@link AuthenticatedShaclClient}), assembles a zip bundle and transitions
+ * to {@code PUBLISHED}.
  *
- * <p>Cross-service asset resolution is done best-effort: in-JVM beans
- * ({@link MappingRepository} / {@link ProjectRepository}) give us real
- * mappings + project metadata. Shapes, ontologies, data sources and
- * validation suites live in sibling services and would need WebClient calls
- * — for v1 they are stamped into the manifest as {@code kind=REFERENCE}
- * placeholders. See TODO notes below. The zip is still a REAL valid zip and
- * the mappings/project bits are persisted as real files.
+ * <p><b>PUBLISHED means the bundle is complete and honest.</b> If any
+ * manifest-listed id cannot be fetched (401/403/404/5xx or transport error)
+ * the release goes to {@code FAILED}, a short {@code failureReason} is
+ * persisted, and the partially-written artifact is deleted. There are no
+ * "NOT_YET_FETCHED" placeholders anywhere in the output.
+ *
+ * <p>If a manifest doesn't list ids for a given kind (e.g. no shapes), the
+ * bundle simply omits that folder — it's allowed to contain only the kinds
+ * the user requested plus the always-present {@code manifest.json} +
+ * {@code README.md}.
  */
 @Slf4j
 @Service
@@ -73,9 +85,13 @@ public class ReleaseService {
         + "(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
     );
 
+    private static final int MAX_FAILURE_REASON_LEN = 500;
+    private static final int MAX_ISSUES_PER_RUN = 500;
+
     private final ReleaseRepository releaseRepository;
     private final ProjectRepository projectRepository;
     private final MappingRepository mappingRepository;
+    private final AuthenticatedShaclClient shaclClient;
     private final ObjectMapper objectMapper;
 
     @Value("${rdf-forge.release.artifact.dir:/tmp/rdf-forge-releases}")
@@ -83,10 +99,12 @@ public class ReleaseService {
 
     public ReleaseService(ReleaseRepository releaseRepository,
                           ProjectRepository projectRepository,
-                          MappingRepository mappingRepository) {
+                          MappingRepository mappingRepository,
+                          AuthenticatedShaclClient shaclClient) {
         this.releaseRepository = releaseRepository;
         this.projectRepository = projectRepository;
         this.mappingRepository = mappingRepository;
+        this.shaclClient = shaclClient;
         this.objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     }
 
@@ -149,10 +167,9 @@ public class ReleaseService {
     // ─────────────────────────── build ────────────────────────────
 
     /**
-     * Build + publish a release. This is a synchronous single-transaction
-     * implementation; in Phase 6.1 this becomes async with a job id and
-     * progress stream. Failures mark the release as FAILED with the error
-     * recorded in manifest.buildError.
+     * Build + publish a release. Synchronous in v1. On any downstream failure
+     * the release is marked FAILED, a concise {@code failureReason} is
+     * persisted, and any partially-written artifact is removed.
      */
     @Transactional
     public ReleaseBuildResponse build(UUID releaseId, AuthUser user) {
@@ -174,6 +191,7 @@ public class ReleaseService {
 
         // Transition DRAFT/FAILED -> BUILDING
         entity.setStatus(ReleaseStatus.BUILDING);
+        entity.setFailureReason(null);
         Map<String, Object> manifest = entity.getManifest() == null
             ? new HashMap<>() : new HashMap<>(entity.getManifest());
         manifest.remove("buildError");
@@ -181,37 +199,45 @@ public class ReleaseService {
         entity.setManifest(manifest);
         releaseRepository.save(entity);
 
+        Path zipPath = resolveArtifactPath(entity);
+        Path tmpPath = resolveTempPath(zipPath);
         try {
-            // 1. Gather assets
-            List<MappingEntity> mappings = gatherMappings(manifest);
+            // 1. Mappings live in our JVM. Missing mapping id is a hard failure.
+            List<MappingEntity> mappings = gatherMappingsOrFail(manifest);
             manifest.put("gatheredMappings", mappings.size());
 
-            // 2. Evaluate validation gate (stub for v1 — see TODO)
-            Map<String, Object> gate = evaluateValidationGate(manifest);
+            // 2. Fetch cross-service assets. These throw ShaclClientException
+            //    on any non-2xx — ReleaseService catches below and FAILs.
+            List<OntologySummary> ontologies = fetchOntologies(manifest, user);
+            List<ShapeSummary> shapes = fetchShapes(manifest, user);
+            Map<UUID, ValidationSuitePayload> validation = fetchValidationPayload(manifest, user);
+
+            // 3. Gate evaluation (still a WARN_ONLY stub in v1). We keep the
+            //    same contract the existing tests and UI expect.
+            Map<String, Object> gate = evaluateValidationGate(manifest, validation);
             manifest.put("validationGateResult", gate);
 
             String mode = Objects.toString(gate.get("mode"), "WARN_ONLY");
             boolean passed = Boolean.TRUE.equals(gate.get("passed"));
             if (!passed && !"WARN_ONLY".equalsIgnoreCase(mode)) {
-                manifest.put("buildError",
-                    "Validation gate failed (mode=" + mode + ")");
-                entity.setManifest(manifest);
-                entity.setStatus(ReleaseStatus.FAILED);
-                releaseRepository.save(entity);
-                return new ReleaseBuildResponse(
-                    entity.getId(), null, 0L, manifest, gate);
+                // Treat gate failure as a FAILED transition — no artifact.
+                String reason = "Validation gate failed (mode=" + mode + ")";
+                return failRelease(entity, manifest, reason, tmpPath);
             }
 
-            // 3. Assemble zip
-            Path zipPath = resolveArtifactPath(entity);
+            // 4. Assemble zip atomically: tmp -> rename.
             Files.createDirectories(zipPath.getParent());
-            long bytes = writeBundle(zipPath, project, entity, mappings, manifest);
+            long bytes = writeBundle(tmpPath, project, entity, mappings, ontologies, shapes,
+                validation, manifest);
+            Files.move(tmpPath, zipPath,
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
-            // 4. Persist
+            // 5. Persist PUBLISHED.
             entity.setArtifactUri(zipPath.toAbsolutePath().toString());
             entity.setArtifactSizeBytes(bytes);
             entity.setStatus(ReleaseStatus.PUBLISHED);
             entity.setPublishedAt(Instant.now());
+            entity.setFailureReason(null);
             manifest.put("buildCompletedAt", Instant.now().toString());
             manifest.put("artifactBytes", bytes);
             entity.setManifest(manifest);
@@ -221,17 +247,54 @@ public class ReleaseService {
 
             return new ReleaseBuildResponse(
                 entity.getId(), entity.getArtifactUri(), bytes, manifest, gate);
-        } catch (Exception ex) {
-            log.error("Release build failed for id={}: {}", entity.getId(), ex.getMessage(), ex);
-            manifest.put("buildError", ex.getMessage() == null ? ex.getClass().getSimpleName()
-                                                                : ex.getMessage());
-            entity.setManifest(manifest);
-            entity.setStatus(ReleaseStatus.FAILED);
-            releaseRepository.save(entity);
-            // Do NOT rethrow — the FAILED record is the response contract.
-            return new ReleaseBuildResponse(
-                entity.getId(), null, 0L, manifest, extractGateResult(manifest));
+        } catch (ShaclClientException ex) {
+            // Downstream service rejected us — 401/403/404/5xx. Map to FAILED
+            // with a concise, credential-free reason.
+            String reason = ex.getMessage();
+            log.warn("Release {} build failed: downstream shacl-service error: {}",
+                entity.getId(), reason);
+            return failRelease(entity, manifest, reason, tmpPath);
+        } catch (PipelineValidationException ex) {
+            // Raised by gatherMappingsOrFail on an unresolvable mapping id.
+            return failRelease(entity, manifest, ex.getMessage(), tmpPath);
+        } catch (IOException ex) {
+            log.error("Release {} build IO error: {}", entity.getId(), ex.getMessage(), ex);
+            return failRelease(entity, manifest,
+                "I/O error writing bundle: " + safeShort(ex.getClass().getSimpleName()), tmpPath);
+        } catch (RuntimeException ex) {
+            log.error("Release {} build unexpected error: {}", entity.getId(), ex.getMessage(), ex);
+            return failRelease(entity, manifest,
+                "Build failed: " + safeShort(ex.getClass().getSimpleName()), tmpPath);
         }
+    }
+
+    /**
+     * Mark the release FAILED with a concise {@code failureReason}. Best-effort
+     * cleanup of any tmp file. Does NOT clear a previously-published artifactUri
+     * for a release that was being rebuilt — but since BUILDING is only reached
+     * from DRAFT/FAILED, there shouldn't be one.
+     */
+    private ReleaseBuildResponse failRelease(ReleaseEntity entity,
+                                             Map<String, Object> manifest,
+                                             String reason,
+                                             Path tmpPath) {
+        String safe = safeShort(reason == null ? "unknown error" : reason);
+        entity.setStatus(ReleaseStatus.FAILED);
+        entity.setFailureReason(safe);
+        // Keep buildError in the manifest for backwards compat with the UI's
+        // "Build error" panel, but the authoritative field is failureReason.
+        manifest.put("buildError", safe);
+        // Artifact must not survive a FAILED build.
+        entity.setArtifactUri(null);
+        entity.setArtifactSizeBytes(0L);
+        entity.setManifest(manifest);
+        releaseRepository.save(entity);
+        if (tmpPath != null) {
+            try { Files.deleteIfExists(tmpPath); }
+            catch (IOException io) { log.debug("Failed to delete tmp bundle {}: {}", tmpPath, io.getMessage()); }
+        }
+        return new ReleaseBuildResponse(
+            entity.getId(), null, 0L, manifest, extractGateResult(manifest));
     }
 
     // ─────────────────────────── list / get ────────────────────────
@@ -318,6 +381,10 @@ public class ReleaseService {
 
     // ─────────────────────────── helpers ───────────────────────────
 
+    /** Tuple used internally while staging validation suite payloads. */
+    private record ValidationSuitePayload(ValidationRunSummary run,
+                                          List<ValidationIssueSummary> issues) {}
+
     private Map<String, Object> buildDraftManifest(ReleaseCreateRequest req) {
         Map<String, Object> m = new LinkedHashMap<>();
         Map<String, Object> refs = new LinkedHashMap<>();
@@ -339,49 +406,113 @@ public class ReleaseService {
     }
 
     /**
-     * Resolve mapping entities we own in this JVM. Missing IDs are tracked in
-     * {@code manifest.missingMappings} so the bundle is explicit about what
-     * could not be resolved.
+     * Resolve mapping entities. Any id in the manifest that can't be found
+     * is a hard failure — we won't publish a bundle that claims to contain
+     * a mapping we couldn't load.
      */
-    @SuppressWarnings("unchecked")
-    private List<MappingEntity> gatherMappings(Map<String, Object> manifest) {
+    private List<MappingEntity> gatherMappingsOrFail(Map<String, Object> manifest) {
         List<MappingEntity> out = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
+        List<String> rawIds = readIdList(manifest, "mappings");
+        for (String s : rawIds) {
+            UUID id;
+            try { id = UUID.fromString(s); }
+            catch (IllegalArgumentException e) {
+                throw new PipelineValidationException(
+                    "Manifest references invalid mapping id: " + s);
+            }
+            Optional<MappingEntity> e = mappingRepository.findById(id);
+            if (e.isEmpty()) {
+                throw new PipelineValidationException(
+                    "Failed to fetch mapping " + id + ": not found");
+            }
+            out.add(e.get());
+        }
+        return out;
+    }
+
+    private List<OntologySummary> fetchOntologies(Map<String, Object> manifest, AuthUser user) {
+        List<String> ids = readIdList(manifest, "ontologies");
+        if (ids.isEmpty()) return List.of();
+        List<OntologySummary> out = new ArrayList<>();
+        for (String s : ids) {
+            UUID id = parseIdOrFail(s, "ontology");
+            out.add(shaclClient.fetchOntology(id, user, "TURTLE"));
+        }
+        return out;
+    }
+
+    private List<ShapeSummary> fetchShapes(Map<String, Object> manifest, AuthUser user) {
+        List<String> ids = readIdList(manifest, "shapes");
+        if (ids.isEmpty()) return List.of();
+        List<ShapeSummary> out = new ArrayList<>();
+        for (String s : ids) {
+            UUID id = parseIdOrFail(s, "shape");
+            out.add(shaclClient.fetchShape(id, user));
+        }
+        return out;
+    }
+
+    private Map<UUID, ValidationSuitePayload> fetchValidationPayload(
+            Map<String, Object> manifest, AuthUser user) {
+        List<String> ids = readIdList(manifest, "validationSuiteIds");
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, ValidationSuitePayload> out = new LinkedHashMap<>();
+        for (String s : ids) {
+            UUID suiteId = parseIdOrFail(s, "validation suite");
+            ValidationRunSummary run = shaclClient.fetchLatestRun(suiteId, user);
+            List<ValidationIssueSummary> issues = (run == null)
+                ? List.of()
+                : shaclClient.fetchIssues(run.id(), user, MAX_ISSUES_PER_RUN);
+            out.put(suiteId, new ValidationSuitePayload(run, issues));
+        }
+        return out;
+    }
+
+    private static UUID parseIdOrFail(String raw, String what) {
+        try { return UUID.fromString(raw); }
+        catch (IllegalArgumentException iae) {
+            throw new PipelineValidationException(
+                "Manifest references invalid " + what + " id: " + raw);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> readIdList(Map<String, Object> manifest, String key) {
         Map<String, Object> refs = (Map<String, Object>) manifest.getOrDefault("refs", Map.of());
-        Object raw = refs.get("mappings");
-        if (!(raw instanceof List<?> rawList)) return out;
+        Object raw = refs.get(key);
+        if (!(raw instanceof List<?> rawList)) return List.of();
+        List<String> out = new ArrayList<>();
         for (Object o : rawList) {
             if (o == null) continue;
-            try {
-                UUID id = UUID.fromString(o.toString());
-                Optional<MappingEntity> e = mappingRepository.findById(id);
-                if (e.isPresent()) out.add(e.get());
-                else missing.add(id.toString());
-            } catch (IllegalArgumentException iae) {
-                missing.add(o.toString());
-            }
+            String s = o.toString().trim();
+            if (!s.isEmpty()) out.add(s);
         }
-        if (!missing.isEmpty()) manifest.put("missingMappings", missing);
         return out;
     }
 
     /**
-     * Validation gate evaluator stub. In v1 the gate always PASSES in
-     * WARN_ONLY mode — the real implementation calls across to
-     * shacl-service.ValidationService. TODO(Phase 6.1): wire a WebClient to
-     * {@code /api/v1/validation/runs?projectId=&suiteIds=} and fold the
-     * latest conformance status per suite into the result.
+     * Validation gate evaluator. In v1 this remains WARN_ONLY; when
+     * validation payloads are present we fold their pass/fail status into
+     * the result so the manifest shows it. The build does not actually
+     * block on a failing gate unless mode != WARN_ONLY.
      */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> evaluateValidationGate(Map<String, Object> manifest) {
-        Map<String, Object> refs = (Map<String, Object>) manifest.getOrDefault("refs", Map.of());
-        List<?> suites = (List<?>) refs.getOrDefault("validationSuiteIds", List.of());
+    private Map<String, Object> evaluateValidationGate(
+            Map<String, Object> manifest,
+            Map<UUID, ValidationSuitePayload> validation) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("mode", "WARN_ONLY");
-        result.put("passed", true);
-        result.put("suitesEvaluated", suites.size());
+        boolean passed = true;
+        int errors = 0;
+        for (ValidationSuitePayload p : validation.values()) {
+            if (p.run() == null) continue;
+            errors += p.run().errorCount() + p.run().fatalCount();
+            String st = p.run().status();
+            if (st != null && st.equalsIgnoreCase("FAILED")) passed = false;
+        }
+        result.put("passed", passed);
+        result.put("suitesEvaluated", validation.size());
+        result.put("totalErrors", errors);
         result.put("evaluatedAt", Instant.now().toString());
-        result.put("todo", "Wire shacl-service ValidationService via WebClient in Phase 6.1");
         return result;
     }
 
@@ -399,16 +530,23 @@ public class ReleaseService {
             safeName + "-" + entity.getVersion() + "-" + entity.getId() + ".zip");
     }
 
+    private static Path resolveTempPath(Path finalPath) {
+        return finalPath.resolveSibling(finalPath.getFileName() + ".tmp");
+    }
+
     /**
-     * Assemble the bundle. Writes, at minimum:
-     *   manifest.json, README.md, mappings/*.json
-     * plus placeholders for cross-service assets. Must produce a structurally
-     * valid zip regardless of what the manifest contained.
+     * Assemble the bundle. Always writes {@code manifest.json} and
+     * {@code README.md}; writes {@code mappings/*.json}, {@code ontologies/*.ttl},
+     * {@code shapes/*.ttl}, {@code validation-summary.json} only when the
+     * corresponding input is non-empty. No placeholders, ever.
      */
     private long writeBundle(Path zipPath,
                              ProjectEntity project,
                              ReleaseEntity release,
                              List<MappingEntity> mappings,
+                             List<OntologySummary> ontologies,
+                             List<ShapeSummary> shapes,
+                             Map<UUID, ValidationSuitePayload> validation,
                              Map<String, Object> manifest) throws IOException {
         try (OutputStream out = Files.newOutputStream(zipPath);
              ZipOutputStream zos = new ZipOutputStream(out)) {
@@ -422,17 +560,35 @@ public class ReleaseService {
                 "baseUri", project.getBaseUri()
             ));
             manifestEnvelope.put("manifest", manifest);
-            manifestEnvelope.put("assets", Map.of(
-                "mappings", mappings.stream().map(m -> Map.of(
-                    "id", m.getId().toString(),
-                    "name", m.getName(),
-                    "version", m.getVersion()
-                )).toList()
-            ));
+            Map<String, Object> assets = new LinkedHashMap<>();
+            assets.put("mappings", mappings.stream().map(m -> Map.of(
+                "id", m.getId().toString(),
+                "name", m.getName(),
+                "version", m.getVersion()
+            )).toList());
+            if (!ontologies.isEmpty()) {
+                assets.put("ontologies", ontologies.stream().map(o -> Map.of(
+                    "id", o.id().toString(),
+                    "name", safe(o.name()),
+                    "prefix", safe(o.prefix())
+                )).toList());
+            }
+            if (!shapes.isEmpty()) {
+                assets.put("shapes", shapes.stream().map(s -> Map.of(
+                    "id", s.id().toString(),
+                    "name", safe(s.name())
+                )).toList());
+            }
+            if (!validation.isEmpty()) {
+                assets.put("validationSuites", validation.keySet().stream()
+                    .map(UUID::toString).toList());
+            }
+            manifestEnvelope.put("assets", assets);
             writeEntry(zos, "manifest.json", toJson(manifestEnvelope));
 
             // README.md
-            writeEntry(zos, "README.md", buildReadme(project, release, mappings, manifest));
+            writeEntry(zos, "README.md",
+                buildReadme(project, release, mappings, ontologies, shapes, validation));
 
             // mappings/*.json
             for (MappingEntity m : mappings) {
@@ -452,13 +608,31 @@ public class ReleaseService {
                 writeEntry(zos, "mappings/" + safe + "-" + m.getVersion() + ".json", toJson(body));
             }
 
-            // placeholders for assets owned by sibling services — resolved in Phase 6.1
-            @SuppressWarnings("unchecked")
-            Map<String, Object> refs = (Map<String, Object>) manifest.getOrDefault("refs", Map.of());
-            writeCrossServicePlaceholder(zos, "ontologies", refs);
-            writeCrossServicePlaceholder(zos, "shapes", refs);
-            writeCrossServicePlaceholder(zos, "validation-summary.json", refs);
-            writeCrossServicePlaceholder(zos, "sample-queries.sparql", refs);
+            // ontologies/*.ttl — real Turtle bytes.
+            if (!ontologies.isEmpty()) {
+                Set<String> used = new HashSet<>();
+                for (OntologySummary o : ontologies) {
+                    String slug = uniqueSlug(ontologySlug(o), used);
+                    String content = o.content() == null ? "" : o.content();
+                    writeEntry(zos, "ontologies/" + slug + ".ttl", content);
+                }
+            }
+
+            // shapes/*.ttl — real Turtle (or whatever format shape declared).
+            if (!shapes.isEmpty()) {
+                Set<String> used = new HashSet<>();
+                for (ShapeSummary s : shapes) {
+                    String slug = uniqueSlug(shapeSlug(s), used);
+                    String content = s.content() == null ? "" : s.content();
+                    writeEntry(zos, "shapes/" + slug + ".ttl", content);
+                }
+            }
+
+            // validation-summary.json — real aggregated data.
+            if (!validation.isEmpty()) {
+                writeEntry(zos, "validation-summary.json",
+                    toJson(buildValidationSummary(validation)));
+            }
         }
 
         long size = Files.size(zipPath);
@@ -468,19 +642,86 @@ public class ReleaseService {
         return size;
     }
 
-    private void writeCrossServicePlaceholder(ZipOutputStream zos, String path, Map<String, Object> refs)
-            throws IOException {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", "NOT_YET_FETCHED");
-        body.put("note", "Asset resolution for this kind requires a WebClient call to the owning "
-            + "sibling service. Wired in Phase 6.1.");
-        body.put("refs", refs);
-        String filename = path.endsWith(".json") || path.endsWith(".sparql")
-            ? path : path + "/.placeholder.json";
-        writeEntry(zos, filename, path.endsWith(".sparql")
-            ? "# Sample queries not yet fetched from saved-queries service.\n"
-            : toJson(body));
+    private static Map<String, Object> buildValidationSummary(
+            Map<UUID, ValidationSuitePayload> validation) {
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("generatedAt", Instant.now().toString());
+        List<Map<String, Object>> suites = new ArrayList<>();
+        int totalIssues = 0, totalErrors = 0, totalWarnings = 0;
+        for (Map.Entry<UUID, ValidationSuitePayload> e : validation.entrySet()) {
+            Map<String, Object> s = new LinkedHashMap<>();
+            s.put("suiteId", e.getKey().toString());
+            ValidationRunSummary run = e.getValue().run();
+            if (run == null) {
+                s.put("latestRun", null);
+                s.put("issueCount", 0);
+                s.put("issues", List.of());
+            } else {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("id", run.id() == null ? null : run.id().toString());
+                r.put("ranAt", run.ranAt() == null ? null : run.ranAt().toString());
+                r.put("status", run.status());
+                r.put("issueCount", run.issueCount());
+                r.put("errorCount", run.errorCount());
+                r.put("warningCount", run.warningCount());
+                r.put("infoCount", run.infoCount());
+                r.put("fatalCount", run.fatalCount());
+                r.put("summary", run.summary());
+                s.put("latestRun", r);
+                s.put("issueCount", run.issueCount());
+                totalIssues += run.issueCount();
+                totalErrors += run.errorCount() + run.fatalCount();
+                totalWarnings += run.warningCount();
+                List<Map<String, Object>> iss = new ArrayList<>();
+                for (ValidationIssueSummary i : e.getValue().issues()) {
+                    Map<String, Object> im = new LinkedHashMap<>();
+                    im.put("id", i.id() == null ? null : i.id().toString());
+                    im.put("ruleId", i.ruleId());
+                    im.put("severity", i.severity());
+                    im.put("resourceUri", i.resourceUri());
+                    im.put("message", i.message());
+                    im.put("sourcePath", i.sourcePath());
+                    iss.add(im);
+                }
+                s.put("issues", iss);
+            }
+            suites.add(s);
+        }
+        root.put("suites", suites);
+        Map<String, Object> totals = new LinkedHashMap<>();
+        totals.put("totalIssues", totalIssues);
+        totals.put("totalErrors", totalErrors);
+        totals.put("totalWarnings", totalWarnings);
+        root.put("totals", totals);
+        return root;
     }
+
+    private static String ontologySlug(OntologySummary o) {
+        if (o.name() != null && !o.name().isBlank()) return slugify(o.name());
+        if (o.prefix() != null && !o.prefix().isBlank()) return slugify(o.prefix());
+        return o.id().toString();
+    }
+
+    private static String shapeSlug(ShapeSummary s) {
+        if (s.name() != null && !s.name().isBlank()) return slugify(s.name());
+        return s.id().toString();
+    }
+
+    private static String slugify(String s) {
+        String t = s.trim().toLowerCase().replaceAll("[^a-z0-9]+", "-");
+        while (t.startsWith("-")) t = t.substring(1);
+        while (t.endsWith("-")) t = t.substring(0, t.length() - 1);
+        return t.isBlank() ? "unnamed" : t;
+    }
+
+    private static String uniqueSlug(String base, Set<String> used) {
+        if (used.add(base)) return base;
+        int n = 2;
+        while (!used.add(base + "-" + n)) n++;
+        return base + "-" + n;
+    }
+
+    private static String safe(String s) { return s == null ? "" : s; }
 
     private void writeEntry(ZipOutputStream zos, String name, String content) throws IOException {
         ZipEntry entry = new ZipEntry(name);
@@ -490,7 +731,10 @@ public class ReleaseService {
     }
 
     private String buildReadme(ProjectEntity project, ReleaseEntity release,
-                               List<MappingEntity> mappings, Map<String, Object> manifest) {
+                               List<MappingEntity> mappings,
+                               List<OntologySummary> ontologies,
+                               List<ShapeSummary> shapes,
+                               Map<UUID, ValidationSuitePayload> validation) {
         StringBuilder sb = new StringBuilder();
         sb.append("# ").append(project.getName()).append(" - Release ")
             .append(release.getVersion()).append("\n\n");
@@ -509,6 +753,21 @@ public class ReleaseService {
         for (MappingEntity m : mappings) {
             sb.append("  - `").append(m.getName()).append("` v").append(m.getVersion()).append("\n");
         }
+        if (!ontologies.isEmpty()) {
+            sb.append("- ontologies: ").append(ontologies.size()).append("\n");
+            for (OntologySummary o : ontologies) {
+                sb.append("  - `").append(safe(o.name())).append("`\n");
+            }
+        }
+        if (!shapes.isEmpty()) {
+            sb.append("- shapes: ").append(shapes.size()).append("\n");
+            for (ShapeSummary s : shapes) {
+                sb.append("  - `").append(safe(s.name())).append("`\n");
+            }
+        }
+        if (!validation.isEmpty()) {
+            sb.append("- validation suites: ").append(validation.size()).append("\n");
+        }
         sb.append("\n## Manifest\n\n");
         sb.append("See `manifest.json` in this bundle for the full manifest including\n");
         sb.append("validation gate result and cross-service asset references.\n");
@@ -521,6 +780,16 @@ public class ReleaseService {
         } catch (JsonProcessingException e) {
             return "{\"error\":\"serialization_failed\"}";
         }
+    }
+
+    /** Keep failure_reason short and ASCII-safe; never log bearer tokens/passwords. */
+    private static String safeShort(String s) {
+        if (s == null) return null;
+        String stripped = s.replaceAll("\\s+", " ").trim();
+        if (stripped.length() > MAX_FAILURE_REASON_LEN) {
+            stripped = stripped.substring(0, MAX_FAILURE_REASON_LEN - 3) + "...";
+        }
+        return stripped;
     }
 
     private ProjectEntity loadProjectForRead(UUID projectId, AuthUser user) {
@@ -591,7 +860,8 @@ public class ReleaseService {
             e.getCreatedBy(),
             e.getCreatedAt(),
             e.getUpdatedAt(),
-            e.getPublishedAt()
+            e.getPublishedAt(),
+            e.getFailureReason()
         );
     }
 }

@@ -81,7 +81,15 @@ interface DetailData {
           <pre class="manifest">{{ manifestJson() }}</pre>
         </section>
 
-        @if (buildError(r)) {
+        @if (r.status === 'FAILED' && failureMessage(r)) {
+          <section class="section failure-banner" role="alert">
+            <h3><mat-icon>error</mat-icon> Release build failed</h3>
+            <p class="failure-reason">{{ failureMessage(r) }}</p>
+            <p class="failure-hint">
+              No artifact was published. Fix the underlying issue and rebuild.
+            </p>
+          </section>
+        } @else if (buildError(r)) {
           <section class="section error">
             <h3><mat-icon>error_outline</mat-icon> Build error</h3>
             <pre>{{ buildError(r) }}</pre>
@@ -151,6 +159,16 @@ interface DetailData {
     .status-failed { background: var(--mat-sys-error-container) !important; color: var(--mat-sys-on-error-container) !important; }
     .status-building { background: var(--mat-sys-tertiary-container) !important; }
     .status-archived { opacity: 0.6; }
+    .failure-banner {
+      background: var(--mat-sys-error-container);
+      color: var(--mat-sys-on-error-container);
+      border-left: 4px solid var(--mat-sys-error);
+      padding: 12px 14px;
+      border-radius: 4px;
+    }
+    .failure-banner h3 { margin: 0 0 6px 0; color: var(--mat-sys-on-error-container); }
+    .failure-reason { margin: 0 0 6px 0; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
+    .failure-hint { margin: 0; opacity: 0.85; font-size: 0.85rem; }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -192,6 +210,18 @@ export class ReleaseDetail implements OnInit {
     const manifest = r.manifest as Record<string, unknown> | undefined;
     const err = manifest?.['buildError'];
     return typeof err === 'string' ? err : null;
+  }
+
+  /**
+   * Failure message for the red banner. Prefer the authoritative
+   * {@code failureReason} column; fall back to manifest.buildError if an
+   * older release record is still around.
+   */
+  failureMessage(r: Release): string | null {
+    if (typeof r.failureReason === 'string' && r.failureReason.trim().length > 0) {
+      return r.failureReason;
+    }
+    return this.buildError(r);
   }
 
   build(): void {

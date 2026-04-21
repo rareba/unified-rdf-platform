@@ -71,6 +71,17 @@ rdf-forge:
       max-rows: 50
     explain:
       max-rows: 5
+  release:
+    artifact:
+      # Directory where built release zip bundles are written. Override with
+      # RDF_FORGE_RELEASE_ARTIFACT_DIR in production. In Phase 6.1 this becomes
+      # a MinIO key prefix instead of a filesystem path.
+      dir: ${RDF_FORGE_RELEASE_ARTIFACT_DIR:/tmp/rdf-forge-releases}
+  shacl-service:
+    # Base URL used by ReleaseService when fetching ontologies, shapes and
+    # validation runs for bundle assembly. Falls back to SHACL_SERVICE_URL
+    # (the docker/production convention) when running inside a compose stack.
+    base-url: ${RDF_FORGE_SHACL_SERVICE_BASE_URL:${SHACL_SERVICE_URL:http://localhost:8002}}
 
 logging:
   level:

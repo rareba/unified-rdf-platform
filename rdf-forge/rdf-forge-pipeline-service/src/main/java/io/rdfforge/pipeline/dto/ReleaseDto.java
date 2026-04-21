@@ -25,5 +25,7 @@ public record ReleaseDto(
     UUID createdBy,
     Instant createdAt,
     Instant updatedAt,
-    Instant publishedAt
+    Instant publishedAt,
+    /** Populated only when status == FAILED; null otherwise. */
+    String failureReason
 ) {}

@@ -62,7 +62,7 @@ class ReleaseControllerTest {
         sampleDto = new ReleaseDto(
             releaseId, projectId, "1.0.0", "release-one", "notes",
             ReleaseStatus.DRAFT, Map.of(), null, 0L,
-            OWNER_ID, Instant.now(), Instant.now(), null
+            OWNER_ID, Instant.now(), Instant.now(), null, null
         );
     }
 
@@ -146,7 +146,7 @@ class ReleaseControllerTest {
         ReleaseDto archived = new ReleaseDto(
             releaseId, projectId, "1.0.0", "rel", null,
             ReleaseStatus.ARCHIVED, Map.of(), null, 0L,
-            OWNER_ID, Instant.now(), Instant.now(), null);
+            OWNER_ID, Instant.now(), Instant.now(), null, null);
         when(releaseService.archive(eq(releaseId), any())).thenReturn(archived);
 
         mockMvc.perform(post("/api/v1/releases/{id}/archive", releaseId)

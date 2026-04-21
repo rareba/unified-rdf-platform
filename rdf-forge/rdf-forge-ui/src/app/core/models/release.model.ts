@@ -24,6 +24,12 @@ export interface Release {
   createdAt: string;
   updatedAt: string;
   publishedAt?: string | null;
+  /**
+   * Present (non-null) only when status === 'FAILED'. Short human-readable
+   * explanation of why the last build attempt couldn't complete — rendered
+   * verbatim in the release-detail dialog.
+   */
+  failureReason?: string | null;
 }
 
 export interface ReleaseManifestRefs {
