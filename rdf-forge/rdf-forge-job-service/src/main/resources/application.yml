@@ -73,6 +73,12 @@ management:
       process: true
       system: true
 
+app:
+  cors:
+    # Comma-separated list of origins allowed for WebSocket (STOMP) and CORS.
+    # Overridden in production via CORS_ALLOWED_ORIGINS env var.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}
+
 logging:
   level:
     io.rdfforge: DEBUG

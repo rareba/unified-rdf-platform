@@ -78,8 +78,16 @@ public class PatAuthenticationFilter implements GlobalFilter, Ordered {
         return validatePatToken(token, request)
                 .flatMap(validationResult -> {
                     if (validationResult.isValid()) {
-                        // Add user ID header and continue
+                        // Strip any client-supplied identity headers before injecting
+                        // gateway-trusted values. Prevents header spoofing.
                         ServerHttpRequest mutatedRequest = request.mutate()
+                                .headers(headers -> {
+                                    headers.remove("X-User-Id");
+                                    headers.remove("X-User-Email");
+                                    headers.remove("X-User-Roles");
+                                    headers.remove("X-Auth-Type");
+                                    headers.remove("X-Token-Name");
+                                })
                                 .header("X-User-Id", validationResult.userId())
                                 .header("X-Auth-Type", "PAT")
                                 .header("X-Token-Name", validationResult.tokenName())

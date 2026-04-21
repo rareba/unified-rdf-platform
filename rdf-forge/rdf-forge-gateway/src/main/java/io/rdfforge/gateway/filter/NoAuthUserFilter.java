@@ -24,13 +24,17 @@ import java.util.Set;
  * WARNING: This filter is for development only and should NOT be used in production!
  */
 @Component
-@Profile("noauth")
+@Profile({"noauth"})
 @Slf4j
 public class NoAuthUserFilter implements GlobalFilter, Ordered {
 
     private static final String DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
     private static final String USER_ID_HEADER = "X-User-Id";
-    private static final Set<String> ALLOWED_PROFILES = Set.of("dev", "local", "test", "noauth", "standalone");
+    private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String USER_ROLES_HEADER = "X-User-Roles";
+    private static final String AUTH_TYPE_HEADER = "X-Auth-Type";
+    private static final String TOKEN_NAME_HEADER = "X-Token-Name";
+    private static final Set<String> ALLOWED_PROFILES = Set.of("noauth", "test", "local");
 
     @Autowired
     private Environment environment;
@@ -46,26 +50,30 @@ public class NoAuthUserFilter implements GlobalFilter, Ordered {
                 );
             }
         }
-        log.warn("NoAuthUserFilter is active. All requests will be processed with a default user ID. " +
-                 "This should ONLY be used in development environments.");
+        log.warn("!!! SECURITY WARNING !!! NoAuth active -- NEVER use in production. Active profiles: {}",
+                 activeProfiles);
+        log.warn("!!! SECURITY WARNING !!! NoAuthUserFilter will inject default X-User-Id on every request.");
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
-        
-        // Only add default user ID if not already present
-        if (!request.getHeaders().containsKey(USER_ID_HEADER)) {
-            log.debug("Adding default X-User-Id header for no-auth mode");
-            
-            ServerHttpRequest mutatedRequest = request.mutate()
-                    .header(USER_ID_HEADER, DEFAULT_USER_ID)
-                    .build();
-            
-            return chain.filter(exchange.mutate().request(mutatedRequest).build());
-        }
-        
-        return chain.filter(exchange);
+
+        // Always strip client-supplied identity headers before setting our own.
+        // Without this, a caller could spoof X-User-Id to impersonate any user.
+        ServerHttpRequest mutatedRequest = request.mutate()
+                .headers(headers -> {
+                    headers.remove(USER_ID_HEADER);
+                    headers.remove(USER_EMAIL_HEADER);
+                    headers.remove(USER_ROLES_HEADER);
+                    headers.remove(AUTH_TYPE_HEADER);
+                    headers.remove(TOKEN_NAME_HEADER);
+                })
+                .header(USER_ID_HEADER, DEFAULT_USER_ID)
+                .build();
+
+        log.debug("NoAuth: stripped client identity headers, injected default X-User-Id");
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
     @Override

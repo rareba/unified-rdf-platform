@@ -1,5 +1,6 @@
 package io.rdfforge.job.websocket;
 
+import io.rdfforge.job.entity.JobEntity;
 import io.rdfforge.job.entity.JobLogEntity;
 import io.rdfforge.job.service.JobLogWebSocketService;
 import io.rdfforge.job.service.JobService;
@@ -10,12 +11,15 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SubscribeMapping;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -49,7 +53,7 @@ public class JobLogWebSocketController {
      * @return map containing historical logs and subscription confirmation
      */
     @SubscribeMapping("/topic/jobs/{jobId}/logs")
-    public Map<String, Object> subscribeToJobLogs(@DestinationVariable String jobId) {
+    public Map<String, Object> subscribeToJobLogs(@DestinationVariable String jobId, Principal principal) {
         log.debug("Client subscribed to logs for job: {}", jobId);
 
         Map<String, Object> response = new HashMap<>();
@@ -57,8 +61,28 @@ public class JobLogWebSocketController {
         response.put("jobId", jobId);
         response.put("message", "Subscribed to job logs");
 
+        // Defense in depth: re-verify principal + job ownership here, even though
+        // the WebSocketConfig channel interceptor already enforces the same check.
+        if (principal == null) {
+            log.warn("Subscribe to job {} logs rejected: no authenticated principal", jobId);
+            throw new AccessDeniedException("Authentication required");
+        }
+
         try {
             UUID uuid = UUID.fromString(jobId);
+            Optional<JobEntity> jobOpt = jobService.getJob(uuid);
+            if (jobOpt.isEmpty()) {
+                throw new AccessDeniedException("Job not found or access denied");
+            }
+            UUID owner = jobOpt.get().getCreatedBy();
+            if (owner != null && !owner.toString().equals(principal.getName())) {
+                // TODO(audit-2026-04-21 P2): also accept admin role here. Current
+                // role info isn't plumbed through Principal; channel interceptor
+                // already performs the admin-aware check upstream.
+                log.warn("Subscribe to job {} logs rejected: principal {} != owner {}",
+                        jobId, principal.getName(), owner);
+                throw new AccessDeniedException("Not authorized to view this job's logs");
+            }
             // Fetch and send historical logs
             List<JobLogEntity> historicalLogs = jobService.getLogs(uuid, null);
             response.put("historicalLogs", historicalLogs.stream()
@@ -68,6 +92,8 @@ public class JobLogWebSocketController {
         } catch (IllegalArgumentException e) {
             log.warn("Invalid job ID format: {}", jobId);
             response.put("error", "Invalid job ID format");
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error fetching historical logs for job: {}", jobId, e);
             response.put("error", "Failed to fetch historical logs");

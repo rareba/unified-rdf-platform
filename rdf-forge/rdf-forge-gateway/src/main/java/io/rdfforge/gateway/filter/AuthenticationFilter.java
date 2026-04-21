@@ -27,10 +27,20 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     }
     
     private ServerWebExchange addUserHeaders(ServerWebExchange exchange, Principal principal) {
+        // Strip any client-supplied identity headers before injecting gateway-trusted
+        // values. Prevents header spoofing where an external caller sends their own
+        // X-User-* headers and downstream services trust them.
         ServerHttpRequest request = exchange.getRequest().mutate()
+            .headers(headers -> {
+                headers.remove("X-User-Id");
+                headers.remove("X-User-Email");
+                headers.remove("X-User-Roles");
+                headers.remove("X-Auth-Type");
+                headers.remove("X-Token-Name");
+            })
             .header("X-User-Id", principal.getName())
             .build();
-        
+
         return exchange.mutate().request(request).build();
     }
     

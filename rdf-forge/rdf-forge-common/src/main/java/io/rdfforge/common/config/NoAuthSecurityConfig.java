@@ -1,32 +1,29 @@
-package io.rdfforge.gateway.config;
+package io.rdfforge.common.config;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
-import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
-import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 /**
- * No-authentication security configuration for local development and offline mode.
- * This configuration is active when the 'noauth' profile is enabled.
- *
- * Usage: Run the application with --spring.profiles.active=noauth
- * or set SPRING_PROFILES_ACTIVE=noauth environment variable.
+ * Auto-configured no-auth security for backend services when running with the noauth profile.
+ * The gateway handles authentication; backend services trust internal network calls.
  *
  * WARNING: Do not use this profile in production environments!
  */
-@Configuration
-@EnableWebFluxSecurity
+@AutoConfiguration
 @Profile({"noauth"})
+@ConditionalOnClass(name = "org.springframework.security.config.annotation.web.builders.HttpSecurity")
 @Slf4j
 public class NoAuthSecurityConfig {
 
@@ -51,14 +48,14 @@ public class NoAuthSecurityConfig {
         }
         log.warn("!!! SECURITY WARNING !!! NoAuth active -- NEVER use in production. Active profiles: {}",
                  activeProfiles);
-        log.warn("!!! SECURITY WARNING !!! NoAuthSecurityConfig bypasses ALL authentication. All endpoints are publicly accessible.");
+        log.warn("!!! SECURITY WARNING !!! common NoAuthSecurityConfig bypasses ALL backend authentication.");
     }
 
     @Bean
-    public SecurityWebFilterChain noAuthSecurityFilterChain(ServerHttpSecurity http) {
+    public SecurityFilterChain commonNoAuthFilterChain(HttpSecurity http) throws Exception {
         return http
-            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .build();
     }
 }
