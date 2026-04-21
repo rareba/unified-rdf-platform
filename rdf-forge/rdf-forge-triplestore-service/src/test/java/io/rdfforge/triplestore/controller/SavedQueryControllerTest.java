@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,7 +22,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(SavedQueryController.class)
+@Import({io.rdfforge.triplestore.config.TestSecurityConfig.class,
+         io.rdfforge.common.exception.GlobalExceptionHandler.class})
 class SavedQueryControllerTest {
+
+    private static final String USER_ID = UUID.randomUUID().toString();
 
     @Autowired MockMvc mockMvc;
 
@@ -31,7 +36,9 @@ class SavedQueryControllerTest {
     void list_returns200() throws Exception {
         UUID projectId = UUID.randomUUID();
         when(savedQueryService.list(eq(projectId), any(), any())).thenReturn(List.of());
-        mockMvc.perform(get("/api/v1/sparql/queries").param("projectId", projectId.toString()))
+        mockMvc.perform(get("/api/v1/sparql/queries")
+                        .param("projectId", projectId.toString())
+                        .header("X-User-Id", USER_ID))
                 .andExpect(status().isOk());
     }
 
@@ -42,6 +49,7 @@ class SavedQueryControllerTest {
         );
         mockMvc.perform(post("/api/v1/sparql/run")
                     .contentType("application/json")
+                    .header("X-User-Id", USER_ID)
                     .content("{\"queryText\":\"SELECT * WHERE { ?s ?p ?o }\"," +
                              "\"triplestoreId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isOk());
@@ -51,7 +59,8 @@ class SavedQueryControllerTest {
     void get_forbidden_returns403() throws Exception {
         UUID id = UUID.randomUUID();
         when(savedQueryService.get(eq(id), any())).thenThrow(new AccessDeniedException("nope"));
-        mockMvc.perform(get("/api/v1/sparql/queries/" + id))
+        mockMvc.perform(get("/api/v1/sparql/queries/" + id)
+                        .header("X-User-Id", USER_ID))
                 .andExpect(status().is4xxClientError());
     }
 }

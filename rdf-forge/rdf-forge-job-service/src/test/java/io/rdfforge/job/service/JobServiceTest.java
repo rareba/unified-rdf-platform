@@ -72,6 +72,15 @@ class JobServiceTest {
         sampleJob.setTriggeredBy(TriggerType.MANUAL);
         sampleJob.setCreatedBy(userId);
         sampleJob.setVariables(Map.of("key", "value"));
+
+        // JobService.updateJobStatus() dereferences the result of save()
+        // to log its duration. Default Mockito returns null for generics,
+        // so give every save() call an identity answer unless the test
+        // overrides it. lenient() keeps the stub non-strict so tests that
+        // never exercise save() don't fail as UnnecessaryStubbingException.
+        org.mockito.Mockito.lenient()
+            .when(jobRepository.save(any(JobEntity.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Nested

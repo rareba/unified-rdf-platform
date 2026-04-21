@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </ul>
  */
 @WebMvcTest(DocGenController.class)
-@Import({CurrentUserAutoConfiguration.class, GlobalExceptionHandler.class})
+@Import({CurrentUserAutoConfiguration.class, GlobalExceptionHandler.class, io.rdfforge.shacl.config.TestSecurityConfig.class})
 class DocGenControllerTest {
 
     private static final String USER_ID = UUID.randomUUID().toString();

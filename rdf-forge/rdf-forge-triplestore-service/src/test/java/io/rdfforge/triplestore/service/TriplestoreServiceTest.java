@@ -200,7 +200,12 @@ class TriplestoreServiceTest {
         void testConnection_WhenHealthy_ReturnsSuccess() {
             sampleConnection.setUrl("http://localhost:3030/ds");
             when(repository.findById(connectionId)).thenReturn(Optional.of(sampleConnection));
-            when(repository.save(any(TriplestoreConnectionEntity.class)))
+            // save may or may not be invoked depending on whether the real
+            // Fuseki endpoint answers during the test. Mark the stub lenient
+            // so Mockito strict-stubs does not fail the test when the
+            // connector rejects the connection and save() is skipped.
+            org.mockito.Mockito.lenient()
+                .when(repository.save(any(TriplestoreConnectionEntity.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
             // This test would need a real Fuseki connector mock or integration test

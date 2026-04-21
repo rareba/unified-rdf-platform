@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * X-User-Id header so the {@code @CurrentUser} resolver resolves successfully.
  */
 @WebMvcTest(OntologyController.class)
-@Import(CurrentUserAutoConfiguration.class)
+@Import({CurrentUserAutoConfiguration.class, io.rdfforge.shacl.config.TestSecurityConfig.class})
 class OntologyControllerTest {
 
     private static final String USER_ID = UUID.randomUUID().toString();

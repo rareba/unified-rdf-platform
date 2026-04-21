@@ -221,6 +221,12 @@ class DimensionServiceTest {
         @Test
         @DisplayName("Should delete dimension and related data")
         void delete_DeletesDimensionAndRelatedData() {
+            // delete() now guards with a findById() to produce a real 404
+            // instead of silently deleting nothing — so the test must see
+            // the dimension as present.
+            when(dimensionRepository.findById(dimensionId))
+                .thenReturn(java.util.Optional.of(sampleDimension));
+
             dimensionService.delete(dimensionId);
 
             verify(hierarchyRepository).deleteByDimensionId(dimensionId);

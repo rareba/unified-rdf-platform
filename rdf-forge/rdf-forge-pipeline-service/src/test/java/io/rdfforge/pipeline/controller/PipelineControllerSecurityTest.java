@@ -61,7 +61,9 @@ class PipelineControllerSecurityTest {
         pipelineId = UUID.randomUUID();
         ownerPipeline = Pipeline.builder()
             .id(pipelineId)
-            .name("Owner's Pipeline")
+            // Apostrophe is rejected by the pipeline-name validator,
+            // which would trip 400 before the ownership check fires.
+            .name("Owner Pipeline")
             .definition("{\"steps\":[]}")
             .definitionFormat(Pipeline.DefinitionFormat.JSON)
             .version(1)

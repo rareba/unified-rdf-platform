@@ -79,6 +79,11 @@ class JobControllerTest {
         sampleJob.setCreatedAt(Instant.now());
         sampleJob.setCreatedBy(TEST_USER_ID); // so authz passes
         sampleJob.setVariables(Map.of());
+
+        // Default stub for controller's requireReadableJob/requireWritableJob
+        // helpers. Individual tests that need a different outcome
+        // (e.g. job-not-found) re-stub this explicitly.
+        when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

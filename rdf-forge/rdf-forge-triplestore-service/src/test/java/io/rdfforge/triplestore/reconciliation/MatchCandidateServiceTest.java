@@ -52,7 +52,7 @@ class MatchCandidateServiceTest {
     @DisplayName("suggest invokes enabled matchers and persists new candidates")
     void suggest_invokesMatchers_persistsCandidates() {
         Matcher matcher = mock(Matcher.class);
-        when(matcher.id()).thenReturn("stub");
+        org.mockito.Mockito.lenient().when(matcher.id()).thenReturn("stub");
         when(matcher.enabled()).thenReturn(true);
         when(matcher.supports(any())).thenReturn(true);
         when(matcher.match(any(), any())).thenReturn(List.of(

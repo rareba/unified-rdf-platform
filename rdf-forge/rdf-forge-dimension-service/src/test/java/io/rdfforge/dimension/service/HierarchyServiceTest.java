@@ -416,9 +416,10 @@ class HierarchyServiceTest {
             when(valueRepository.findById(childId)).thenReturn(Optional.of(valueC));
             when(valueRepository.findById(parentId)).thenReturn(Optional.of(valueB));
 
-            // Trying to set C (childId) as parent of A (valueId) would create cycle A -> B -> C -> A
+            // A -> B -> C. Setting A as parent of C would create
+            // A -> B -> C -> A (a real cycle).
             IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                hierarchyService.setParent(valueId, childId)
+                hierarchyService.setParent(childId, valueId)
             );
 
             assertTrue(exception.getMessage().contains("cycle"));
@@ -507,8 +508,9 @@ class HierarchyServiceTest {
             when(valueRepository.findById(valueC)).thenReturn(Optional.of(entityC));
             when(valueRepository.findById(valueB)).thenReturn(Optional.of(entityB));
 
+            // A -> B -> C already; setting A as parent of C closes the loop.
             IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                hierarchyService.setParent(valueA, valueC)
+                hierarchyService.setParent(valueC, valueA)
             );
 
             assertTrue(exception.getMessage().contains("cycle"));
