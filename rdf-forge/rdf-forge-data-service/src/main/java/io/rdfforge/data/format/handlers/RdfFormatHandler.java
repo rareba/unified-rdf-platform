@@ -36,7 +36,9 @@ public class RdfFormatHandler implements DataFormatHandler {
         "RDF (Resource Description Framework)",
         "Semantic web format for linked data. Supports Turtle, JSON-LD, N-Triples, and RDF/XML.",
         "text/turtle",
-        List.of("ttl", "turtle", "jsonld", "nt", "ntriples", "rdf", "xml", "nq"),
+        // Note: plain ".xml" is NOT claimed here because it is ambiguous with
+        // generic XML data documents. RDF/XML files should use the ".rdf" extension.
+        List.of("ttl", "turtle", "jsonld", "nt", "ntriples", "rdf", "nq"),
         true,
         true,
         true,
@@ -71,7 +73,7 @@ public class RdfFormatHandler implements DataFormatHandler {
     @Override
     public boolean supportsExtension(String extension) {
         return extension != null && List.of(
-            "ttl", "turtle", "jsonld", "nt", "ntriples", "rdf", "xml", "nq"
+            "ttl", "turtle", "jsonld", "nt", "ntriples", "rdf", "nq"
         ).contains(extension.toLowerCase());
     }
 

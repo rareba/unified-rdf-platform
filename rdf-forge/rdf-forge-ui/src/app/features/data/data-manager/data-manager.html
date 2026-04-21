@@ -2,7 +2,7 @@
   <div class="header">
     <div class="header-left">
       <h1>Data Sources</h1>
-      <span class="file-count">{{ filteredDataSources().length }} files</span>
+      <span class="file-count">{{ filteredDataSources().length }} {{ filteredDataSources().length === 1 ? 'file' : 'files' }}</span>
     </div>
     <div class="actions">
       <mat-form-field appearance="outline" class="search-field">
@@ -171,7 +171,7 @@
             } @else {
               <mat-icon>cloud_upload</mat-icon>
               <p>Drag and drop a file here, or click to browse</p>
-              <input type="file" #fileInput (change)="onFileSelect($event)" accept=".csv,.json,.xlsx,.xml,.parquet,.tsv" style="display: none" />
+              <input type="file" #fileInput (change)="onFileSelect($event)" [attr.accept]="acceptAttr()" style="display: none" />
               <button mat-raised-button color="primary" (click)="fileInput.click(); $event.stopPropagation()">
                 <mat-icon>folder_open</mat-icon>
                 Browse Files
@@ -184,12 +184,15 @@
           <div class="upload-info">
             <h4>Supported Formats</h4>
             <div class="format-chips">
-              <span class="format-chip format-success">CSV</span>
-              <span class="format-chip format-info">JSON</span>
-              <span class="format-chip format-warn">XLSX</span>
-              <span class="format-chip format-secondary">TSV</span>
-              <span class="format-chip format-secondary">XML</span>
-              <span class="format-chip format-danger">Parquet</span>
+              @for (fmt of availableFormats(); track fmt.id) {
+                <span class="format-chip" [class]="getFormatClass(fmt.id)">{{ fmt.id.toUpperCase() }}</span>
+              }
+              @for (fmt of unavailableFormats(); track fmt.id) {
+                <span class="format-chip format-disabled"
+                      [matTooltip]="fmt.unavailableReason || 'Coming soon — not yet implemented'">
+                  {{ fmt.id.toUpperCase() }} (coming soon)
+                </span>
+              }
             </div>
             <p class="text-hint">Maximum file size: 100 MB</p>
           </div>

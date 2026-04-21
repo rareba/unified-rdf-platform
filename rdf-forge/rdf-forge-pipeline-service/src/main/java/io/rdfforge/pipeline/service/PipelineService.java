@@ -32,9 +32,10 @@ public class PipelineService {
     private final OperationRegistry operationRegistry;
     private final AuditLogService auditLogService;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PipelineService(PipelineRepository pipelineRepository,
                            OperationRegistry operationRegistry,
-                           AuditLogService auditLogService) {
+                           @org.springframework.beans.factory.annotation.Autowired(required = false) AuditLogService auditLogService) {
         this.pipelineRepository = pipelineRepository;
         this.operationRegistry = operationRegistry;
         this.auditLogService = auditLogService;
@@ -77,8 +78,10 @@ public class PipelineService {
             entity.getName(), entity.getId(), entity.getCreatedBy(), duration);
         
         // Audit log
-        auditLogService.logCreate("Pipeline", entity.getId().toString(), toModel(entity),
-            "Pipeline created: " + entity.getName());
+        if (auditLogService != null) {
+            auditLogService.logCreate("Pipeline", entity.getId().toString(), toModel(entity),
+                "Pipeline created: " + entity.getName());
+        }
         
         return toModel(entity);
     }
@@ -116,8 +119,8 @@ public class PipelineService {
         log.debug("Listed {} pipelines in {}ms", result.getNumberOfElements(), duration);
         
         // Audit log for listing
-        if (result.hasContent()) {
-            auditLogService.logList("Pipeline", "Listed pipelines for project: " + projectId, 
+        if (auditLogService != null && result.hasContent()) {
+            auditLogService.logList("Pipeline", "Listed pipelines for project: " + projectId,
                 result.getNumberOfElements());
         }
         
@@ -196,8 +199,10 @@ public class PipelineService {
         
         // Audit log
         Pipeline afterValues = toModel(existing);
-        auditLogService.logUpdate("Pipeline", id.toString(), beforeValues, afterValues,
-            "Pipeline updated: " + existing.getName());
+        if (auditLogService != null) {
+            auditLogService.logUpdate("Pipeline", id.toString(), beforeValues, afterValues,
+                "Pipeline updated: " + existing.getName());
+        }
         
         return afterValues;
     }
@@ -220,8 +225,10 @@ public class PipelineService {
         log.info("Deleted pipeline: {} ({}) by user request", pipelineName, id);
         
         // Audit log
-        auditLogService.logDelete("Pipeline", id.toString(), beforeValues,
-            "Pipeline deleted: " + pipelineName);
+        if (auditLogService != null) {
+            auditLogService.logDelete("Pipeline", id.toString(), beforeValues,
+                "Pipeline deleted: " + pipelineName);
+        }
     }
 
     /**

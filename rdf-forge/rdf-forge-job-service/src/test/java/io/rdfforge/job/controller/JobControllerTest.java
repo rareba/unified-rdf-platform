@@ -42,9 +42,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * without a Spring ApplicationContext or database.
  */
 @WebMvcTest(JobController.class)
-@Import(TestSecurityConfig.class)
+@Import({TestSecurityConfig.class, io.rdfforge.common.exception.GlobalExceptionHandler.class})
 @DisplayName("JobController Tests")
 class JobControllerTest {
+
+    // Ownership authz added 2026-04-21.
+    private static final UUID TEST_USER_ID =
+        UUID.fromString("33333333-3333-3333-3333-333333333333");
+    private static final String USER_HEADER = "X-User-Id";
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,6 +77,7 @@ class JobControllerTest {
         sampleJob.setDryRun(false);
         sampleJob.setTriggeredBy(TriggerType.MANUAL);
         sampleJob.setCreatedAt(Instant.now());
+        sampleJob.setCreatedBy(TEST_USER_ID); // so authz passes
         sampleJob.setVariables(Map.of());
     }
 
@@ -159,7 +165,7 @@ class JobControllerTest {
         void getJob_ExistingId_Returns200WithJob() throws Exception {
             when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
 
-            mockMvc.perform(get("/api/v1/jobs/{id}", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(jobId.toString())))
                 .andExpect(jsonPath("$.status", is("PENDING")));
@@ -170,7 +176,7 @@ class JobControllerTest {
         void getJob_NonExistentId_Returns404() throws Exception {
             when(jobService.getJob(jobId)).thenReturn(Optional.empty());
 
-            mockMvc.perform(get("/api/v1/jobs/{id}", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
     }
@@ -186,12 +192,14 @@ class JobControllerTest {
         @Test
         @DisplayName("Should return 200 with created job on valid request")
         void createJob_ValidRequest_Returns200WithJob() throws Exception {
-            when(jobService.createJob(eq(pipelineId), any(), any(), eq(false), isNull()))
+            // userId is now populated from gateway header rather than null.
+            when(jobService.createJob(eq(pipelineId), any(), any(), eq(false), eq(TEST_USER_ID)))
                 .thenReturn(sampleJob);
 
             Map<String, Object> request = Map.of("pipelineId", pipelineId.toString());
 
             mockMvc.perform(post("/api/v1/jobs")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -201,7 +209,7 @@ class JobControllerTest {
         @Test
         @DisplayName("Should honour dryRun flag when set to true")
         void createJob_DryRunTrue_PassesDryRunToService() throws Exception {
-            when(jobService.createJob(eq(pipelineId), any(), any(), eq(true), isNull()))
+            when(jobService.createJob(eq(pipelineId), any(), any(), eq(true), eq(TEST_USER_ID)))
                 .thenReturn(sampleJob);
 
             Map<String, Object> request = Map.of(
@@ -210,11 +218,12 @@ class JobControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/jobs")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
 
-            verify(jobService).createJob(eq(pipelineId), any(), any(), eq(true), isNull());
+            verify(jobService).createJob(eq(pipelineId), any(), any(), eq(true), eq(TEST_USER_ID));
         }
 
         @Test
@@ -226,6 +235,7 @@ class JobControllerTest {
             Map<String, Object> request = Map.of("pipelineId", pipelineId.toString());
 
             mockMvc.perform(post("/api/v1/jobs")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -246,6 +256,7 @@ class JobControllerTest {
             );
 
             mockMvc.perform(post("/api/v1/jobs")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -265,9 +276,11 @@ class JobControllerTest {
         @Test
         @DisplayName("Should return 204 No Content on successful cancellation")
         void cancelJob_RunningJob_Returns204() throws Exception {
+            // Controller fetches the job first for authz.
+            when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
             doNothing().when(jobService).cancelJob(jobId);
 
-            mockMvc.perform(delete("/api/v1/jobs/{id}", jobId))
+            mockMvc.perform(delete("/api/v1/jobs/{id}", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNoContent());
 
             verify(jobService).cancelJob(jobId);
@@ -290,9 +303,10 @@ class JobControllerTest {
             retriedJob.setPipelineId(pipelineId);
             retriedJob.setStatus(JobStatus.PENDING);
             retriedJob.setCreatedAt(Instant.now());
+            when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
             when(jobService.retryJob(jobId)).thenReturn(retriedJob);
 
-            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId))
+            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("PENDING")));
         }
@@ -300,22 +314,23 @@ class JobControllerTest {
         @Test
         @DisplayName("Should return 404 when retrying a non-existent job")
         void retryJob_NotFound_Returns404() throws Exception {
-            when(jobService.retryJob(jobId))
-                .thenThrow(new ResourceNotFoundException("Job", jobId.toString()));
+            // The authz pre-fetch surfaces missing jobs as 404 before retry is called.
+            when(jobService.getJob(jobId)).thenReturn(Optional.empty());
 
-            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId))
+            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
 
         @Test
         @DisplayName("Should return 500 when retrying a job that is not in a retryable state")
         void retryJob_NotRetryable_ReturnsBadRequest() throws Exception {
+            when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
             when(jobService.retryJob(jobId))
                 .thenThrow(new IllegalStateException("Can only retry failed or cancelled jobs"));
 
             // IllegalStateException maps to 500 without a specific handler;
             // the important thing is it does NOT return 200.
-            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId))
+            mockMvc.perform(post("/api/v1/jobs/{id}/retry", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().is5xxServerError());
         }
     }
@@ -338,7 +353,7 @@ class JobControllerTest {
 
             when(jobService.getLogs(jobId, null)).thenReturn(List.of(log));
 
-            mockMvc.perform(get("/api/v1/jobs/{id}/logs", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}/logs", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].level", is("INFO")))
@@ -350,7 +365,7 @@ class JobControllerTest {
         void getJobLogs_NoLogs_Returns200WithEmptyList() throws Exception {
             when(jobService.getLogs(jobId, null)).thenReturn(List.of());
 
-            mockMvc.perform(get("/api/v1/jobs/{id}/logs", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}/logs", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
         }
@@ -361,7 +376,8 @@ class JobControllerTest {
             when(jobService.getLogs(jobId, LogLevel.ERROR)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/v1/jobs/{id}/logs", jobId)
-                    .param("level", "ERROR"))
+                    .param("level", "ERROR")
+                    .header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk());
 
             verify(jobService).getLogs(jobId, LogLevel.ERROR);
@@ -382,7 +398,7 @@ class JobControllerTest {
             sampleJob.setMetrics(Map.of("rowsProcessed", 100, "durationMs", 1500));
             when(jobService.getJob(jobId)).thenReturn(Optional.of(sampleJob));
 
-            mockMvc.perform(get("/api/v1/jobs/{id}/metrics", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}/metrics", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rowsProcessed", is(100)));
         }
@@ -392,7 +408,7 @@ class JobControllerTest {
         void getJobMetrics_NotFound_Returns404() throws Exception {
             when(jobService.getJob(jobId)).thenReturn(Optional.empty());
 
-            mockMvc.perform(get("/api/v1/jobs/{id}/metrics", jobId))
+            mockMvc.perform(get("/api/v1/jobs/{id}/metrics", jobId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
     }

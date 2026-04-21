@@ -41,24 +41,36 @@ public class DataFormatRegistry {
             DataFormatInfo info = handler.getFormatInfo();
             String format = info.format().toLowerCase();
 
+            // Format id lookup always works — the UI needs to know the format
+            // exists (even if unavailable) so it can render "coming soon" chips.
             handlersByFormat.put(format, handler);
 
-            // Map extensions to handlers
-            for (String ext : info.fileExtensions()) {
-                handlersByExtension.put(ext.toLowerCase(), handler);
+            // Extension and MIME-type routing is ONLY populated for available
+            // handlers. Unavailable stubs (e.g. Parquet) are discoverable via
+            // getAvailableFormats() but will never match an upload by extension,
+            // preventing silent acceptance of a format we cannot process.
+            if (info.available()) {
+                for (String ext : info.fileExtensions()) {
+                    handlersByExtension.put(ext.toLowerCase(), handler);
+                }
+                if (info.mimeType() != null) {
+                    handlersByMimeType.put(info.mimeType().toLowerCase(), handler);
+                }
+                log.info("Registered format handler '{}' for extensions: {}",
+                    info.displayName(), info.fileExtensions());
+            } else {
+                log.warn("Format handler '{}' is advertised but UNAVAILABLE: {}",
+                    info.displayName(), info.unavailableReason());
             }
-
-            // Map MIME type to handler
-            if (info.mimeType() != null) {
-                handlersByMimeType.put(info.mimeType().toLowerCase(), handler);
-            }
-
-            log.info("Registered format handler '{}' for extensions: {}",
-                info.displayName(), info.fileExtensions());
         }
 
         log.info("DataFormatRegistry initialized. Available formats: {}",
-            handlersByFormat.keySet().stream().sorted().collect(Collectors.joining(", ")));
+            handlers.stream()
+                .map(DataFormatHandler::getFormatInfo)
+                .filter(DataFormatInfo::available)
+                .map(DataFormatInfo::format)
+                .sorted()
+                .collect(Collectors.joining(", ")));
     }
 
     /**
@@ -70,12 +82,26 @@ public class DataFormatRegistry {
     }
 
     /**
-     * Get info for all available formats.
-     * @return List of format information
+     * Get info for all known formats, including advertised-but-unavailable stubs.
+     * <p>Callers that need to know whether a format is usable should check
+     * {@link DataFormatInfo#available()}.</p>
+     * @return List of format information for every registered handler
      */
     public List<DataFormatInfo> getAvailableFormats() {
         return handlers.stream()
             .map(DataFormatHandler::getFormatInfo)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get info only for formats that are fully implemented and available for upload.
+     * The UI should use this list to populate its upload picker.
+     * @return List of format information for handlers with {@code available=true}
+     */
+    public List<DataFormatInfo> getSupportedFormats() {
+        return handlers.stream()
+            .map(DataFormatHandler::getFormatInfo)
+            .filter(DataFormatInfo::available)
             .collect(Collectors.toList());
     }
 

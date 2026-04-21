@@ -3,7 +3,7 @@ import { HttpClient, HttpEventType, HttpEvent, HttpRequest, HttpResponse } from 
 import { Observable, from, Subject } from 'rxjs';
 import { filter, map, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { DataSource, DataPreview, UploadOptions, ColumnInfo, FormatDetectionResult } from '../models';
+import { DataSource, DataPreview, UploadOptions, ColumnInfo, FormatDetectionResult, DataFormatDescriptor } from '../models';
 import { environment } from '../../../environments/environment';
 
 export interface UploadProgress {
@@ -117,5 +117,19 @@ export class DataService {
     const formData = new FormData();
     formData.append('file', file.slice(0, 10000));
     return this.http.post<FormatDetectionResult>(`${environment.apiBaseUrl}/data/detect-format`, formData);
+  }
+
+  /**
+   * List every known data format handler, including unavailable stubs.
+   * Use the `available` flag on each descriptor to decide whether to offer
+   * the format for upload.
+   */
+  formats(): Observable<DataFormatDescriptor[]> {
+    return this.api.getArray<DataFormatDescriptor>('/data/formats');
+  }
+
+  /** List only the formats that actually accept uploads. */
+  supportedFormats(): Observable<DataFormatDescriptor[]> {
+    return this.api.getArray<DataFormatDescriptor>('/data/formats/supported');
   }
 }

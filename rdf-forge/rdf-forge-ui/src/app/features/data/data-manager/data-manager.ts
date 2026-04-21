@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -13,8 +13,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { DataService } from '../../../core/services';
-import { DataSource, DataPreview } from '../../../core/models';
+import { DataSource, DataPreview, DataFormatDescriptor } from '../../../core/models';
 import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { LoggerService } from '../../../core/services/logger.service';
 
@@ -40,7 +42,8 @@ import { LoggerService } from '../../../core/services/logger.service';
   styleUrl: './data-manager.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DataManager implements OnInit {
+export class DataManager implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   private readonly dataService = inject(DataService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly confirmationService = inject(ConfirmationService);
@@ -61,6 +64,28 @@ export class DataManager implements OnInit {
   uploadProgress = signal(0);
   selectedFile = signal<File | null>(null);
   isDragOver = signal(false);
+
+  /**
+   * All formats advertised by the backend (available AND stubs). Loaded from
+   * /api/v1/data/formats on init so the UI never claims a format the backend
+   * has not actually registered.
+   */
+  formats = signal<DataFormatDescriptor[]>([]);
+
+  availableFormats = computed(() => this.formats().filter(f => f.available));
+  unavailableFormats = computed(() => this.formats().filter(f => !f.available));
+
+  /** Accept attribute for the <input type="file"> element, built from the server list. */
+  acceptAttr = computed(() => {
+    const exts = this.availableFormats().flatMap(f => f.extensions);
+    if (exts.length === 0) return '';
+    return exts.map(e => '.' + e).join(',');
+  });
+
+  /** Valid extensions (with leading dot, lower-case) used by the drop-zone guard. */
+  private validExtensions = computed<string[]>(() =>
+    this.availableFormats().flatMap(f => f.extensions).map(e => '.' + e.toLowerCase())
+  );
 
   // Table
   displayedColumns = ['name', 'format', 'size', 'rows', 'uploadedAt', 'actions'];
@@ -93,11 +118,28 @@ export class DataManager implements OnInit {
 
   ngOnInit(): void {
     this.loadDataSources();
+    this.loadFormats();
+  }
+
+  private loadFormats(): void {
+    this.dataService.formats().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (formats) => this.formats.set(formats),
+      error: (err) => {
+        // Non-fatal — we fall back to showing no formats, which is the
+        // honest default if the API is unreachable.
+        this.logger.warn('Failed to load data format list', err);
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadDataSources(): void {
     this.loading.set(true);
-    this.dataService.list().subscribe({
+    this.dataService.list().pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.dataSources.set(data);
         this.loading.set(false);
@@ -148,13 +190,14 @@ export class DataManager implements OnInit {
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       const file = files[0];
-      const validExtensions = ['.csv', '.json', '.xlsx', '.xml', '.parquet', '.tsv'];
-      const fileExt = '.' + file.name.split('.').pop()?.toLowerCase();
+      const fileExt = '.' + (file.name.split('.').pop()?.toLowerCase() ?? '');
+      const valid = this.validExtensions();
 
-      if (validExtensions.includes(fileExt)) {
+      if (valid.length === 0 || valid.includes(fileExt)) {
         this.selectedFile.set(file);
       } else {
-        this.snackBar.open('Invalid file format. Supported: CSV, JSON, XLSX, XML, Parquet, TSV', 'Close', { duration: 3000 });
+        const names = this.availableFormats().map(f => f.displayName || f.id.toUpperCase()).join(', ');
+        this.snackBar.open(`Invalid file format. Supported: ${names}`, 'Close', { duration: 3000 });
       }
     }
   }
@@ -173,7 +216,7 @@ export class DataManager implements OnInit {
       file,
       { analyze: true },
       (progress) => this.uploadProgress.set(progress.progress)
-    ).subscribe({
+    ).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.uploadProgress.set(100);
         this.snackBar.open(`${file.name} uploaded successfully`, 'Close', { duration: 3000 });
@@ -214,7 +257,7 @@ export class DataManager implements OnInit {
     this.previewDialogVisible.set(true);
     this.previewLoading.set(true);
 
-    this.dataService.preview(source.id, { rows: 100 }).subscribe({
+    this.dataService.preview(source.id, { rows: 100 }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.preview.set(data);
         this.previewLoading.set(false);
@@ -230,7 +273,7 @@ export class DataManager implements OnInit {
   downloadData(source: DataSource, event: Event): void {
     event.stopPropagation();
     this.snackBar.open(`Preparing ${source.originalFilename}...`, 'Close', { duration: 2000 });
-    this.dataService.download(source.id).subscribe({
+    this.dataService.download(source.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open('File download started', 'Close', { duration: 3000 });
       },
@@ -248,7 +291,7 @@ export class DataManager implements OnInit {
       message: `Are you sure you want to delete "${source.name}"? This action cannot be undone.`,
       confirmText: 'Delete',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (confirmed) {
         this.deleteData(source);
       }
@@ -256,7 +299,7 @@ export class DataManager implements OnInit {
   }
 
   private deleteData(source: DataSource): void {
-    this.dataService.delete(source.id).subscribe({
+    this.dataService.delete(source.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => {
         this.snackBar.open(`${source.name} deleted`, 'Close', { duration: 3000 });
         this.loadDataSources();

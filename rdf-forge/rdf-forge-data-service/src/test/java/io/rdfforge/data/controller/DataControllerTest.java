@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * including multipart upload and streaming download.
  */
 @WebMvcTest(DataController.class)
-@Import(TestSecurityConfig.class)
+@Import({TestSecurityConfig.class, io.rdfforge.common.exception.GlobalExceptionHandler.class})
 @DisplayName("DataController Tests")
 class DataControllerTest {
 
@@ -62,6 +62,13 @@ class DataControllerTest {
     @MockBean
     private FileStorageService fileStorageService;
 
+    // Ownership authz was added 2026-04-21 for object-level access control.
+    // Every test that hits a gated endpoint must (a) send X-User-Id matching the
+    // sample entity's uploadedBy, or (b) send admin roles. List/format endpoints
+    // are not gated so they don't need the header.
+    private static final UUID TEST_USER_ID =
+        UUID.fromString("11111111-1111-1111-1111-111111111111");
+
     private UUID dataSourceId;
     private DataSourceEntity sampleEntity;
 
@@ -78,6 +85,7 @@ class DataControllerTest {
         sampleEntity.setStoragePath("/data/test.csv");
         sampleEntity.setRowCount(100L);
         sampleEntity.setColumnCount(3);
+        sampleEntity.setUploadedBy(TEST_USER_ID); // match TEST_USER_ID so authz passes
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -169,7 +177,7 @@ class DataControllerTest {
         void getDataSource_Existing_Returns200WithBody() throws Exception {
             when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
 
-            mockMvc.perform(get("/api/v1/data/{id}", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(dataSourceId.toString())))
                 .andExpect(jsonPath("$.name", is("Test Data")))
@@ -181,7 +189,7 @@ class DataControllerTest {
         void getDataSource_NotFound_Returns404() throws Exception {
             when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.empty());
 
-            mockMvc.perform(get("/api/v1/data/{id}", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
     }
@@ -200,10 +208,11 @@ class DataControllerTest {
             MockMultipartFile file = new MockMultipartFile(
                 "file", "data.csv", "text/csv",
                 "name,age\nAlice,30\nBob,25\n".getBytes());
-            when(dataService.uploadDataSource(any(), eq("UTF-8"), eq(true), isNull()))
+            // uploadedBy is now populated from X-User-Id rather than null.
+            when(dataService.uploadDataSource(any(), eq("UTF-8"), eq(true), eq(TEST_USER_ID)))
                 .thenReturn(sampleEntity);
 
-            mockMvc.perform(multipart("/api/v1/data/upload").file(file))
+            mockMvc.perform(multipart("/api/v1/data/upload").file(file).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(dataSourceId.toString())))
                 .andExpect(jsonPath("$.name", is("Test Data")));
@@ -219,7 +228,8 @@ class DataControllerTest {
 
             mockMvc.perform(multipart("/api/v1/data/upload")
                     .file(file)
-                    .param("encoding", "ISO-8859-1"))
+                    .param("encoding", "ISO-8859-1")
+                    .header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk());
 
             verify(dataService).uploadDataSource(any(), eq("ISO-8859-1"), anyBoolean(), any());
@@ -233,7 +243,7 @@ class DataControllerTest {
             when(dataService.uploadDataSource(any(), any(), eq(true), any()))
                 .thenReturn(sampleEntity);
 
-            mockMvc.perform(multipart("/api/v1/data/upload").file(file))
+            mockMvc.perform(multipart("/api/v1/data/upload").file(file).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk());
 
             verify(dataService).uploadDataSource(any(), any(), eq(true), any());
@@ -249,7 +259,8 @@ class DataControllerTest {
 
             mockMvc.perform(multipart("/api/v1/data/upload")
                     .file(file)
-                    .param("analyze", "false"))
+                    .param("analyze", "false")
+                    .header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk());
 
             verify(dataService).uploadDataSource(any(), any(), eq(false), any());
@@ -269,7 +280,7 @@ class DataControllerTest {
             when(dataService.uploadDataSource(any(), any(), anyBoolean(), any()))
                 .thenReturn(jsonEntity);
 
-            mockMvc.perform(multipart("/api/v1/data/upload").file(file))
+            mockMvc.perform(multipart("/api/v1/data/upload").file(file).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.format", is("JSON")));
         }
@@ -286,23 +297,26 @@ class DataControllerTest {
         @Test
         @DisplayName("Should return 204 No Content on successful deletion")
         void deleteDataSource_Existing_Returns204() throws Exception {
+            // Controller now looks up the entity to check ownership before delegating.
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             doNothing().when(dataService).deleteDataSource(dataSourceId);
 
-            mockMvc.perform(delete("/api/v1/data/{id}", dataSourceId))
+            mockMvc.perform(delete("/api/v1/data/{id}", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isNoContent());
 
             verify(dataService).deleteDataSource(dataSourceId);
         }
 
         @Test
-        @DisplayName("Should return 204 even when data source does not exist (idempotent)")
-        void deleteDataSource_NotFound_Returns204() throws Exception {
-            // The controller does not map ResourceNotFoundException to 404 on DELETE;
-            // the service already handles the no-op case internally.
-            doNothing().when(dataService).deleteDataSource(dataSourceId);
+        @DisplayName("Should return 404 when data source does not exist")
+        void deleteDataSource_NotFound_Returns404() throws Exception {
+            // Authz was added 2026-04-21: controller now loads the entity before
+            // delegating, so missing entities short-circuit with 404 instead of
+            // silently no-op-ing. Not a regression — genuine objects-exist check.
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.empty());
 
-            mockMvc.perform(delete("/api/v1/data/{id}", dataSourceId))
-                .andExpect(status().isNoContent());
+            mockMvc.perform(delete("/api/v1/data/{id}", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
+                .andExpect(status().isNotFound());
         }
     }
 
@@ -317,6 +331,8 @@ class DataControllerTest {
         @Test
         @DisplayName("Should return 200 with preview payload when data source exists")
         void previewDataSource_Existing_Returns200WithPreview() throws Exception {
+            // Controller now does authz lookup before calling previewDataSource.
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             Map<String, Object> preview = Map.of(
                 "columns", List.of("name", "age"),
                 "data", List.of(Map.of("name", "Alice", "age", "30")),
@@ -324,7 +340,7 @@ class DataControllerTest {
             );
             when(dataService.previewDataSource(dataSourceId, 100, 0)).thenReturn(preview);
 
-            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.columns", hasSize(2)))
                 .andExpect(jsonPath("$.totalRows", is(1)));
@@ -333,13 +349,15 @@ class DataControllerTest {
         @Test
         @DisplayName("Should honour custom rows and offset parameters")
         void previewDataSource_CustomRowsOffset_PassesToService() throws Exception {
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             Map<String, Object> preview = Map.of("columns", List.of(), "data", List.of(),
                 "totalRows", 0L);
             when(dataService.previewDataSource(dataSourceId, 25, 50)).thenReturn(preview);
 
             mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId)
                     .param("rows", "25")
-                    .param("offset", "50"))
+                    .param("offset", "50")
+                    .header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk());
 
             verify(dataService).previewDataSource(dataSourceId, 25, 50);
@@ -348,10 +366,11 @@ class DataControllerTest {
         @Test
         @DisplayName("Should return 200 with error key when format is unsupported")
         void previewDataSource_UnsupportedFormat_Returns200WithErrorKey() throws Exception {
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             Map<String, Object> errorPreview = Map.of("error", "Unsupported format");
             when(dataService.previewDataSource(dataSourceId, 100, 0)).thenReturn(errorPreview);
 
-            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.error", notNullValue()));
         }
@@ -359,10 +378,11 @@ class DataControllerTest {
         @Test
         @DisplayName("Should propagate exception as 500 when service throws RuntimeException")
         void previewDataSource_ServiceThrows_Returns500() throws Exception {
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             when(dataService.previewDataSource(dataSourceId, 100, 0))
                 .thenThrow(new RuntimeException("Data source not found"));
 
-            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}/preview", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().is5xxServerError());
         }
     }
@@ -384,7 +404,7 @@ class DataControllerTest {
             when(dataService.downloadDataSource(dataSourceId))
                 .thenReturn(new ByteArrayInputStream(content));
 
-            mockMvc.perform(get("/api/v1/data/{id}/download", dataSourceId))
+            mockMvc.perform(get("/api/v1/data/{id}/download", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition",
                     containsString("attachment")))
@@ -394,14 +414,15 @@ class DataControllerTest {
         }
 
         @Test
-        @DisplayName("Should return 500 when data source does not exist for download")
-        void downloadDataSource_NotFound_Returns500() throws Exception {
+        @DisplayName("Should return 404 when data source does not exist for download")
+        void downloadDataSource_NotFound_Returns404() throws Exception {
             when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.empty());
 
-            // The controller throws RuntimeException when entity is not found —
-            // this maps to 500 without a specific exception handler.
-            mockMvc.perform(get("/api/v1/data/{id}/download", dataSourceId))
-                .andExpect(status().is5xxServerError());
+            // The controller now throws ResourceNotFoundException when the entity is
+            // missing (previously it was an unmapped RuntimeException → 500); the
+            // common GlobalExceptionHandler maps it to 404.
+            mockMvc.perform(get("/api/v1/data/{id}/download", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
+                .andExpect(status().isNotFound());
         }
     }
 
@@ -416,13 +437,14 @@ class DataControllerTest {
         @Test
         @DisplayName("Should return 200 with analysis result map")
         void analyzeDataSource_Existing_Returns200WithAnalysis() throws Exception {
+            when(dataService.getDataSource(dataSourceId)).thenReturn(Optional.of(sampleEntity));
             Map<String, Object> analysis = Map.of(
                 "rowCount", 100L,
                 "columns", List.of(Map.of("name", "age", "type", "integer"))
             );
             when(dataService.analyzeDataSource(dataSourceId)).thenReturn(analysis);
 
-            mockMvc.perform(post("/api/v1/data/{id}/analyze", dataSourceId))
+            mockMvc.perform(post("/api/v1/data/{id}/analyze", dataSourceId).header("X-User-Id", TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.rowCount", is(100)));
         }
@@ -507,6 +529,59 @@ class DataControllerTest {
             mockMvc.perform(get("/api/v1/data/formats"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
+        }
+
+        @Test
+        @DisplayName("Summary payload should expose id, extensions, available flag, and operation map")
+        void getFormats_SummaryShape_HasIdAvailableAndOperations() throws Exception {
+            DataFormatInfo csvInfo = new DataFormatInfo(
+                "csv", "CSV", "Comma-separated values", "text/csv",
+                List.of("csv", "tsv"), true, true, true, Map.of(),
+                List.of("read", "write", "preview", "analyze", "streaming"));
+            when(formatRegistry.getAvailableFormats()).thenReturn(List.of(csvInfo));
+
+            mockMvc.perform(get("/api/v1/data/formats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id", is("csv")))
+                .andExpect(jsonPath("$[0].extensions", hasSize(2)))
+                .andExpect(jsonPath("$[0].available", is(true)))
+                .andExpect(jsonPath("$[0].operations.preview", is(true)))
+                .andExpect(jsonPath("$[0].operations.ingest", is(true)))
+                .andExpect(jsonPath("$[0].operations.write", is(true)))
+                .andExpect(jsonPath("$[0].operations.streaming", is(true)));
+        }
+
+        @Test
+        @DisplayName("Stub formats should surface with available=false and unavailableReason")
+        void getFormats_StubFormat_MarkedUnavailable() throws Exception {
+            DataFormatInfo parquetStub = new DataFormatInfo(
+                "parquet", "Parquet", "Columnar format",
+                "application/vnd.apache.parquet",
+                List.of("parquet"), false, false, false, Map.of(), List.of(),
+                false, "Coming soon");
+            when(formatRegistry.getAvailableFormats()).thenReturn(List.of(parquetStub));
+
+            mockMvc.perform(get("/api/v1/data/formats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id", is("parquet")))
+                .andExpect(jsonPath("$[0].available", is(false)))
+                .andExpect(jsonPath("$[0].unavailableReason", is("Coming soon")))
+                .andExpect(jsonPath("$[0].operations.ingest", is(false)));
+        }
+
+        @Test
+        @DisplayName("/formats/supported should only return handlers with available=true")
+        void getFormats_Supported_FiltersUnavailable() throws Exception {
+            DataFormatInfo csvInfo = new DataFormatInfo(
+                "csv", "CSV", "Comma-separated values", "text/csv",
+                List.of("csv"), true, true, true, Map.of(), List.of("read"));
+            when(formatRegistry.getSupportedFormats()).thenReturn(List.of(csvInfo));
+
+            mockMvc.perform(get("/api/v1/data/formats/supported"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id", is("csv")))
+                .andExpect(jsonPath("$[0].available", is(true)));
         }
     }
 

@@ -459,6 +459,349 @@ class LoadCsvOperationTest {
                 System.setProperty("user.dir", originalUserDir);
             }
         }
+
+        // ─── parseDelimiter unit tests (static/package-private helper) ───
+
+        @Test
+        @DisplayName("parseDelimiter(null) -> ','")
+        void parseDelimiter_Null_ReturnsComma() {
+            assertEquals(',', LoadCsvOperation.parseDelimiter(null));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"\") -> ','")
+        void parseDelimiter_EmptyString_ReturnsComma() {
+            assertEquals(',', LoadCsvOperation.parseDelimiter(""));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(Character) returns the character")
+        void parseDelimiter_Character_ReturnsValue() {
+            assertEquals(';', LoadCsvOperation.parseDelimiter(Character.valueOf(';')));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"|\") -> '|'")
+        void parseDelimiter_SingleCharString_ReturnsFirstChar() {
+            assertEquals('|', LoadCsvOperation.parseDelimiter("|"));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(real tab) -> '\\t'")
+        void parseDelimiter_RealTab_ReturnsTab() {
+            assertEquals('\t', LoadCsvOperation.parseDelimiter("\t"));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"\\\\t\" backslash-t literal) -> '\\t'")
+        void parseDelimiter_BackslashTLiteral_ReturnsTab() {
+            // Two-char string: backslash followed by 't'
+            String backslashT = "\\t";
+            assertEquals(2, backslashT.length(),
+                "Sanity: literal should be two characters");
+            assertEquals('\t', LoadCsvOperation.parseDelimiter(backslashT));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"\\\\n\") -> '\\n'")
+        void parseDelimiter_BackslashNLiteral_ReturnsNewline() {
+            assertEquals('\n', LoadCsvOperation.parseDelimiter("\\n"));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"\\\\r\") -> '\\r'")
+        void parseDelimiter_BackslashRLiteral_ReturnsCarriageReturn() {
+            assertEquals('\r', LoadCsvOperation.parseDelimiter("\\r"));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"\\\\\\\\\") -> '\\\\'")
+        void parseDelimiter_DoubleBackslashLiteral_ReturnsBackslash() {
+            // Four Java-source chars → two-char Java string "\\\\" → actual '\' after parsing
+            assertEquals('\\', LoadCsvOperation.parseDelimiter("\\\\"));
+        }
+
+        @Test
+        @DisplayName("parseDelimiter(\"abc\") returns first char 'a'")
+        void parseDelimiter_MultiCharString_ReturnsFirstChar() {
+            assertEquals('a', LoadCsvOperation.parseDelimiter("abc"));
+        }
+
+        @Test
+        @DisplayName("Load TSV with delimiter parameter as Character('\\t')")
+        void execute_TsvWithCharacterDelimiter_ParsesCorrectly(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("tsv.tsv"),
+                "a\tb\tc\n1\t2\t3\n4\t5\t6\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "tsv.tsv");
+                params.put("delimiter", Character.valueOf('\t'));
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(2, rows.size());
+                assertEquals("1", rows.get(0).get("a"));
+                assertEquals("3", rows.get(0).get("c"));
+                assertEquals("5", rows.get(1).get("b"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+
+        @Test
+        @DisplayName("Load TSV when delimiter arrives as literal two-char string '\\\\t'")
+        void execute_TsvWithBackslashTStringDelimiter_ParsesCorrectly(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("tsv2.tsv"),
+                "name\tage\nAlice\t30\nBob\t25\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "tsv2.tsv");
+                params.put("delimiter", "\\t");   // backslash-t literal, two chars
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(2, rows.size());
+                assertEquals("Alice", rows.get(0).get("name"));
+                assertEquals("30", rows.get(0).get("age"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+
+        @Test
+        @DisplayName("Load CSV with semicolon delimiter (European-style CSV)")
+        void execute_SemicolonDelimiter_ParsesCorrectly(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("euro.csv"),
+                "ville;pays\nParis;France\nBerlin;Allemagne\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "euro.csv");
+                params.put("delimiter", ';');
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(2, rows.size());
+                assertEquals("France", rows.get(0).get("pays"));
+                assertEquals("Allemagne", rows.get(1).get("pays"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+
+        @Test
+        @DisplayName("Delimiter must actually be applied: comma-separated file with tab delimiter must NOT split on commas")
+        void execute_MismatchedDelimiter_DoesNotSplitOnComma(@TempDir Path tempDir) throws Exception {
+            // Regression guard for the original bug: if delimiter is not wired,
+            // this file would be parsed with the default ',' and the test would fail.
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            // File uses commas as literal content, not as delimiter.
+            // With delimiter='\t' the whole row should be a single column.
+            Files.writeString(demoData.resolve("tabonly.tsv"),
+                "header\nvalue,with,commas\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "tabonly.tsv");
+                params.put("delimiter", '\t');
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(1, rows.size());
+                // The entire line "value,with,commas" must land in the 'header' column
+                // because we told the parser to split on tabs, and there are no tabs.
+                assertEquals("value,with,commas", rows.get(0).get("header"),
+                    "When delimiter='\\t' the comma-laden line must be a single value, "
+                    + "proving the delimiter parameter is actually wired to the parser.");
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Quoted fields & escape handling
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Quoted fields and escape characters")
+    class QuotingTests {
+
+        @Test
+        @DisplayName("Quoted fields containing the delimiter should be treated as a single field")
+        void execute_QuotedFieldWithDelimiter_ParsedAsOneField(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            // First data row's first field: "a,b" (literal comma inside quotes)
+            Files.writeString(demoData.resolve("quoted.csv"),
+                "col1,col2\n\"a,b\",c\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                OperationContext ctx = buildContext(Map.of("file", "quoted.csv"));
+                OperationResult result = operation.execute(ctx);
+
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(1, rows.size());
+                assertEquals("a,b", rows.get(0).get("col1"),
+                    "Quoted field containing comma must remain intact");
+                assertEquals("c", rows.get(0).get("col2"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+
+        @Test
+        @DisplayName("Custom quoteChar parameter should be honored")
+        void execute_CustomQuoteChar_ParsesCorrectly(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            // Field quoted with single quotes instead of double
+            Files.writeString(demoData.resolve("singlequote.csv"),
+                "col1,col2\n'a,b',c\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "singlequote.csv");
+                params.put("quoteChar", '\'');
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(1, rows.size());
+                assertEquals("a,b", rows.get(0).get("col1"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Encoding
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Encoding parameter")
+    class EncodingTests {
+
+        @Test
+        @DisplayName("Unsupported encoding should throw OperationException with helpful message")
+        void execute_UnsupportedEncoding_ThrowsOperationException(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("enc.csv"), "a\n1\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "enc.csv");
+                params.put("encoding", "not-a-real-charset");
+
+                OperationException ex = assertThrows(OperationException.class,
+                    () -> operation.execute(buildContext(params)));
+                assertTrue(ex.getMessage().toLowerCase().contains("encoding"),
+                    "Error message should mention encoding, got: " + ex.getMessage());
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+
+        @Test
+        @DisplayName("Blank encoding string should fall back to UTF-8")
+        void execute_BlankEncoding_FallsBackToUtf8(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("blankenc.csv"),
+                "col\nJosé\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "blankenc.csv");
+                params.put("encoding", "   ");   // blank
+
+                OperationResult result = operation.execute(buildContext(params));
+                List<Map<String, Object>> rows = result.outputStream()
+                    .map(r -> (Map<String, Object>) r)
+                    .collect(Collectors.toList());
+
+                assertEquals(1, rows.size());
+                assertEquals("José", rows.get(0).get("col"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Metadata
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Result metadata")
+    class MetadataPropagationTests {
+
+        @Test
+        @DisplayName("Metadata should include delimiter and encoding used for parsing")
+        void execute_ResultMetadata_ContainsDelimiterAndEncoding(@TempDir Path tempDir) throws Exception {
+            Path demoData = tempDir.resolve("demo-data");
+            Files.createDirectories(demoData);
+            Files.writeString(demoData.resolve("md.tsv"),
+                "a\tb\n1\t2\n", StandardCharsets.UTF_8);
+
+            String originalUserDir = System.getProperty("user.dir");
+            System.setProperty("user.dir", tempDir.toAbsolutePath().toString());
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("file", "md.tsv");
+                params.put("delimiter", '\t');
+
+                OperationResult result = operation.execute(buildContext(params));
+                assertEquals("\t", result.metadata().get("delimiter"));
+                assertEquals("UTF-8", result.metadata().get("encoding"));
+            } finally {
+                System.setProperty("user.dir", originalUserDir);
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

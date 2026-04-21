@@ -5,12 +5,14 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of, throwError } from 'rxjs';
 import { DataManager } from './data-manager';
 import { DataService } from '../../../core/services/data.service';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { DataSource } from '../../../core/models';
 
 describe('DataManager', () => {
   let component: DataManager;
   let fixture: ComponentFixture<DataManager>;
   let dataServiceSpy: jasmine.SpyObj<DataService>;
+  let confirmationServiceSpy: jasmine.SpyObj<ConfirmationService>;
 
   const mockDataSources: DataSource[] = [
     {
@@ -40,8 +42,13 @@ describe('DataManager', () => {
   ];
 
   beforeEach(async () => {
-    dataServiceSpy = jasmine.createSpyObj('DataService', ['list', 'upload', 'uploadWithProgress', 'delete', 'preview', 'download']);
+    dataServiceSpy = jasmine.createSpyObj('DataService',
+      ['list', 'upload', 'uploadWithProgress', 'delete', 'preview', 'download', 'formats', 'supportedFormats']);
     dataServiceSpy.list.and.returnValue(of(mockDataSources));
+    dataServiceSpy.formats.and.returnValue(of([]));
+    dataServiceSpy.supportedFormats.and.returnValue(of([]));
+    confirmationServiceSpy = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
 
     await TestBed.configureTestingModule({
       imports: [DataManager],
@@ -49,7 +56,8 @@ describe('DataManager', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideNoopAnimations(),
-        { provide: DataService, useValue: dataServiceSpy }
+        { provide: DataService, useValue: dataServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationServiceSpy }
       ]
     }).compileComponents();
 
@@ -320,7 +328,7 @@ describe('DataManager', () => {
   it('should confirm and delete', fakeAsync(() => {
     const source = mockDataSources[0];
     const mockEvent = { stopPropagation: jasmine.createSpy() };
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     dataServiceSpy.delete.and.returnValue(of(void 0));
 
     component.confirmDelete(source, mockEvent as any);
@@ -332,7 +340,7 @@ describe('DataManager', () => {
   it('should not delete if not confirmed', fakeAsync(() => {
     const source = mockDataSources[0];
     const mockEvent = { stopPropagation: jasmine.createSpy() };
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationServiceSpy.confirm.and.returnValue(of(false));
 
     component.confirmDelete(source, mockEvent as any);
     tick();

@@ -184,6 +184,19 @@ class DataServiceTest {
         }
 
         @Test
+        @DisplayName("Should reject Parquet upload because support is not implemented")
+        void uploadDataSource_ParquetFile_RejectsWithIllegalArgument() {
+            MockMultipartFile file = new MockMultipartFile(
+                "file", "data.parquet", "application/vnd.apache.parquet",
+                new byte[100]
+            );
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> dataService.uploadDataSource(file, "UTF-8", false, userId));
+            assertTrue(ex.getMessage().toLowerCase().contains("parquet"));
+        }
+
+        @Test
         @DisplayName("Should upload XLSX file and detect format")
         void uploadDataSource_XlsxFile_DetectsFormat() throws IOException {
             MockMultipartFile file = new MockMultipartFile(

@@ -175,6 +175,15 @@ public class DimensionService {
         return saved;
     }
     
+    /**
+     * Lookup a dimension value by its ID. Used by the controller for authz
+     * (ownership is tracked on the parent dimension, so we need the parent ID).
+     */
+    @Transactional(readOnly = true)
+    public Optional<DimensionValueEntity> findValueById(UUID valueId) {
+        return valueRepository.findById(valueId);
+    }
+
     public DimensionValueEntity updateValue(UUID valueId, DimensionValueEntity updates) {
         DimensionValueEntity existing = valueRepository.findById(valueId)
             .orElseThrow(() -> new ResourceNotFoundException("DimensionValue", valueId.toString()));
@@ -316,6 +325,86 @@ public class DimensionService {
         return ttl.toString();
     }
     
+    /**
+     * Export dimension as schema:DefinedTermSet in Turtle format.
+     * This follows the cube.link dimension vocabulary used by the Swiss Federal Chancellery.
+     * Each value becomes a schema:DefinedTerm linked via schema:hasDefinedTerm/schema:inDefinedTermSet.
+     */
+    @Transactional(readOnly = true)
+    public String exportToDefinedTermSet(UUID dimensionId) {
+        log.info("Exporting dimension {} as schema:DefinedTermSet (cube.link format)", dimensionId);
+
+        DimensionEntity dimension = dimensionRepository.findById(dimensionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Dimension", dimensionId.toString()));
+
+        List<DimensionValueEntity> values = valueRepository.findActiveValuesByDimensionId(dimensionId);
+
+        StringBuilder ttl = new StringBuilder();
+        ttl.append("@prefix schema: <http://schema.org/> .\n");
+        ttl.append("@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n");
+        ttl.append("@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n");
+        ttl.append("@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n");
+
+        String dimensionUri = dimension.getUri();
+
+        // DefinedTermSet (the dimension itself)
+        ttl.append("<").append(dimensionUri).append(">\n");
+        ttl.append("  a schema:DefinedTermSet ;\n");
+        ttl.append("  schema:name \"").append(escape(dimension.getName())).append("\"@en");
+        if (dimension.getDescription() != null) {
+            ttl.append(" ;\n  schema:description \"").append(escape(dimension.getDescription())).append("\"@en");
+        }
+        // hasDefinedTerm links to all values
+        for (int i = 0; i < values.size(); i++) {
+            DimensionValueEntity value = values.get(i);
+            ttl.append(" ;\n  schema:hasDefinedTerm <").append(value.getUri()).append(">");
+        }
+        ttl.append(" .\n\n");
+
+        // Each value as a DefinedTerm
+        for (DimensionValueEntity value : values) {
+            ttl.append("<").append(value.getUri()).append(">\n");
+
+            // rdf:type - use dimension metadata for custom types if available
+            Map<String, Object> dimMeta = dimension.getMetadata();
+            if (dimMeta != null && dimMeta.containsKey("rdfType")) {
+                ttl.append("  a <").append(dimMeta.get("rdfType")).append("> ;\n");
+            }
+
+            ttl.append("  schema:inDefinedTermSet <").append(dimensionUri).append("> ;\n");
+            ttl.append("  schema:name \"").append(escape(value.getLabel())).append("\"@")
+                .append(value.getLabelLang() != null ? value.getLabelLang() : "en");
+
+            // Alt labels as additional schema:name entries in other languages
+            if (value.getAltLabels() != null && !value.getAltLabels().isEmpty()) {
+                for (Map.Entry<String, String> alt : value.getAltLabels().entrySet()) {
+                    ttl.append(" ;\n  schema:name \"").append(escape(alt.getValue()))
+                        .append("\"@").append(alt.getKey());
+                }
+            }
+
+            if (value.getDescription() != null) {
+                ttl.append(" ;\n  schema:description \"").append(escape(value.getDescription())).append("\"@en");
+            }
+
+            // Additional properties from value metadata
+            if (value.getMetadata() != null) {
+                for (Map.Entry<String, Object> meta : value.getMetadata().entrySet()) {
+                    String key = meta.getKey();
+                    Object val = meta.getValue();
+                    if (key.contains(":") && val instanceof String) {
+                        ttl.append(" ;\n  ").append(key).append(" \"")
+                            .append(escape((String) val)).append("\"");
+                    }
+                }
+            }
+
+            ttl.append(" .\n\n");
+        }
+
+        return ttl.toString();
+    }
+
     private String escape(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");

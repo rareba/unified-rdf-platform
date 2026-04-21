@@ -41,9 +41,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * status codes, and the delegation to PipelineService.
  */
 @WebMvcTest(PipelineController.class)
-@Import(TestSecurityConfig.class)
+@Import({TestSecurityConfig.class, io.rdfforge.common.exception.GlobalExceptionHandler.class})
 @DisplayName("PipelineController Tests")
 class PipelineControllerTest {
+
+    // Ownership authz added 2026-04-21 — every test that hits a gated endpoint
+    // must send X-User-Id matching samplePipeline.createdBy (or admin roles).
+    private static final UUID TEST_USER_ID =
+        UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final String USER_HEADER = "X-User-Id";
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,6 +78,7 @@ class PipelineControllerTest {
             .definition("{\"steps\":[{\"id\":\"s1\",\"operation\":\"load-csv\"}]}")
             .variables(Map.of())
             .version(1)
+            .createdBy(TEST_USER_ID) // match TEST_USER_ID for authz
             .createdAt(Instant.now())
             .build();
     }
@@ -152,6 +159,7 @@ class PipelineControllerTest {
             when(pipelineService.create(any(Pipeline.class))).thenReturn(samplePipeline);
 
             mockMvc.perform(post("/api/v1/pipelines")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(samplePipeline)))
                 .andExpect(status().isCreated())
@@ -169,6 +177,7 @@ class PipelineControllerTest {
                 .build();
 
             mockMvc.perform(post("/api/v1/pipelines")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest());
@@ -186,6 +195,7 @@ class PipelineControllerTest {
                 .build();
 
             mockMvc.perform(post("/api/v1/pipelines")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest());
@@ -203,6 +213,7 @@ class PipelineControllerTest {
                 .build();
 
             mockMvc.perform(post("/api/v1/pipelines")
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest());
@@ -222,7 +233,7 @@ class PipelineControllerTest {
         void getById_ExistingId_Returns200WithPipeline() throws Exception {
             when(pipelineService.getById(pipelineId)).thenReturn(samplePipeline);
 
-            mockMvc.perform(get("/api/v1/pipelines/{id}", pipelineId))
+            mockMvc.perform(get("/api/v1/pipelines/{id}", pipelineId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(pipelineId.toString())))
                 .andExpect(jsonPath("$.name", is("My Pipeline")));
@@ -234,7 +245,7 @@ class PipelineControllerTest {
             when(pipelineService.getById(pipelineId))
                 .thenThrow(new ResourceNotFoundException("Pipeline", pipelineId.toString()));
 
-            mockMvc.perform(get("/api/v1/pipelines/{id}", pipelineId))
+            mockMvc.perform(get("/api/v1/pipelines/{id}", pipelineId).header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
     }
@@ -256,10 +267,14 @@ class PipelineControllerTest {
                 .definition("{\"steps\":[{\"id\":\"s2\",\"operation\":\"noop\"}]}")
                 .definitionFormat(Pipeline.DefinitionFormat.JSON)
                 .version(2)
+                .createdBy(TEST_USER_ID)
                 .build();
+            // Controller now fetches existing pipeline first for authz.
+            when(pipelineService.getById(pipelineId)).thenReturn(samplePipeline);
             when(pipelineService.update(eq(pipelineId), any(Pipeline.class))).thenReturn(updated);
 
             mockMvc.perform(put("/api/v1/pipelines/{id}", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(updated)))
                 .andExpect(status().isOk())
@@ -270,10 +285,13 @@ class PipelineControllerTest {
         @Test
         @DisplayName("Should return 404 when updating a non-existent pipeline")
         void updatePipeline_NotFound_Returns404() throws Exception {
-            when(pipelineService.update(eq(pipelineId), any(Pipeline.class)))
+            // The authz pre-fetch surfaces missing pipelines as 404 now,
+            // before the update call is ever reached.
+            when(pipelineService.getById(pipelineId))
                 .thenThrow(new ResourceNotFoundException("Pipeline", pipelineId.toString()));
 
             mockMvc.perform(put("/api/v1/pipelines/{id}", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(samplePipeline)))
                 .andExpect(status().isNotFound());
@@ -289,6 +307,7 @@ class PipelineControllerTest {
                 .build();
 
             mockMvc.perform(put("/api/v1/pipelines/{id}", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest());
@@ -308,9 +327,11 @@ class PipelineControllerTest {
         @Test
         @DisplayName("Should return 204 No Content on successful deletion")
         void deletePipeline_ExistingId_Returns204() throws Exception {
+            when(pipelineService.getById(pipelineId)).thenReturn(samplePipeline);
             doNothing().when(pipelineService).delete(pipelineId);
 
-            mockMvc.perform(delete("/api/v1/pipelines/{id}", pipelineId))
+            mockMvc.perform(delete("/api/v1/pipelines/{id}", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNoContent());
 
             verify(pipelineService).delete(pipelineId);
@@ -319,10 +340,12 @@ class PipelineControllerTest {
         @Test
         @DisplayName("Should return 404 when deleting a non-existent pipeline")
         void deletePipeline_NotFound_Returns404() throws Exception {
-            doThrow(new ResourceNotFoundException("Pipeline", pipelineId.toString()))
-                .when(pipelineService).delete(pipelineId);
+            // The authz pre-fetch catches missing pipelines before reaching delete.
+            when(pipelineService.getById(pipelineId))
+                .thenThrow(new ResourceNotFoundException("Pipeline", pipelineId.toString()));
 
-            mockMvc.perform(delete("/api/v1/pipelines/{id}", pipelineId))
+            mockMvc.perform(delete("/api/v1/pipelines/{id}", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isNotFound());
         }
     }
@@ -338,15 +361,21 @@ class PipelineControllerTest {
         @Test
         @DisplayName("Should return 201 with duplicated pipeline")
         void duplicatePipeline_ExistingId_Returns201WithCopy() throws Exception {
+            UUID copyId = UUID.randomUUID();
             Pipeline copy = Pipeline.builder()
-                .id(UUID.randomUUID())
+                .id(copyId)
                 .name("My Pipeline (copy)")
                 .definition(samplePipeline.getDefinition())
                 .definitionFormat(Pipeline.DefinitionFormat.JSON)
+                .createdBy(TEST_USER_ID)
                 .build();
+            when(pipelineService.getById(pipelineId)).thenReturn(samplePipeline);
             when(pipelineService.duplicate(pipelineId, null)).thenReturn(copy);
+            // The controller reassigns ownership after duplicate; stub the update.
+            when(pipelineService.update(eq(copyId), any(Pipeline.class))).thenReturn(copy);
 
-            mockMvc.perform(post("/api/v1/pipelines/{id}/duplicate", pipelineId))
+            mockMvc.perform(post("/api/v1/pipelines/{id}/duplicate", pipelineId)
+                    .header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name", containsString("copy")));
         }
@@ -354,10 +383,13 @@ class PipelineControllerTest {
         @Test
         @DisplayName("Should pass custom name to service when 'newName' param is given")
         void duplicatePipeline_WithNewName_PassesNameToService() throws Exception {
+            when(pipelineService.getById(pipelineId)).thenReturn(samplePipeline);
             when(pipelineService.duplicate(pipelineId, "Custom Name")).thenReturn(samplePipeline);
+            when(pipelineService.update(eq(pipelineId), any(Pipeline.class))).thenReturn(samplePipeline);
 
             mockMvc.perform(post("/api/v1/pipelines/{id}/duplicate", pipelineId)
-                    .param("newName", "Custom Name"))
+                    .param("newName", "Custom Name")
+                    .header(USER_HEADER, TEST_USER_ID.toString()))
                 .andExpect(status().isCreated());
 
             verify(pipelineService).duplicate(pipelineId, "Custom Name");

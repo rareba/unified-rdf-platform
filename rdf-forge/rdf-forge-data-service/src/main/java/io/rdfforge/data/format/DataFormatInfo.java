@@ -19,8 +19,39 @@ public record DataFormatInfo(
     boolean supportsAnalysis,
     boolean supportsStreaming,
     Map<String, FormatOption> options,
-    List<String> capabilities
+    List<String> capabilities,
+    /**
+     * True if this format is fully implemented and accepts uploads. False indicates a
+     * stub/placeholder format that is known about (so the UI can surface it as "coming
+     * soon") but must not be offered as a real upload option.
+     */
+    boolean available,
+    /**
+     * Optional reason string displayed to users when {@code available} is false.
+     * Null / empty when the format is available.
+     */
+    String unavailableReason
 ) {
+
+    /**
+     * Convenience constructor for fully-available formats. Preserves compatibility
+     * with existing handler implementations that do not yet specify availability.
+     */
+    public DataFormatInfo(
+            String format,
+            String displayName,
+            String description,
+            String mimeType,
+            List<String> fileExtensions,
+            boolean supportsPreview,
+            boolean supportsAnalysis,
+            boolean supportsStreaming,
+            Map<String, FormatOption> options,
+            List<String> capabilities) {
+        this(format, displayName, description, mimeType, fileExtensions,
+             supportsPreview, supportsAnalysis, supportsStreaming,
+             options, capabilities, true, null);
+    }
 
     /**
      * A configuration option for a format handler.

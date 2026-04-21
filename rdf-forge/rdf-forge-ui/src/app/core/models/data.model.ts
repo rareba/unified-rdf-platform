@@ -47,3 +47,23 @@ export interface FormatDetectionResult {
   encoding: string;
   delimiter?: string;
 }
+
+export interface DataFormatDescriptor {
+  id: string;
+  displayName: string;
+  description: string;
+  mimeType: string | null;
+  extensions: string[];
+  available: boolean;
+  unavailableReason: string | null;
+  operations: {
+    preview: boolean;
+    parse: boolean;
+    ingest: boolean;
+    analyze: boolean;
+    streaming: boolean;
+    write: boolean;
+  };
+  options: Record<string, unknown>;
+  capabilities: string[];
+}

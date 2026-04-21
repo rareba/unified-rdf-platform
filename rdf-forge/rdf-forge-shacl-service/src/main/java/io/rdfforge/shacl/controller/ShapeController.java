@@ -2,6 +2,8 @@ package io.rdfforge.shacl.controller;
 
 import io.rdfforge.common.model.Shape;
 import io.rdfforge.common.model.ValidationReport;
+import io.rdfforge.common.security.AuthUser;
+import io.rdfforge.common.security.CurrentUser;
 import io.rdfforge.engine.shacl.ShaclValidator;
 import io.rdfforge.shacl.service.ProfileValidationService;
 import io.rdfforge.shacl.service.ShapeBuilderService;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -36,7 +39,9 @@ public class ShapeController {
 
     @PostMapping
     @Operation(summary = "Create a new shape")
-    public ResponseEntity<Shape> create(@Valid @RequestBody Shape shape) {
+    public ResponseEntity<Shape> create(@Valid @RequestBody Shape shape, @CurrentUser AuthUser user) {
+        // Overwrite client-supplied createdBy with the gateway-trusted identity.
+        shape.setCreatedBy(user.id());
         Shape created = shapeService.create(shape);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -59,21 +64,31 @@ public class ShapeController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get shape by ID")
-    public ResponseEntity<Shape> getById(@PathVariable UUID id) {
+    public ResponseEntity<Shape> getById(@PathVariable UUID id, @CurrentUser AuthUser user) {
         Shape shape = shapeService.getById(id);
+        // Template shapes (template=true) are shared catalog items readable by
+        // any authenticated user. Non-template shapes are owned.
+        if (!shape.isTemplate()) {
+            requireOwnerOrAdmin(shape, user, "read");
+        }
         return ResponseEntity.ok(shape);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update shape")
-    public ResponseEntity<Shape> update(@PathVariable UUID id, @Valid @RequestBody Shape shape) {
+    public ResponseEntity<Shape> update(@PathVariable UUID id, @Valid @RequestBody Shape shape, @CurrentUser AuthUser user) {
+        Shape existing = shapeService.getById(id);
+        requireOwnerOrAdmin(existing, user, "update");
+        shape.setCreatedBy(existing.getCreatedBy()); // preserve ownership
         Shape updated = shapeService.update(id, shape);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete shape")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id, @CurrentUser AuthUser user) {
+        Shape existing = shapeService.getById(id);
+        requireOwnerOrAdmin(existing, user, "delete");
         shapeService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -176,6 +191,49 @@ public class ShapeController {
         return ResponseEntity.ok(results);
     }
 
+    @PostMapping("/validate-content")
+    @Operation(summary = "Validate SHACL content inline",
+               description = "Validates Turtle content syntax and optionally against a profile. Used by SHACL Studio editor.")
+    public ResponseEntity<Map<String, Object>> validateContent(@RequestBody ContentValidationRequest request) {
+        if (request.getContent() == null || request.getContent().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "valid", false,
+                "results", List.of(Map.of("message", "Content is required"))
+            ));
+        }
+
+        // First validate syntax
+        boolean syntaxValid = shaclValidator.validateSyntax(request.getContent());
+        if (!syntaxValid) {
+            return ResponseEntity.ok(Map.of(
+                "valid", false,
+                "results", List.of(Map.of(
+                    "message", "Invalid Turtle syntax",
+                    "severity", "error",
+                    "sourceShape", ""
+                ))
+            ));
+        }
+
+        // If a profile is specified, validate against it
+        if (request.getProfile() != null && !request.getProfile().isBlank()
+                && profileValidationService.isProfileAvailable(request.getProfile())) {
+            ValidationReport report = profileValidationService.validateAgainstProfile(
+                request.getContent(), "TURTLE", request.getProfile()
+            );
+            return ResponseEntity.ok(Map.of(
+                "valid", report.isConforms(),
+                "results", report.getResults() != null ? report.getResults() : List.of()
+            ));
+        }
+
+        // Syntax is valid, no profile errors
+        return ResponseEntity.ok(Map.of(
+            "valid", true,
+            "results", List.of()
+        ));
+    }
+
     @lombok.Data
     public static class ValidationRequest {
         private UUID shapeId;
@@ -189,6 +247,24 @@ public class ShapeController {
         private String profile;
         private String dataContent;
         private String dataFormat;
+    }
+
+    @lombok.Data
+    public static class ContentValidationRequest {
+        private String content;
+        private String profile;
+    }
+
+    /**
+     * Ownership guard for shapes. Null createdBy means legacy/unowned —
+     * only admins may access those records.
+     */
+    private static void requireOwnerOrAdmin(Shape shape, AuthUser user, String action) {
+        if (user.isAdmin()) return;
+        UUID owner = shape.getCreatedBy();
+        if (owner == null || !owner.equals(user.id())) {
+            throw new AccessDeniedException("Not authorized to " + action + " this shape");
+        }
     }
 }
 

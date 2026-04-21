@@ -33,19 +33,24 @@ public class DataService {
         "text/csv",
         "text/plain",
         "text/tab-separated-values",
+        "text/xml",
+        "application/xml",
         "application/json",
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/octet-stream" // For binary files that need content sniffing
     );
 
-    // File extensions to MIME type mapping for validation
+    // File extensions to MIME type mapping for validation. Parquet is intentionally
+    // absent — the format is known to the registry as a stub only, and uploads must
+    // be rejected at this layer rather than silently accepted and then broken later.
     private static final Map<String, String> EXTENSION_TO_MIME = Map.of(
         ".csv", "text/csv",
         ".tsv", "text/tab-separated-values",
         ".json", "application/json",
         ".xls", "application/vnd.ms-excel",
         ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xml", "application/xml",
         ".txt", "text/plain"
     );
 
@@ -91,6 +96,14 @@ public class DataService {
         }
 
         DataFormat format = detectFormat(file.getOriginalFilename());
+
+        // Parquet is declared in the DataFormat enum for forward compatibility but
+        // is not implemented. Reject the upload loudly so the user is not lied to.
+        if (format == DataFormat.PARQUET) {
+            throw new IllegalArgumentException(
+                "Parquet uploads are not supported yet. See docs/TODO_PARQUET.md for status.");
+        }
+
         Path tempFile = null;
 
         try {
@@ -114,10 +127,10 @@ public class DataService {
             entity.setSizeBytes(file.getSize());
             entity.setStoragePath(storagePath);
             entity.setUploadedBy(userId);
-            entity.setCreatedAt(Instant.now());
+            entity.setUploadedAt(Instant.now());
 
             if (analyze) {
-                Map<String, Object> analysisResult = analyzeFile(tempFile, format, encoding);
+                Map<String, Object> analysisResult = analyzeFile(file, format, encoding);
                 entity.setRowCount((Long) analysisResult.get("rowCount"));
                 entity.setColumnCount((Integer) analysisResult.get("columnCount"));
                 entity.setMetadata(analysisResult);

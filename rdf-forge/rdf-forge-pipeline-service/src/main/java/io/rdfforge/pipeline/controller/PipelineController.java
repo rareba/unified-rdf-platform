@@ -1,6 +1,8 @@
 package io.rdfforge.pipeline.controller;
 
 import io.rdfforge.common.model.Pipeline;
+import io.rdfforge.common.security.AuthUser;
+import io.rdfforge.common.security.CurrentUser;
 import io.rdfforge.engine.operation.OperationRegistry;
 import io.rdfforge.pipeline.service.PipelineService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -28,15 +31,23 @@ public class PipelineController {
 
     @PostMapping
     @Operation(summary = "Create a new pipeline")
-    public ResponseEntity<Pipeline> create(@Valid @RequestBody Pipeline pipeline) {
+    public ResponseEntity<Pipeline> create(@Valid @RequestBody Pipeline pipeline, @CurrentUser AuthUser user) {
+        // Always overwrite client-supplied createdBy/updatedBy with the
+        // gateway-trusted identity. Clients must not be able to forge ownership.
+        pipeline.setCreatedBy(user.id());
+        pipeline.setUpdatedBy(user.id());
         Pipeline created = pipelineService.create(pipeline);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PostMapping("/batch")
     @Operation(summary = "Create multiple pipelines")
-    public ResponseEntity<List<Pipeline>> createBatch(@Valid @RequestBody List<Pipeline> pipelines) {
+    public ResponseEntity<List<Pipeline>> createBatch(@Valid @RequestBody List<Pipeline> pipelines, @CurrentUser AuthUser user) {
         List<Pipeline> created = pipelines.stream()
+            .peek(p -> {
+                p.setCreatedBy(user.id());
+                p.setUpdatedBy(user.id());
+            })
             .map(pipelineService::create)
             .toList();
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -59,21 +70,29 @@ public class PipelineController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get pipeline by ID")
-    public ResponseEntity<Pipeline> getById(@PathVariable UUID id) {
+    public ResponseEntity<Pipeline> getById(@PathVariable UUID id, @CurrentUser AuthUser user) {
         Pipeline pipeline = pipelineService.getById(id);
+        requireOwnerOrAdmin(pipeline, user, "read");
         return ResponseEntity.ok(pipeline);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update pipeline")
-    public ResponseEntity<Pipeline> update(@PathVariable UUID id, @Valid @RequestBody Pipeline pipeline) {
+    public ResponseEntity<Pipeline> update(@PathVariable UUID id, @Valid @RequestBody Pipeline pipeline, @CurrentUser AuthUser user) {
+        Pipeline existing = pipelineService.getById(id);
+        requireOwnerOrAdmin(existing, user, "update");
+        // Preserve original createdBy, record the current user as updater.
+        pipeline.setCreatedBy(existing.getCreatedBy());
+        pipeline.setUpdatedBy(user.id());
         Pipeline updated = pipelineService.update(id, pipeline);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete pipeline")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id, @CurrentUser AuthUser user) {
+        Pipeline existing = pipelineService.getById(id);
+        requireOwnerOrAdmin(existing, user, "delete");
         pipelineService.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -82,8 +101,16 @@ public class PipelineController {
     @Operation(summary = "Duplicate a pipeline")
     public ResponseEntity<Pipeline> duplicate(
             @PathVariable UUID id,
-            @RequestParam(required = false) String newName) {
+            @RequestParam(required = false) String newName,
+            @CurrentUser AuthUser user) {
+        // Duplicate is a read on the source + create of a new pipeline. The source
+        // must be readable by this user; the new pipeline is owned by this user.
+        Pipeline original = pipelineService.getById(id);
+        requireOwnerOrAdmin(original, user, "duplicate");
         Pipeline duplicated = pipelineService.duplicate(id, newName);
+        // The new pipeline should be owned by the duplicating user; reset createdBy.
+        duplicated.setCreatedBy(user.id());
+        duplicated = pipelineService.update(duplicated.getId(), duplicated);
         return ResponseEntity.status(HttpStatus.CREATED).body(duplicated);
     }
 
@@ -113,5 +140,18 @@ public class PipelineController {
         return operationRegistry.getOperationInfo(operationId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Ownership guard for pipelines. Legacy pipelines with a null createdBy are
+     * readable/modifiable only by admins so that they don't silently become
+     * publicly accessible after authz rollout.
+     */
+    private static void requireOwnerOrAdmin(Pipeline pipeline, AuthUser user, String action) {
+        if (user.isAdmin()) return;
+        UUID owner = pipeline.getCreatedBy();
+        if (owner == null || !owner.equals(user.id())) {
+            throw new AccessDeniedException("Not authorized to " + action + " this pipeline");
+        }
     }
 }
