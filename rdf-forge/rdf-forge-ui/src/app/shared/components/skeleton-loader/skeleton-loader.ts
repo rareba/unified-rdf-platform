@@ -8,7 +8,7 @@ export type SkeletonType = 'text' | 'circle' | 'rectangle' | 'card' | 'table-row
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="skeleton-container" [class]="containerClass">
+    <div class="skeleton-container" [class]="containerClass" aria-hidden="true" role="presentation">
       @switch (type) {
         @case ('text') {
           @for (line of lines; track $index) {

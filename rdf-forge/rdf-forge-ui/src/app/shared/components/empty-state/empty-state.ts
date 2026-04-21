@@ -10,7 +10,7 @@ export type EmptyStateType = 'no-data' | 'error' | 'search' | 'filter' | 'custom
   standalone: true,
   imports: [CommonModule, MatButtonModule, MatIconModule],
   template: `
-    <div class="empty-state" [class]="containerClass">
+    <div class="empty-state" [class]="containerClass" role="status">
       <div class="empty-state-icon">
         @if (icon) {
           <mat-icon [class]="iconClass">{{ icon }}</mat-icon>
@@ -99,36 +99,36 @@ export type EmptyStateType = 'no-data' | 'error' | 'search' | 'filter' | 'custom
     }
 
     .empty-state-icon .icon-muted {
-      color: #9e9e9e;
+      color: var(--rdf-text-disabled, #9e9e9e);
     }
 
     .empty-state-icon .icon-error {
-      color: #f44336;
+      color: var(--rdf-status-error, #f44336);
     }
 
     .empty-state-icon .icon-success {
-      color: #4caf50;
+      color: var(--rdf-status-success, #4caf50);
     }
 
     .empty-state-icon .icon-warning {
-      color: #ff9800;
+      color: var(--rdf-status-warning, #ff9800);
     }
 
     .empty-state-icon .icon-primary {
-      color: #1976d2;
+      color: var(--rdf-primary, #1976d2);
     }
 
     .empty-state-title {
       margin: 0 0 8px 0;
       font-size: 18px;
       font-weight: 500;
-      color: rgba(0, 0, 0, 0.87);
+      color: var(--rdf-text-primary, rgba(0, 0, 0, 0.87));
     }
 
     .empty-state-description {
       margin: 0 0 24px 0;
       font-size: 14px;
-      color: rgba(0, 0, 0, 0.6);
+      color: var(--rdf-text-secondary, rgba(0, 0, 0, 0.6));
       max-width: 400px;
       line-height: 1.5;
     }
@@ -161,16 +161,14 @@ export type EmptyStateType = 'no-data' | 'error' | 'search' | 'filter' | 'custom
     }
 
     /* Dark theme support */
-    :host-context(.dark-theme) .empty-state-title {
-      color: rgba(255, 255, 255, 0.87);
-    }
-
-    :host-context(.dark-theme) .empty-state-description {
-      color: rgba(255, 255, 255, 0.6);
-    }
-
-    :host-context(.dark-theme) .empty-state-icon .icon-muted {
-      color: #757575;
+    :host-context(.dark-theme) {
+      --rdf-text-primary: rgba(255, 255, 255, 0.87);
+      --rdf-text-secondary: rgba(255, 255, 255, 0.6);
+      --rdf-text-disabled: #757575;
+      --rdf-status-error: #ef5350;
+      --rdf-status-success: #66bb6a;
+      --rdf-status-warning: #ffa726;
+      --rdf-primary: #42a5f5;
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush

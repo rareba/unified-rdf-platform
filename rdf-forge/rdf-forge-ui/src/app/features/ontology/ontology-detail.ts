@@ -13,6 +13,7 @@ import { Ontology } from '../../core/models';
 import { BrowsePanel } from './browse-panel';
 import { NamespaceManager } from './namespace-manager';
 import { SourceEditor } from './source-editor';
+import { CommentThread } from '../collaboration/comment-thread';
 
 /**
  * Ontology workspace page with tabs: Overview | Browse | Namespaces | Source.
@@ -32,7 +33,8 @@ import { SourceEditor } from './source-editor';
     MatTooltipModule,
     BrowsePanel,
     NamespaceManager,
-    SourceEditor
+    SourceEditor,
+    CommentThread
   ],
   template: `
     @if (loading()) {
@@ -127,6 +129,13 @@ import { SourceEditor } from './source-editor';
             </div>
           </mat-tab>
         </mat-tab-group>
+
+        <!-- Phase 10: inline collaboration thread on the ontology asset. -->
+        <app-comment-thread
+          [projectId]="o.projectId"
+          assetKind="ONTOLOGY"
+          [assetId]="o.id">
+        </app-comment-thread>
       </div>
     }
   `,

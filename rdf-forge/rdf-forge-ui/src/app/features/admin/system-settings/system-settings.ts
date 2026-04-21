@@ -1,5 +1,7 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,9 +9,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { SUPPRESS_ERROR_NOTIFICATION } from '../../../core/interceptors/error.interceptor';
 
 interface ServiceHealth {
   name: string;
@@ -268,10 +271,11 @@ interface SystemInfo {
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SystemSettings implements OnInit {
+export class SystemSettings implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly snackBar = inject(MatSnackBar);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly destroy$ = new Subject<void>();
 
   readonly env = environment;
 
@@ -284,8 +288,15 @@ export class SystemSettings implements OnInit {
     this.checkHealth();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadSystemInfo(): void {
-    this.http.get<SystemInfo>(`${this.env.apiBaseUrl}/system/info`).subscribe({
+    this.http.get<SystemInfo>(`${this.env.apiBaseUrl}/admin/system/info`, {
+      context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (info) => this.systemInfo.set(info),
       error: () => {
         // Default info for offline mode
@@ -302,7 +313,6 @@ export class SystemSettings implements OnInit {
     this.checking.set(true);
 
     const servicesList: ServiceHealth[] = [
-      { name: 'API Gateway', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/health` },
       { name: 'Pipeline Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/pipelines` },
       { name: 'Data Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/data` },
       { name: 'SHACL Service', status: 'UNKNOWN', url: `${this.env.apiBaseUrl}/shapes` },
@@ -314,7 +324,10 @@ export class SystemSettings implements OnInit {
     let completed = 0;
     servicesList.forEach((service, index) => {
       const start = Date.now();
-      this.http.get(service.url, { observe: 'response' }).subscribe({
+      this.http.get(service.url, {
+        observe: 'response',
+        context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+      }).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           servicesList[index].status = 'UP';
           servicesList[index].responseTime = Date.now() - start;
@@ -364,7 +377,10 @@ export class SystemSettings implements OnInit {
   }
 
   downloadLogs(): void {
-    this.http.get(`${this.env.apiBaseUrl}/admin/logs`, { responseType: 'blob' }).subscribe({
+    this.http.get(`${this.env.apiBaseUrl}/admin/logs`, {
+      responseType: 'blob',
+      context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -385,9 +401,11 @@ export class SystemSettings implements OnInit {
       message: 'Restart all services? This may cause temporary downtime.',
       confirmText: 'Restart',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
-      this.http.post(`${this.env.apiBaseUrl}/admin/restart`, {}).subscribe({
+      this.http.post(`${this.env.apiBaseUrl}/admin/restart`, {}, {
+        context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+      }).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.snackBar.open('Restart initiated', 'Close', { duration: 3000 });
           setTimeout(() => this.checkHealth(), 5000);
@@ -405,7 +423,7 @@ export class SystemSettings implements OnInit {
       message: 'Clear all local storage? This will reset your settings.',
       confirmText: 'Clear',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
       localStorage.clear();
       this.snackBar.open('Local storage cleared', 'Close', { duration: 3000 });

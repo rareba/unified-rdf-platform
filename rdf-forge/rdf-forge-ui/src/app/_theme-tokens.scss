@@ -1,0 +1,118 @@
+// =============================================================================
+// RDF Forge — Design Token System
+// =============================================================================
+// Single source of truth for all color, spacing, elevation, and layout tokens.
+// Import once in styles.scss; consume everywhere via var(--rdf-*).
+// =============================================================================
+
+:root {
+  // ---------------------------------------------------------------------------
+  // Status colors (semantic)
+  // ---------------------------------------------------------------------------
+  --rdf-status-success: #4caf50;
+  --rdf-status-success-bg: rgba(76, 175, 80, 0.12);
+  --rdf-status-warning: #ff9800;
+  --rdf-status-warning-bg: rgba(255, 152, 0, 0.12);
+  --rdf-status-error: #f44336;
+  --rdf-status-error-bg: rgba(244, 67, 54, 0.12);
+  --rdf-status-info: #2196f3;
+  --rdf-status-info-bg: rgba(33, 150, 243, 0.12);
+
+  // ---------------------------------------------------------------------------
+  // Cube lifecycle status badges
+  // ---------------------------------------------------------------------------
+  --rdf-status-draft-bg: #e0e0e0;
+  --rdf-status-draft-fg: #424242;
+  --rdf-status-mapped-bg: #ffe0b2;
+  --rdf-status-mapped-fg: #e65100;
+  --rdf-status-transformed-bg: #bbdefb;
+  --rdf-status-transformed-fg: #0d47a1;
+  --rdf-status-published-bg: #c8e6c9;
+  --rdf-status-published-fg: #1b5e20;
+
+  // ---------------------------------------------------------------------------
+  // Text colors
+  // ---------------------------------------------------------------------------
+  --rdf-text-primary: rgba(0, 0, 0, 0.87);
+  --rdf-text-secondary: rgba(0, 0, 0, 0.54);
+  --rdf-text-disabled: rgba(0, 0, 0, 0.38);
+  --rdf-text-hint: rgba(0, 0, 0, 0.26);
+
+  // ---------------------------------------------------------------------------
+  // Surface colors
+  // ---------------------------------------------------------------------------
+  --rdf-surface: #ffffff;
+  --rdf-surface-variant: #f5f5f5;
+  --rdf-surface-hover: rgba(0, 0, 0, 0.04);
+  --rdf-surface-selected: rgba(0, 0, 0, 0.08);
+
+  // ---------------------------------------------------------------------------
+  // Borders
+  // ---------------------------------------------------------------------------
+  --rdf-border-color: rgba(0, 0, 0, 0.12);
+  --rdf-border-subtle: rgba(0, 0, 0, 0.08);
+
+  // ---------------------------------------------------------------------------
+  // Primary accent (Material indigo — used for links, selections, icons)
+  // ---------------------------------------------------------------------------
+  --rdf-primary: #3f51b5;
+  --rdf-primary-light: rgba(63, 81, 181, 0.10);
+  --rdf-primary-selected: rgba(63, 81, 181, 0.08);
+
+  // ---------------------------------------------------------------------------
+  // Danger / destructive
+  // ---------------------------------------------------------------------------
+  --rdf-danger: #c62828;
+
+  // ---------------------------------------------------------------------------
+  // Z-index scale
+  // ---------------------------------------------------------------------------
+  --rdf-z-dropdown: 100;
+  --rdf-z-sticky: 200;
+  --rdf-z-fixed: 500;
+  --rdf-z-modal-backdrop: 900;
+  --rdf-z-modal: 1000;
+  --rdf-z-tooltip: 1200;
+
+  // ---------------------------------------------------------------------------
+  // Spacing (8px base grid)
+  // ---------------------------------------------------------------------------
+  --rdf-space-xs: 4px;
+  --rdf-space-sm: 8px;
+  --rdf-space-md: 16px;
+  --rdf-space-lg: 24px;
+  --rdf-space-xl: 32px;
+
+  // ---------------------------------------------------------------------------
+  // Border radius
+  // ---------------------------------------------------------------------------
+  --rdf-radius-sm: 4px;
+  --rdf-radius-md: 8px;
+  --rdf-radius-lg: 12px;
+  --rdf-radius-pill: 9999px;
+}
+
+// =============================================================================
+// Dark mode overrides (system preference)
+// =============================================================================
+@media (prefers-color-scheme: dark) {
+  :root {
+    // Text
+    --rdf-text-primary: rgba(255, 255, 255, 0.87);
+    --rdf-text-secondary: rgba(255, 255, 255, 0.60);
+    --rdf-text-disabled: rgba(255, 255, 255, 0.38);
+    --rdf-text-hint: rgba(255, 255, 255, 0.30);
+
+    // Surfaces
+    --rdf-surface: #1e1e1e;
+    --rdf-surface-variant: #2d2d2d;
+    --rdf-surface-hover: rgba(255, 255, 255, 0.08);
+    --rdf-surface-selected: rgba(255, 255, 255, 0.12);
+
+    // Borders
+    --rdf-border-color: rgba(255, 255, 255, 0.12);
+    --rdf-border-subtle: rgba(255, 255, 255, 0.08);
+
+    // Status colors stay the same — they are already vibrant enough on dark bg.
+  }
+}

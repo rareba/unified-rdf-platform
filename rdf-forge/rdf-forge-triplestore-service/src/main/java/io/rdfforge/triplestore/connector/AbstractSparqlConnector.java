@@ -12,8 +12,11 @@ import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.update.UpdateFactory;
 import org.apache.jena.update.UpdateRequest;
 
+import org.apache.jena.http.auth.AuthEnv;
+
 import java.io.ByteArrayInputStream;
 import java.io.StringWriter;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -97,6 +100,12 @@ public abstract class AbstractSparqlConnector implements TriplestoreConnector {
 
         try (RDFConnection conn = createConnection()) {
             Query parsedQuery = QueryFactory.create(query);
+
+            // If a target graph is specified and the query doesn't already reference it,
+            // add a FROM clause so unqualified triple patterns query that graph
+            if (graph != null && !graph.isBlank() && !query.contains(graph)) {
+                parsedQuery.addGraphURI(graph);
+            }
 
             try (QueryExecution qExec = conn.query(parsedQuery)) {
                 if (parsedQuery.isSelectType()) {
@@ -271,8 +280,10 @@ public abstract class AbstractSparqlConnector implements TriplestoreConnector {
             builder.gspEndpoint(graphStoreEndpoint);
         }
 
-        // Note: Authentication configuration would be added here
-        // For basic auth, you would configure the HTTP client
+        // Configure HTTP Basic Authentication if credentials are provided
+        if (username != null && password != null) {
+            AuthEnv.get().registerUsernamePassword(URI.create(baseUrl), username, password);
+        }
 
         return builder.build();
     }

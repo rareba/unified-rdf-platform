@@ -1,6 +1,8 @@
-import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,9 +15,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { SUPPRESS_ERROR_NOTIFICATION } from '../../../core/interceptors/error.interceptor';
 
 interface PersonalAccessToken {
   id: string;
@@ -359,10 +362,11 @@ const TOKEN_EXPIRATION_OPTIONS = [
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TokenManagement implements OnInit {
+export class TokenManagement implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly snackBar = inject(MatSnackBar);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly destroy$ = new Subject<void>();
 
   readonly env = environment;
   readonly displayedColumns = ['name', 'token', 'expires', 'lastUsed', 'status', 'actions'];
@@ -386,10 +390,17 @@ export class TokenManagement implements OnInit {
     this.loadTokens();
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   loadTokens(): void {
     this.loading.set(true);
 
-    this.http.get<PersonalAccessToken[]>(`${this.env.apiBaseUrl}/auth/tokens`).subscribe({
+    this.http.get<PersonalAccessToken[]>(`${this.env.apiBaseUrl}/auth/tokens`, {
+      context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (tokens) => {
         this.tokens.set(tokens);
         this.loading.set(false);
@@ -434,7 +445,9 @@ export class TokenManagement implements OnInit {
     if (!this.newToken.name) return;
 
     this.loading.set(true);
-    this.http.post<CreateTokenResponse>(`${this.env.apiBaseUrl}/auth/tokens`, this.newToken).subscribe({
+    this.http.post<CreateTokenResponse>(`${this.env.apiBaseUrl}/auth/tokens`, this.newToken, {
+      context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.tokens.update(tokens => [response.token, ...tokens]);
         this.createdToken.set(response.plainToken);
@@ -475,9 +488,11 @@ export class TokenManagement implements OnInit {
       message: `Revoke token "${token.name}"? This cannot be undone.`,
       confirmText: 'Revoke',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
-      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
+      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`, {
+        context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+      }).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.tokens.update(tokens =>
             tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)

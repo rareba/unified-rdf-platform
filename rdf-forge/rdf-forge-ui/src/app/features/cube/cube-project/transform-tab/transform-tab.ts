@@ -84,7 +84,7 @@ function isTerminal(status: JobStatus): boolean {
             <div class="section-label">Current Run</div>
             <mat-progress-bar
               [mode]="job.status === 'running' ? 'indeterminate' : 'determinate'"
-              [value]="job.progress ?? 0">
+              [value]="job.progress">
             </mat-progress-bar>
             <div class="current-job-status">
               <span [class]="'status-text status-' + job.status">

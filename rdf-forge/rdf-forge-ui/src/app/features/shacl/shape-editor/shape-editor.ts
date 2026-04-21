@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +17,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ShaclService, TriplestoreService } from '../../../core/services';
 import { ShapeCreateRequest, ContentFormat, ValidationResult, TriplestoreConnection, Graph } from '../../../core/models';
 import { LoggerService } from '../../../core/services/logger.service';
@@ -190,7 +192,8 @@ const CONSTRAINT_PRESETS: ConstraintPreset[] = [
   styleUrl: './shape-editor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ShapeEditor implements OnInit {
+export class ShapeEditor implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly shaclService = inject(ShaclService);
@@ -280,6 +283,11 @@ export class ShapeEditor implements OnInit {
     { label: 'JSON-LD', value: 'jsonld' },
     { label: 'N-Triples', value: 'ntriples' }
   ];
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -398,7 +406,7 @@ export class ShapeEditor implements OnInit {
 
   loadShape(id: string): void {
     this.loading.set(true);
-    this.shaclService.get(id).subscribe({
+    this.shaclService.get(id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (shape) => {
         this.name.set(shape.name);
         this.uri.set(shape.uri);
@@ -579,7 +587,7 @@ export class ShapeEditor implements OnInit {
       ? this.shaclService.create(data)
       : this.shaclService.update(this.shapeId()!, data);
 
-    request.subscribe({
+    request.pipe(takeUntil(this.destroy$)).subscribe({
       next: (shape) => {
         this.snackBar.open('Shape saved successfully', 'Close', { duration: 3000 });
         this.saving.set(false);
@@ -598,7 +606,7 @@ export class ShapeEditor implements OnInit {
     if (this.visualMode()) {
         this.generateShacl();
     }
-    this.shaclService.validateSyntax(this.content(), this.contentFormat()).subscribe({
+    this.shaclService.validateSyntax(this.content(), this.contentFormat()).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         if (result.valid) {
           this.snackBar.open('Syntax is valid', 'Close', { duration: 3000 });
@@ -621,7 +629,7 @@ export class ShapeEditor implements OnInit {
     this.validating.set(true);
     this.validationResult.set(null);
 
-    this.shaclService.runValidation(this.shapeId()!, this.testData(), this.testDataFormat()).subscribe({
+    this.shaclService.runValidation(this.shapeId()!, this.testData(), this.testDataFormat()).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.validationResult.set(result);
         this.validating.set(false);
@@ -645,7 +653,7 @@ export class ShapeEditor implements OnInit {
   // Triplestore Integration Methods
   loadTriplestoreConnections(): void {
     this.loadingConnections.set(true);
-    this.triplestoreService.list().subscribe({
+    this.triplestoreService.list().pipe(takeUntil(this.destroy$)).subscribe({
       next: (connections) => {
         this.triplestoreConnections.set(connections);
         this.loadingConnections.set(false);
@@ -669,7 +677,7 @@ export class ShapeEditor implements OnInit {
 
   loadGraphsForConnection(connectionId: string): void {
     this.loadingGraphs.set(true);
-    this.triplestoreService.getGraphs(connectionId).subscribe({
+    this.triplestoreService.getGraphs(connectionId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (graphs) => {
         this.connectionGraphs.set(graphs);
         this.loadingGraphs.set(false);
@@ -695,7 +703,7 @@ export class ShapeEditor implements OnInit {
     }
 
     this.loadingGraphData.set(true);
-    this.triplestoreService.exportGraph(connection.id, graph.uri, 'turtle').subscribe({
+    this.triplestoreService.exportGraph(connection.id, graph.uri, 'turtle').pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.testData.set(data);
         this.testDataFormat.set('turtle');

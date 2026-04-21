@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS data_sources (
     description TEXT,
     original_filename VARCHAR(500) NOT NULL,
     storage_path VARCHAR(1000) NOT NULL,
+    storage_type VARCHAR(50) DEFAULT 'S3',
     format VARCHAR(50) NOT NULL,
     encoding VARCHAR(50) DEFAULT 'UTF-8',
     size_bytes BIGINT,
@@ -20,13 +21,19 @@ CREATE TABLE IF NOT EXISTS data_sources (
     analysis_status VARCHAR(50) DEFAULT 'PENDING',
     checksum VARCHAR(64),
     metadata JSONB,
+    uploaded_by UUID,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Storage type check
+ALTER TABLE data_sources ADD CONSTRAINT data_sources_storage_type_check
+    CHECK (storage_type IS NULL OR storage_type IN ('S3', 'LOCAL', 'URL'));
+
 -- Format check
-ALTER TABLE data_sources ADD CONSTRAINT data_sources_format_check 
+ALTER TABLE data_sources ADD CONSTRAINT data_sources_format_check
     CHECK (format IN ('CSV', 'TSV', 'JSON', 'JSONL', 'XLSX', 'PARQUET', 'XML', 'RDF'));
 
 -- Analysis status check

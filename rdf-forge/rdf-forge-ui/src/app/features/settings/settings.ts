@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -17,6 +17,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { HttpClient } from '@angular/common/http';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmationService } from '../../core/services/confirmation.service';
@@ -167,7 +169,8 @@ const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   styleUrl: './settings.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class Settings implements OnInit {
+export class Settings implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
@@ -266,6 +269,11 @@ export class Settings implements OnInit {
     // Settings are loaded via APP_INITIALIZER, just update loading state
     this.loading.set(false);
     this.checkServicesHealth();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadSettings(): void {
@@ -375,7 +383,7 @@ export class Settings implements OnInit {
       message: 'Are you sure you want to reset all settings to defaults? This cannot be undone.',
       confirmText: 'Reset',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (confirmed) {
         this.resetSettings();
       }
@@ -395,7 +403,7 @@ export class Settings implements OnInit {
       message: 'Clear all cached data? This will not affect your settings.',
       confirmText: 'Clear',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (confirmed) {
         this.clearCache();
       }
@@ -431,7 +439,7 @@ export class Settings implements OnInit {
     let completed = 0;
     services.forEach((service, index) => {
       const start = Date.now();
-      this.http.get(`${service.url}`, { observe: 'response' }).subscribe({
+      this.http.get(`${service.url}`, { observe: 'response' }).pipe(takeUntil(this.destroy$)).subscribe({
         next: (response) => {
           // Check if response indicates healthy service
           services[index].status = response.status >= 200 && response.status < 300 ? 'UP' : 'DOWN';
@@ -551,7 +559,7 @@ export class Settings implements OnInit {
 
     // When Keycloak is enabled, fetch from API
     this.loadingUsers.set(true);
-    this.http.get<UserInfo[]>(`${this.env.apiBaseUrl}/admin/users`).subscribe({
+    this.http.get<UserInfo[]>(`${this.env.apiBaseUrl}/admin/users`).pipe(takeUntil(this.destroy$)).subscribe({
       next: (users) => {
         this.users.set(users);
         this.updateRoleCounts();
@@ -583,7 +591,7 @@ export class Settings implements OnInit {
 
     if (this.env.auth.enabled) {
       // Save to Keycloak via API
-      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}`, user).subscribe({
+      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}`, user).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.users.update(users => users.map(u => u.id === user.id ? user : u));
           this.updateRoleCounts();
@@ -606,7 +614,7 @@ export class Settings implements OnInit {
   toggleUserEnabled(user: UserInfo): void {
     const updatedUser = { ...user, enabled: !user.enabled };
     if (this.env.auth.enabled) {
-      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}/enabled`, { enabled: updatedUser.enabled }).subscribe({
+      this.http.put(`${this.env.apiBaseUrl}/admin/users/${user.id}/enabled`, { enabled: updatedUser.enabled }).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.users.update(users => users.map(u => u.id === user.id ? updatedUser : u));
           this.snackBar.open(`User ${updatedUser.enabled ? 'enabled' : 'disabled'}`, 'Close', { duration: 3000 });
@@ -640,7 +648,7 @@ export class Settings implements OnInit {
     }
 
     if (this.env.auth.enabled) {
-      this.http.post(`${this.env.apiBaseUrl}/admin/roles`, role).subscribe({
+      this.http.post(`${this.env.apiBaseUrl}/admin/roles`, role).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.roles.update(roles => [...roles, { ...role, userCount: 0 }]);
           this.roleDialogVisible.set(false);
@@ -673,10 +681,10 @@ export class Settings implements OnInit {
       message: `Delete role "${role.name}"?`,
       confirmText: 'Delete',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
       if (this.env.auth.enabled) {
-        this.http.delete(`${this.env.apiBaseUrl}/admin/roles/${role.name}`).subscribe({
+        this.http.delete(`${this.env.apiBaseUrl}/admin/roles/${role.name}`).pipe(takeUntil(this.destroy$)).subscribe({
           next: () => {
             this.roles.update(roles => roles.filter(r => r.name !== role.name));
             this.snackBar.open('Role deleted', 'Close', { duration: 3000 });
@@ -738,7 +746,7 @@ export class Settings implements OnInit {
   // Personal Access Token Methods
   loadPersonalAccessTokens(): void {
     this.loadingTokens.set(true);
-    this.http.get<PersonalAccessToken[]>(`${this.env.apiBaseUrl}/auth/tokens`).subscribe({
+    this.http.get<PersonalAccessToken[]>(`${this.env.apiBaseUrl}/auth/tokens`).pipe(takeUntil(this.destroy$)).subscribe({
       next: (tokens) => {
         this.personalAccessTokens.set(tokens);
         this.loadingTokens.set(false);
@@ -787,7 +795,7 @@ export class Settings implements OnInit {
     }
 
     this.loadingTokens.set(true);
-    this.http.post<CreateTokenResponse>(`${this.env.apiBaseUrl}/auth/tokens`, tokenRequest).subscribe({
+    this.http.post<CreateTokenResponse>(`${this.env.apiBaseUrl}/auth/tokens`, tokenRequest).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.personalAccessTokens.update(tokens => [response.token, ...tokens]);
         this.createdToken.set(response.plainToken);
@@ -844,9 +852,9 @@ export class Settings implements OnInit {
       message: `Are you sure you want to revoke the token "${token.name}"? This action cannot be undone.`,
       confirmText: 'Revoke',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
-      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).subscribe({
+      this.http.delete(`${this.env.apiBaseUrl}/auth/tokens/${token.id}`).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.personalAccessTokens.update(tokens =>
             tokens.map(t => t.id === token.id ? { ...t, revoked: true } : t)

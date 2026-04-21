@@ -103,13 +103,19 @@ export interface ExistingDataSource {
               (dragover)="onDragOver($event)"
               (dragleave)="onDragLeave($event)"
               (drop)="onDrop($event)"
-              (click)="fileInput.click()">
+              (click)="fileInput.click()"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="fileInput.click()"
+              (keydown.space)="fileInput.click(); $event.preventDefault()"
+              aria-label="File upload drop zone. Click or press Enter to browse files.">
               <input
                 #fileInput
                 type="file"
                 [accept]="acceptedFormats"
                 (change)="onFileSelected($event)"
-                hidden>
+                hidden
+                aria-label="Choose file to upload">
 
               @if (selectedFile()) {
                 <div class="selected-file">
@@ -165,7 +171,7 @@ export interface ExistingDataSource {
 
                   <div class="checkbox-field">
                     <label>
-                      <input type="checkbox" [(ngModel)]="csvOptions.hasHeader">
+                      <input type="checkbox" [(ngModel)]="csvOptions.hasHeader" aria-label="First row is header">
                       First row is header
                     </label>
                   </div>
@@ -223,8 +229,8 @@ export interface ExistingDataSource {
                       <mat-label>Value</mat-label>
                       <input matInput [(ngModel)]="header.value" placeholder="Bearer token...">
                     </mat-form-field>
-                    <button mat-icon-button color="warn" (click)="removeHeader(i)">
-                      <mat-icon>delete</mat-icon>
+                    <button mat-icon-button color="warn" (click)="removeHeader(i)" aria-label="Remove header">
+                      <mat-icon aria-hidden="true">delete</mat-icon>
                     </button>
                   </div>
                 }
@@ -238,11 +244,15 @@ export interface ExistingDataSource {
             @if (urlValue) {
               <button mat-raised-button color="primary" (click)="fetchUrlPreview()" [disabled]="isLoading()">
                 @if (isLoading()) {
-                  <mat-icon class="spin">refresh</mat-icon>
-                  Fetching...
+                  <ng-container>
+                    <mat-icon class="spin">refresh</mat-icon>
+                    Fetching...
+                  </ng-container>
                 } @else {
-                  <mat-icon>visibility</mat-icon>
-                  Preview Data
+                  <ng-container>
+                    <mat-icon>visibility</mat-icon>
+                    Preview Data
+                  </ng-container>
                 }
               </button>
             }
@@ -282,11 +292,15 @@ export interface ExistingDataSource {
             @if (sparqlEndpoint && sparqlQuery) {
               <button mat-raised-button color="primary" (click)="executeSparqlPreview()" [disabled]="isLoading()">
                 @if (isLoading()) {
-                  <mat-icon class="spin">refresh</mat-icon>
-                  Executing...
+                  <ng-container>
+                    <mat-icon class="spin">refresh</mat-icon>
+                    Executing...
+                  </ng-container>
                 } @else {
-                  <mat-icon>play_arrow</mat-icon>
-                  Test Query
+                  <ng-container>
+                    <mat-icon>play_arrow</mat-icon>
+                    Test Query
+                  </ng-container>
                 }
               </button>
             }

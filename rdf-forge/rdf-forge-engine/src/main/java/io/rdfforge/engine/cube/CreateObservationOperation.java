@@ -48,7 +48,9 @@ public class CreateObservationOperation implements Operation {
             "measures", new ParameterSpec("measures", "Measure column mappings", Map.class, true, null),
             "attributes", new ParameterSpec("attributes", "Attribute column mappings", Map.class, false, null),
             "dateFormat", new ParameterSpec("dateFormat", "Date format pattern", String.class, false, "yyyy-MM-dd"),
-            "emitUndefined", new ParameterSpec("emitUndefined", "Emit cube:Undefined for NULL values instead of skipping", Boolean.class, false, false)
+            "emitUndefined", new ParameterSpec("emitUndefined", "Emit cube:Undefined for NULL values instead of skipping", Boolean.class, false, false),
+            "emitConstraint", new ParameterSpec("emitConstraint", "Generate inline SHACL cube:Constraint alongside observations (inspired by Swiss FCh-Cube pattern)", Boolean.class, false, false),
+            "emitObservationSet", new ParameterSpec("emitObservationSet", "Generate cube:ObservationSet wrapper linking observations", Boolean.class, false, true)
         );
     }
 
@@ -65,6 +67,8 @@ public class CreateObservationOperation implements Operation {
 
         String dateFormat = (String) context.parameters().getOrDefault("dateFormat", "yyyy-MM-dd");
         Boolean emitUndefined = parseBoolean(context.parameters().getOrDefault("emitUndefined", false));
+        Boolean emitConstraint = parseBoolean(context.parameters().getOrDefault("emitConstraint", false));
+        Boolean emitObservationSet = parseBoolean(context.parameters().getOrDefault("emitObservationSet", true));
 
         if (context.inputStream() == null) {
             throw new OperationException(getId(), "No input stream provided");
@@ -73,6 +77,9 @@ public class CreateObservationOperation implements Operation {
         Model model = ModelFactory.createDefaultModel();
         model.setNsPrefix("cube", CUBE_NS);
         model.setNsPrefix("qb", QB_NS);
+        model.setNsPrefix("sh", "http://www.w3.org/ns/shacl#");
+        model.setNsPrefix("schema", "https://schema.org/");
+        model.setNsPrefix("qudt", "http://qudt.org/schema/qudt/");
 
         Resource cubeResource = model.createResource(cubeUri);
         Property observedBy = model.createProperty(CUBE_NS, "observedBy");
@@ -80,6 +87,18 @@ public class CreateObservationOperation implements Operation {
         
         // cube:Undefined resource for missing values (as per cube-link spec)
         Resource undefinedValue = model.createResource(CUBE_NS + "Undefined");
+
+        // ObservationSet wrapper (cube.link pattern from Swiss FCh-Cube)
+        String observationSetUri = cubeUri + "/observationSet";
+        if (emitObservationSet) {
+            Resource obsSet = model.createResource(observationSetUri);
+            model.add(cubeResource, RDF.type, model.createResource(CUBE_NS + "Cube"));
+            model.add(cubeResource, model.createProperty(CUBE_NS, "observationSet"), obsSet);
+        }
+
+        // Inline constraint tracking (inspired by Swiss FCh-Cube single-pass pattern)
+        Set<String> constraintPredicates = new HashSet<>();
+        String constraintUri = cubeUri + "/shape";
 
         long[] counter = {0};
         long[] undefinedCounter = {0};
@@ -99,6 +118,11 @@ public class CreateObservationOperation implements Operation {
                 model.add(observation, RDF.type, observationProp);
                 model.add(observation, observedBy, cubeResource);
 
+                if (emitObservationSet) {
+                    model.add(model.createResource(observationSetUri),
+                        model.createProperty(CUBE_NS, "observation"), observation);
+                }
+
                 for (Map.Entry<String, DimensionConfig> dim : dimensions.entrySet()) {
                     String column = dim.getKey();
                     DimensionConfig config = dim.getValue();
@@ -112,6 +136,16 @@ public class CreateObservationOperation implements Operation {
                         // Emit cube:Undefined for missing dimension values
                         model.add(observation, dimProperty, undefinedValue);
                         undefinedCounter[0]++;
+                    }
+                }
+
+                // Track predicates for inline constraint generation
+                if (emitConstraint) {
+                    for (Map.Entry<String, DimensionConfig> dim : dimensions.entrySet()) {
+                        String propUri = dim.getValue().propertyUri;
+                        if (!constraintPredicates.contains(propUri)) {
+                            constraintPredicates.add(propUri);
+                        }
                     }
                 }
 
@@ -131,6 +165,15 @@ public class CreateObservationOperation implements Operation {
                     }
                 }
 
+                if (emitConstraint) {
+                    for (Map.Entry<String, MeasureConfig> meas : measures.entrySet()) {
+                        String propUri = meas.getValue().propertyUri;
+                        if (!constraintPredicates.contains(propUri)) {
+                            constraintPredicates.add(propUri);
+                        }
+                    }
+                }
+
                 for (Map.Entry<String, AttributeConfig> attr : attributes.entrySet()) {
                     String column = attr.getKey();
                     AttributeConfig config = attr.getValue();
@@ -147,10 +190,95 @@ public class CreateObservationOperation implements Operation {
                     }
                 }
 
+                if (emitConstraint) {
+                    for (Map.Entry<String, AttributeConfig> attr : attributes.entrySet()) {
+                        String propUri = attr.getValue().propertyUri;
+                        if (!constraintPredicates.contains(propUri)) {
+                            constraintPredicates.add(propUri);
+                        }
+                    }
+                }
+
                 if (context.callback() != null && counter[0] % 1000 == 0) {
                     context.callback().onProgress(counter[0], -1);
                 }
             });
+
+        // Generate inline SHACL constraint (Swiss FCh-Cube single-pass pattern)
+        if (emitConstraint) {
+            Resource constraint = model.createResource(constraintUri);
+            model.add(constraint, RDF.type, model.createResource(CUBE_NS + "Constraint"));
+            model.add(constraint, RDF.type, model.createResource("http://www.w3.org/ns/shacl#NodeShape"));
+            model.add(constraint, model.createProperty("http://www.w3.org/ns/shacl#", "targetClass"),
+                model.createResource(CUBE_NS + "Observation"));
+            model.add(constraint, model.createProperty("http://www.w3.org/ns/shacl#", "closed"),
+                model.createTypedLiteral(true));
+            model.add(cubeResource, model.createProperty(CUBE_NS, "observationConstraint"), constraint);
+
+            // Dimension property shapes
+            for (Map.Entry<String, DimensionConfig> dim : dimensions.entrySet()) {
+                DimensionConfig config = dim.getValue();
+                Resource propShape = model.createResource();
+                model.add(constraint, model.createProperty("http://www.w3.org/ns/shacl#", "property"), propShape);
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "path"),
+                    model.createResource(config.propertyUri));
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "minCount"),
+                    model.createTypedLiteral(1));
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "maxCount"),
+                    model.createTypedLiteral(1));
+                if (config.valueUri != null) {
+                    model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "nodeKind"),
+                        model.createResource("http://www.w3.org/ns/shacl#IRI"));
+                }
+                // Mark as KeyDimension
+                Resource propResource = model.createResource(config.propertyUri);
+                if (config.keyDimension) {
+                    model.add(propResource, RDF.type, model.createResource(CUBE_NS + "KeyDimension"));
+                }
+                // qudt:scaleType (borrowed from Swiss FCh-Cube)
+                if (config.scaleType != null) {
+                    model.add(propShape, model.createProperty("http://qudt.org/schema/qudt/", "scaleType"),
+                        model.createResource(config.scaleType));
+                }
+            }
+
+            // Measure property shapes
+            for (Map.Entry<String, MeasureConfig> meas : measures.entrySet()) {
+                MeasureConfig config = meas.getValue();
+                Resource propShape = model.createResource();
+                model.add(constraint, model.createProperty("http://www.w3.org/ns/shacl#", "property"), propShape);
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "path"),
+                    model.createResource(config.propertyUri));
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "minCount"),
+                    model.createTypedLiteral(1));
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "maxCount"),
+                    model.createTypedLiteral(1));
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "nodeKind"),
+                    model.createResource("http://www.w3.org/ns/shacl#Literal"));
+                // Mark as MeasureDimension
+                model.add(model.createResource(config.propertyUri), RDF.type,
+                    model.createResource(CUBE_NS + "MeasureDimension"));
+                // qudt:scaleType (borrowed from Swiss FCh-Cube)
+                if (config.scaleType != null) {
+                    model.add(propShape, model.createProperty("http://qudt.org/schema/qudt/", "scaleType"),
+                        model.createResource(config.scaleType));
+                }
+            }
+
+            // Attribute property shapes
+            for (Map.Entry<String, AttributeConfig> attr : attributes.entrySet()) {
+                AttributeConfig config = attr.getValue();
+                Resource propShape = model.createResource();
+                model.add(constraint, model.createProperty("http://www.w3.org/ns/shacl#", "property"), propShape);
+                model.add(propShape, model.createProperty("http://www.w3.org/ns/shacl#", "path"),
+                    model.createResource(config.propertyUri));
+                // qudt:scaleType (borrowed from Swiss FCh-Cube)
+                if (config.scaleType != null) {
+                    model.add(propShape, model.createProperty("http://qudt.org/schema/qudt/", "scaleType"),
+                        model.createResource(config.scaleType));
+                }
+            }
+        }
 
         if (context.callback() != null) {
             context.callback().onLog("INFO", "Created " + counter[0] + " observations");
@@ -167,6 +295,8 @@ public class CreateObservationOperation implements Operation {
         metadata.put("triplesGenerated", model.size());
         metadata.put("undefinedCount", undefinedCounter[0]);
         metadata.put("cubeUri", cubeUri);
+        metadata.put("constraintGenerated", emitConstraint);
+        metadata.put("observationSetGenerated", emitObservationSet);
 
         return new OperationResult(true, null, model, metadata, null);
     }
@@ -325,6 +455,7 @@ public class CreateObservationOperation implements Operation {
                     .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
                     .keyDimension(parseBoolean(configMap.get("keyDimension")))
                     .sharedDimensionUri(configMap.get("sharedDimensionUri") instanceof String ? (String) configMap.get("sharedDimensionUri") : null)
+                    .scaleType(configMap.get("scaleType") instanceof String ? (String) configMap.get("scaleType") : null)
                     .build();
             } else {
                 log.warn("Unknown dimension config format for column {}: {}", columnName, value);
@@ -391,6 +522,7 @@ public class CreateObservationOperation implements Operation {
                     .propertyUri(propertyUriObj instanceof String ? (String) propertyUriObj : null)
                     .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
                     .unit(configMap.get("unit") instanceof String ? (String) configMap.get("unit") : null)
+                    .scaleType(configMap.get("scaleType") instanceof String ? (String) configMap.get("scaleType") : null)
                     .build();
             } else {
                 log.warn("Unknown measure config format for column {}: {}", columnName, value);
@@ -456,6 +588,7 @@ public class CreateObservationOperation implements Operation {
                 config = AttributeConfig.builder()
                     .propertyUri(propertyUriObj instanceof String ? (String) propertyUriObj : null)
                     .datatype(configMap.get("datatype") instanceof String ? (String) configMap.get("datatype") : null)
+                    .scaleType(configMap.get("scaleType") instanceof String ? (String) configMap.get("scaleType") : null)
                     .build();
             } else {
                 log.warn("Unknown attribute config format for column {}: {}", columnName, value);
@@ -476,6 +609,7 @@ public class CreateObservationOperation implements Operation {
         private String datatype;
         private boolean keyDimension;
         private String sharedDimensionUri;
+        private String scaleType;
     }
 
     @lombok.Data
@@ -484,6 +618,7 @@ public class CreateObservationOperation implements Operation {
         private String propertyUri;
         private String datatype;
         private String unit;
+        private String scaleType;
     }
 
     @lombok.Data
@@ -491,5 +626,6 @@ public class CreateObservationOperation implements Operation {
     public static class AttributeConfig {
         private String propertyUri;
         private String datatype;
+        private String scaleType;
     }
 }

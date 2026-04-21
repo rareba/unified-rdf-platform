@@ -272,13 +272,22 @@ public class MinioStorageProvider implements StorageProvider {
 
             for (Result<Item> result : results) {
                 Item item = result.get();
+                Instant lastModified = null;
+                try {
+                    if (item.lastModified() != null) {
+                        lastModified = item.lastModified().toInstant();
+                    }
+                } catch (NullPointerException ignored) {
+                    // MinIO SDK can throw NPE internally in ResponseDate.zonedDateTime()
+                    // when the object lacks lastModified metadata (e.g., directory markers)
+                }
                 objects.add(new StorageObject(
                     item.objectName(),
                     bucketName,
                     item.size(),
                     null,
                     item.etag(),
-                    item.lastModified().toInstant(),
+                    lastModified,
                     Map.of()
                 ));
             }

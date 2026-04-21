@@ -40,6 +40,7 @@ public class Pipeline {
     private Integer version;
     private boolean template;
     private UUID createdBy;
+    private UUID updatedBy;
     private Instant createdAt;
     private Instant updatedAt;
 

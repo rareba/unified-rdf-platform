@@ -9,13 +9,22 @@ CREATE TABLE IF NOT EXISTS dimensions (
     uri VARCHAR(1000) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    dimension_type VARCHAR(50) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    hierarchy_type VARCHAR(50) DEFAULT 'FLAT',
+    content TEXT,
+    version INTEGER DEFAULT 1,
     scale_type VARCHAR(50),
     unit_uri VARCHAR(1000),
     unit_label VARCHAR(255),
     is_key_dimension BOOLEAN DEFAULT FALSE,
     is_measure BOOLEAN DEFAULT FALSE,
     order_position INTEGER,
+    base_uri VARCHAR(500),
+    value_count BIGINT DEFAULT 0,
+    is_shared BOOLEAN DEFAULT FALSE,
+    parent_dimension_id UUID,
+    hierarchy_level INTEGER DEFAULT 0,
+    hierarchy_name VARCHAR(255),
     metadata JSONB,
     created_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -23,8 +32,8 @@ CREATE TABLE IF NOT EXISTS dimensions (
 );
 
 -- Dimension type check
-ALTER TABLE dimensions ADD CONSTRAINT dimensions_type_check 
-    CHECK (dimension_type IN ('TEMPORAL', 'SPATIAL', 'CATEGORICAL', 'NUMERIC', 'MEASURE', 'ATTRIBUTE'));
+ALTER TABLE dimensions ADD CONSTRAINT dimensions_type_check
+    CHECK (type IN ('TEMPORAL', 'GEO', 'KEY', 'MEASURE', 'ATTRIBUTE', 'CODED'));
 
 -- Scale type check
 ALTER TABLE dimensions ADD CONSTRAINT dimensions_scale_type_check 
@@ -75,15 +84,18 @@ CREATE TABLE IF NOT EXISTS hierarchies (
     description TEXT,
     hierarchy_type VARCHAR(50) NOT NULL,
     max_depth INTEGER,
-    metadata JSONB,
+    root_concept_uri VARCHAR(500),
+    skos_content TEXT,
+    properties JSONB,
+    is_default BOOLEAN DEFAULT FALSE,
     created_by UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Hierarchy type check
-ALTER TABLE hierarchies ADD CONSTRAINT hierarchies_type_check 
-    CHECK (hierarchy_type IN ('SIMPLE', 'RAGGED', 'BALANCED', 'PARALLEL'));
+ALTER TABLE hierarchies ADD CONSTRAINT hierarchies_type_check
+    CHECK (hierarchy_type IN ('SKOS_CONCEPT_SCHEME', 'SKOS_COLLECTION', 'XKOS_CLASSIFICATION', 'CUSTOM'));
 
 -- Hierarchy levels
 CREATE TABLE IF NOT EXISTS hierarchy_levels (
@@ -118,7 +130,7 @@ ALTER TABLE dimension_mappings ADD CONSTRAINT dimension_mappings_type_check
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_dimensions_project_id ON dimensions(project_id);
 CREATE INDEX IF NOT EXISTS idx_dimensions_uri ON dimensions(uri);
-CREATE INDEX IF NOT EXISTS idx_dimensions_type ON dimensions(dimension_type);
+CREATE INDEX IF NOT EXISTS idx_dimensions_type ON dimensions(type);
 CREATE INDEX IF NOT EXISTS idx_dimensions_name ON dimensions(name);
 
 CREATE INDEX IF NOT EXISTS idx_code_lists_dimension_id ON code_lists(dimension_id);

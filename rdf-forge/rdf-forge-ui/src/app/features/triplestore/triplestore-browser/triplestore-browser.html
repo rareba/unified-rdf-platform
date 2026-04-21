@@ -221,7 +221,7 @@
             <div class="query-results">
               <div class="results-header">
                 <span class="results-info">
-                  {{ queryResult()!.bindings.length }} results in {{ queryResult()!.executionTime }}ms
+                  {{ queryResult()!.bindings.length }} results in {{ queryResult()!.executionTimeMs }}ms
                 </span>
                 <div class="results-actions">
                   <button mat-button (click)="copyToClipboard(getResultsJson(), 'Results')">
@@ -325,8 +325,8 @@
           </div>
           } @else {
           <div class="select-graph-hint">
-            <mat-icon>arrow_back</mat-icon>
-            <p>Select a graph from the sidebar to browse resources</p>
+            <mat-icon>{{ graphs().length === 0 ? 'info' : 'arrow_back' }}</mat-icon>
+            <p>{{ graphs().length === 0 ? 'No named graphs available. Upload RDF data first.' : 'Select a graph from the sidebar to browse resources' }}</p>
           </div>
           }
         </mat-tab>

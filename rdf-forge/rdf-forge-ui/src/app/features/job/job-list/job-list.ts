@@ -20,6 +20,7 @@ import { MatChipsModule, MatChipListbox } from '@angular/material/chips';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatMenuModule } from '@angular/material/menu';
 import { SelectionModel } from '@angular/cdk/collections';
+import { A11yModule } from '@angular/cdk/a11y';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { JobService, PipelineService } from '../../../core/services';
@@ -60,7 +61,8 @@ interface SpringPage<T> {
     MatChipsModule,
     MatCheckboxModule,
     MatMenuModule,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    A11yModule
   ],
   templateUrl: './job-list.html',
   styleUrl: './job-list.scss',
@@ -225,7 +227,7 @@ export class JobList implements OnInit, OnDestroy {
         this.jobs.set([]);
         this.snackBar.open('Failed to load jobs. Click retry to try again.', 'Retry', {
           duration: 5000
-        }).onAction().subscribe(() => this.loadJobs());
+        }).onAction().pipe(takeUntil(this.destroy$)).subscribe(() => this.loadJobs());
       }
     });
   }
@@ -540,8 +542,12 @@ export class JobList implements OnInit, OnDestroy {
     return 'status-' + status?.toLowerCase();
   }
 
-  formatDate(date: Date | undefined): string {
-    if (!date) return 'Pending';
+  formatDate(date: Date | undefined, status?: string): string {
+    if (!date) {
+      const s = status?.toLowerCase();
+      if (s === 'pending' || s === 'running') return 'Pending';
+      return '-';
+    }
     return new Date(date).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -564,7 +570,7 @@ export class JobList implements OnInit, OnDestroy {
 
   formatDuration(ms: number | undefined): string {
     if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60000) return `${Math.round(ms / 1000)}s`;
     if (ms < 3600000) return `${Math.round(ms / 60000)}m`;
     return `${Math.round(ms / 3600000)}h`;

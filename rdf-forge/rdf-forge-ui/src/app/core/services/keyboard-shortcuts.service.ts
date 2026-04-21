@@ -49,6 +49,7 @@ export class KeyboardShortcutsService implements OnDestroy {
 
   private setupGlobalListener(): void {
     this.listener = (event: KeyboardEvent) => {
+      if (!event.isTrusted) return;
       if (!this.enabled) return;
 
       // Don't trigger shortcuts when typing in inputs
@@ -155,7 +156,7 @@ export class KeyboardShortcutsService implements OnDestroy {
       altKey: true,
       description: 'Go to Cube Wizard',
       category: 'Navigation',
-      action: () => this.router.navigate(['/cube'])
+      action: () => this.router.navigate(['/cubes'])
     });
 
     this.register('nav-triplestores', {
@@ -163,7 +164,7 @@ export class KeyboardShortcutsService implements OnDestroy {
       altKey: true,
       description: 'Go to Triplestores',
       category: 'Navigation',
-      action: () => this.router.navigate(['/triplestores'])
+      action: () => this.router.navigate(['/triplestore'])
     });
 
     this.register('nav-settings', {

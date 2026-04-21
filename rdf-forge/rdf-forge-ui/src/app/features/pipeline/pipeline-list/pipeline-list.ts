@@ -21,8 +21,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { PipelineService, JobService } from '../../../core/services';
 import { Pipeline, Job } from '../../../core/models';
-import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader';
-
 @Component({
   selector: 'app-pipeline-list',
   imports: [
@@ -43,8 +41,7 @@ import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loa
     MatCardModule,
     MatDialogModule,
     MatMenuModule,
-    MatDividerModule,
-    SkeletonLoaderComponent
+    MatDividerModule
   ],
   templateUrl: './pipeline-list.html',
   styleUrl: './pipeline-list.scss',
@@ -230,7 +227,7 @@ export class PipelineList implements OnInit, OnDestroy {
           next: () => {
             this.snackBar.open(`Pipeline "${pipeline.name}" started`, 'View Jobs', {
               duration: 3000
-            }).onAction().subscribe(() => {
+            }).onAction().pipe(takeUntil(this.destroy$)).subscribe(() => {
               this.router.navigate(['/jobs']);
             });
           },
@@ -264,7 +261,7 @@ export class PipelineList implements OnInit, OnDestroy {
           next: (newPipeline) => {
             this.snackBar.open(`Pipeline "${pipeline.name}" duplicated`, 'Edit', {
               duration: 3000
-            }).onAction().subscribe(() => {
+            }).onAction().pipe(takeUntil(this.destroy$)).subscribe(() => {
               this.router.navigate(['/pipelines', newPipeline.id]);
             });
             this.loadPipelines();

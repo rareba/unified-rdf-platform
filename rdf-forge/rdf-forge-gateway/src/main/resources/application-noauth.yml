@@ -12,7 +12,11 @@ spring:
       resourceserver:
         jwt:
           # Disable JWT validation in noauth mode by not configuring issuer
-          issuer-uri: 
+          issuer-uri:
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 
 # Enhanced logging for debugging authentication-related issues
 logging:

@@ -1,4 +1,4 @@
-import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpHandlerFn } from '@angular/common/http';
+import { HttpInterceptorFn, HttpErrorResponse, HttpRequest, HttpHandlerFn, HttpContextToken } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -7,6 +7,9 @@ import { NotificationService } from '../services/notification.service';
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environments/environment';
 import { LoggerService } from '../services/logger.service';
+
+// Context token to suppress error notification for requests that handle errors locally
+export const SUPPRESS_ERROR_NOTIFICATION = new HttpContextToken<boolean>(() => false);
 
 // Correlation ID header for distributed tracing
 const CORRELATION_ID_HEADER = 'X-Correlation-Id';
@@ -36,10 +39,16 @@ export const errorInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, n
 
   return next(requestWithCorrelationId).pipe(
     catchError((error: HttpErrorResponse) => {
-      const correlationId = error.headers?.get(CORRELATION_ID_HEADER) || 
+      const correlationId = error.headers?.get(CORRELATION_ID_HEADER) ||
                            error.headers?.get(TRACE_ID_HEADER) ||
                            'unknown';
-      
+
+      // Skip notification and loud logging if the request opts out (component handles it locally)
+      if (requestWithCorrelationId.context.get(SUPPRESS_ERROR_NOTIFICATION)) {
+        logger.debug(`HTTP Error [${correlationId}]: ${error.status} ${error.statusText} (suppressed)`, error.url);
+        return throwError(() => error);
+      }
+
       logger.error(`HTTP Error [${correlationId}]:`, error);
 
       // Handle different error statuses

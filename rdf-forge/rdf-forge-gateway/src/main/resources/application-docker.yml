@@ -1,0 +1,18 @@
+# Docker profile configuration for rdf-forge-gateway
+# Used when running in Docker Compose without Keycloak authentication
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri:
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+logging:
+  level:
+    io.rdfforge.gateway.config: DEBUG
+    org.springframework.security: DEBUG

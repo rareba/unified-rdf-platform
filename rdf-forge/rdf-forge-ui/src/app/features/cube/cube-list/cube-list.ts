@@ -132,7 +132,7 @@ export class CubeList implements OnInit, OnDestroy {
         next: newCube => {
           this.cubes.update(list => [...list, newCube]);
           this.loading.set(false);
-          this.snackBar.open(`"${newCube.name}" created`, 'Open', { duration: 4000 }).onAction().subscribe(() => {
+          this.snackBar.open(`"${newCube.name}" created`, 'Open', { duration: 4000 }).onAction().pipe(takeUntil(this.destroy$)).subscribe(() => {
             this.openCube(newCube);
           });
         },

@@ -1,6 +1,8 @@
-import { Component, inject, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,9 +13,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/services/auth.service';
+import { SUPPRESS_ERROR_NOTIFICATION } from '../../../core/interceptors/error.interceptor';
 
 interface UserInfo {
   id: string;
@@ -204,10 +207,11 @@ interface UserInfo {
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class UserManagement implements OnInit {
+export class UserManagement implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly snackBar = inject(MatSnackBar);
   private readonly authService = inject(AuthService);
+  private readonly destroy$ = new Subject<void>();
 
   readonly env = environment;
   readonly displayedColumns = ['username', 'email', 'name', 'roles', 'status', 'lastLogin'];
@@ -238,6 +242,11 @@ export class UserManagement implements OnInit {
 
   ngOnInit(): void {
     this.loadUsers();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadUsers(): void {
@@ -284,7 +293,9 @@ export class UserManagement implements OnInit {
     }
 
     // Fetch from Keycloak via backend API
-    this.http.get<UserInfo[]>(`${this.env.apiBaseUrl}/admin/users`).subscribe({
+    this.http.get<UserInfo[]>(`${this.env.apiBaseUrl}/admin/users`, {
+      context: new HttpContext().set(SUPPRESS_ERROR_NOTIFICATION, true)
+    }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (users) => {
         this.users.set(users);
         this.loading.set(false);

@@ -5,13 +5,17 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Settings } from './settings';
 import { AuthService } from '../../core/services/auth.service';
 import { SettingsService } from '../../core/services/settings.service';
+import { ConfirmationService } from '../../core/services/confirmation.service';
+import { MatDialogModule } from '@angular/material/dialog';
 import { signal } from '@angular/core';
+import { of } from 'rxjs';
 
 describe('Settings', () => {
   let component: Settings;
   let fixture: ComponentFixture<Settings>;
   let httpMock: HttpTestingController;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let confirmationServiceSpy: jasmine.SpyObj<ConfirmationService>;
 
   function flushHealthChecks() {
     // The component calls checkServicesHealth on init which makes 7 HTTP requests
@@ -25,6 +29,9 @@ describe('Settings', () => {
       userProfile: signal({ username: 'testuser', email: 'test@example.org' })
     });
 
+    confirmationServiceSpy = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
+
     await TestBed.configureTestingModule({
       imports: [Settings],
       providers: [
@@ -32,9 +39,16 @@ describe('Settings', () => {
         provideHttpClientTesting(),
         provideNoopAnimations(),
         SettingsService,
-        { provide: AuthService, useValue: authServiceSpy }
+        { provide: AuthService, useValue: authServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationServiceSpy }
       ]
-    }).compileComponents();
+    })
+    .overrideComponent(Settings, {
+      remove: {
+        imports: [MatDialogModule as any]
+      }
+    })
+    .compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(Settings);
@@ -160,10 +174,16 @@ describe('Settings', () => {
     expect(component.getActiveTokenCount()).toBe(2);
   });
 
-  it('should load users in demo mode', () => {
+  it('should load users', fakeAsync(() => {
+    const mockUsers = [
+      { id: '1', username: 'admin', email: 'admin@example.org', firstName: 'Admin', lastName: 'User', enabled: true, roles: ['admin'], createdAt: '2024-01-01' }
+    ];
     component.loadUsers();
+    const req = httpMock.expectOne(r => r.url.includes('/admin/users'));
+    req.flush(mockUsers);
+    tick();
     expect(component.users().length).toBeGreaterThan(0);
-  });
+  }));
 
   it('should toggle permission', () => {
     component.newRole.set({ name: 'test', description: '', permissions: [], userCount: 0, isDefault: false });
@@ -250,27 +270,27 @@ describe('Settings', () => {
   });
 
   it('should reset settings on confirm', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     component.confirmReset();
-    // Reset should be called
+    expect(confirmationServiceSpy.confirm).toHaveBeenCalled();
   });
 
   it('should not reset settings when cancelled', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationServiceSpy.confirm.and.returnValue(of(false));
     component.confirmReset();
-    // Reset should not be called
+    expect(confirmationServiceSpy.confirm).toHaveBeenCalled();
   });
 
   it('should clear cache on confirm', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     component.confirmClearCache();
-    // Cache cleared
+    expect(confirmationServiceSpy.confirm).toHaveBeenCalled();
   });
 
   it('should not clear cache when cancelled', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationServiceSpy.confirm.and.returnValue(of(false));
     component.confirmClearCache();
-    // Cache not cleared
+    expect(confirmationServiceSpy.confirm).toHaveBeenCalled();
   });
 
   it('should update setting', () => {
@@ -293,7 +313,7 @@ describe('Settings', () => {
     expect(component.selectedUser()).toBeTruthy();
   });
 
-  it('should save user in demo mode', () => {
+  it('should save user', fakeAsync(() => {
     component.users.set([{
       id: '1', username: 'test', email: 'test@example.org', firstName: 'Test',
       lastName: 'User', enabled: true, roles: ['viewer'], createdAt: '2024-01-01'
@@ -303,8 +323,11 @@ describe('Settings', () => {
       lastName: 'User', enabled: true, roles: ['editor'], createdAt: '2024-01-01'
     });
     component.saveUser();
+    const req = httpMock.expectOne(r => r.url.includes('/admin/users/1'));
+    req.flush({});
+    tick();
     expect(component.userDialogVisible()).toBeFalse();
-  });
+  }));
 
   it('should not save user when none selected', () => {
     component.selectedUser.set(null);
@@ -312,15 +335,18 @@ describe('Settings', () => {
     // Nothing happens
   });
 
-  it('should toggle user enabled', () => {
+  it('should toggle user enabled', fakeAsync(() => {
     const user = {
       id: '1', username: 'test', email: 'test@example.org', firstName: 'Test',
       lastName: 'User', enabled: true, roles: ['viewer'], createdAt: '2024-01-01'
     };
     component.users.set([user]);
     component.toggleUserEnabled(user);
+    const req = httpMock.expectOne(r => r.url.includes('/admin/users/1/enabled'));
+    req.flush({});
+    tick();
     expect(component.users()[0].enabled).toBeFalse();
-  });
+  }));
 
   it('should open role dialog', () => {
     component.openRoleDialog();
@@ -328,12 +354,15 @@ describe('Settings', () => {
     expect(component.newRole().name).toBe('');
   });
 
-  it('should add role in demo mode', () => {
+  it('should add role', fakeAsync(() => {
     component.newRole.set({ name: 'custom', description: 'Custom role', permissions: ['read'], userCount: 0, isDefault: false });
     component.addRole();
+    const req = httpMock.expectOne(r => r.url.includes('/admin/roles'));
+    req.flush({});
+    tick();
     expect(component.roleDialogVisible()).toBeFalse();
     expect(component.roles().some(r => r.name === 'custom')).toBeTrue();
-  });
+  }));
 
   it('should not add role without name', () => {
     component.newRole.set({ name: '', description: '', permissions: [], userCount: 0, isDefault: false });
@@ -347,13 +376,16 @@ describe('Settings', () => {
     // Duplicate not added
   });
 
-  it('should delete role in demo mode', () => {
+  it('should delete role', fakeAsync(() => {
     const role = { name: 'custom', description: '', permissions: [], userCount: 0, isDefault: false };
     component.roles.update(roles => [...roles, role]);
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     component.deleteRole(role);
+    const req = httpMock.expectOne(r => r.url.includes('/admin/roles/custom'));
+    req.flush({});
+    tick();
     expect(component.roles().some(r => r.name === 'custom')).toBeFalse();
-  });
+  }));
 
   it('should not delete default role', () => {
     const role = { name: 'viewer', description: '', permissions: [], userCount: 0, isDefault: true };
@@ -457,10 +489,10 @@ describe('Settings', () => {
       id: '1', name: 'Test', tokenPrefix: 'abc', scopes: [], createdAt: '', revoked: false
     };
     component.personalAccessTokens.set([token]);
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     component.revokeToken(token);
-    const req = httpMock.expectOne(`/api/v1/auth/tokens/1`);
-    req.error(new ErrorEvent('Network error')); // Demo mode
+    const req = httpMock.expectOne(r => r.url.includes('/auth/tokens/1'));
+    req.flush({});
     tick();
     expect(component.personalAccessTokens()[0].revoked).toBeTrue();
   }));

@@ -20,6 +20,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Service for synchronizing configurations with Git repositories.
  * Supports both push (export to Git) and pull (import from Git) operations.
+ *
+ * <p>TODO(phase-10): broaden export scope from pipelines/shapes/settings
+ * to all semantic assets (ontologies, mappings, cubes, dimensions,
+ * releases). See {@code docs/GIT_SYNC.md} for the proposed contract and
+ * cross-service fan-out plan. Until then, asset-kind filtering is left
+ * to callers.
  */
 @Slf4j
 @Service

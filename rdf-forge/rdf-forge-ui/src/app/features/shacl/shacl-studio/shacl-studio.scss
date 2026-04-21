@@ -1,128 +1,200 @@
 .shacl-studio {
-  padding: 1.5rem;
+  padding: 24px;
+  max-width: 1200px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
+.studio-header {
+  margin-bottom: 24px;
 
-.header h1 {
-  margin: 0;
-}
-
-.actions {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.search-field {
-  width: 300px;
-
-  mat-icon {
-    margin-right: 0.5rem;
-  }
-}
-
-.table-container {
-  position: relative;
-  min-height: 400px;
-}
-
-.loading-spinner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 3rem;
-}
-
-.shapes-table {
-  width: 100%;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
-  .name-column {
-    min-width: 200px;
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
 
-  .target-class-column {
-    width: 150px;
-  }
-
-  .format-column {
-    width: 120px;
-  }
-
-  .updated-column {
-    width: 120px;
-  }
-
-  .actions-column {
-    width: 100px;
-  }
-}
-
-.shape-name {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.shape-name .name {
-  font-weight: 600;
-}
-
-.shape-name .uri {
-  font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
-  font-family: monospace;
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 3rem;
-  gap: 1rem;
-
-  .empty-icon {
-    font-size: 3rem;
-    width: 3rem;
-    height: 3rem;
-    color: rgba(0, 0, 0, 0.4);
-  }
-
-  p {
+  h1 {
     margin: 0;
+    font-size: 1.75rem;
+    font-weight: 500;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  .subtitle {
+    margin: 4px 0 0;
     color: rgba(0, 0, 0, 0.6);
+    font-size: 0.9rem;
   }
 }
 
-.cursor-pointer {
-  cursor: pointer;
-}
+.shape-form-card {
+  margin-bottom: 24px;
 
-mat-chip {
-  &.turtle-chip {
-    background-color: #4caf50;
-    color: white;
-  }
-
-  &.info-chip {
-    background-color: #2196f3;
-    color: white;
+  mat-card-content {
+    padding-top: 16px;
   }
 }
 
-mat-paginator {
-  background: white;
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
+.form-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.form-field-half {
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-field-third {
+  flex: 0 0 280px;
+}
+
+.auto-validate-checkbox {
+  margin-top: 12px;
+}
+
+mat-divider {
+  margin: 16px 0;
+}
+
+.editor-section {
+  margin-top: 16px;
+}
+
+.editor-field {
+  width: 100%;
+
+  textarea.code-editor {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 2;
+    resize: vertical;
+  }
+}
+
+mat-card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 16px;
+
+  .inline-spinner {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+}
+
+// Validation errors card
+.validation-errors-card {
+  margin-bottom: 24px;
+  border-left: 4px solid #f44336;
+
+  .error-icon {
+    color: #f44336;
+    background: #fce4ec;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .error-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .error-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff3f3;
+    border-radius: 4px;
+    font-size: 0.9rem;
+
+    .error-item-icon {
+      color: #e65100;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  }
+}
+
+.suggested-fixes {
+  margin-top: 16px;
+
+  h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    color: #f57f17;
+    font-weight: 500;
+
+    mat-icon {
+      color: #f57f17;
+    }
+  }
+
+  .fix-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    background: #fff8e1;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-size: 0.875rem;
+
+    .apply-btn {
+      flex-shrink: 0;
+    }
+  }
+}
+
+// Validation result banner
+.validation-result-card {
+  margin-bottom: 24px;
+
+  &.conforms {
+    border-left: 4px solid #4caf50;
+    background: #e8f5e9;
+
+    mat-icon {
+      color: #2e7d32;
+    }
+  }
+
+  &.error {
+    border-left: 4px solid #f44336;
+    background: #fce4ec;
+
+    mat-icon {
+      color: #c62828;
+    }
+  }
+
+  .result-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-weight: 500;
+  }
+}
+
+// Visualization
+.visualization-card {
+  margin-bottom: 24px;
 }

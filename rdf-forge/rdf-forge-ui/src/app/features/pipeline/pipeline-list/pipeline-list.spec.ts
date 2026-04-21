@@ -3,15 +3,20 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { PipelineList } from './pipeline-list';
-import { PipelineService } from '../../../core/services';
+import { PipelineService, JobService } from '../../../core/services';
 import { Pipeline } from '../../../core/models';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 describe('PipelineList', () => {
   let component: PipelineList;
   let fixture: ComponentFixture<PipelineList>;
   let pipelineServiceSpy: jasmine.SpyObj<PipelineService>;
+  let jobServiceSpy: jasmine.SpyObj<JobService>;
+  let snackBarSpy: jasmine.SpyObj<MatSnackBar>;
+  let dialogSpy: jasmine.SpyObj<MatDialog>;
 
   const mockPipelines: Pipeline[] = [
     { id: '1', name: 'Pipeline A', status: 'active', stepsCount: 3, tags: ['tag1'], description: 'Description A', lastRun: new Date(), definition: '{}', definitionFormat: 'JSON', variables: {}, createdBy: 'user', createdAt: new Date(), updatedAt: new Date() },
@@ -23,6 +28,15 @@ describe('PipelineList', () => {
     pipelineServiceSpy = jasmine.createSpyObj('PipelineService', ['list', 'run', 'duplicate', 'delete']);
     pipelineServiceSpy.list.and.returnValue(of(mockPipelines));
 
+    jobServiceSpy = jasmine.createSpyObj('JobService', ['list']);
+    jobServiceSpy.list.and.returnValue(of([]));
+
+    snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
+    const mockSnackBarRef = { onAction: () => new Subject<void>().asObservable(), dismiss: () => {} };
+    snackBarSpy.open.and.returnValue(mockSnackBarRef as any);
+    dialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(true) } as any);
+
     await TestBed.configureTestingModule({
       imports: [PipelineList],
       providers: [
@@ -33,9 +47,18 @@ describe('PipelineList', () => {
           { path: 'jobs/:id', component: PipelineList },
           { path: 'jobs', component: PipelineList }
         ]),
-        { provide: PipelineService, useValue: pipelineServiceSpy }
+        { provide: PipelineService, useValue: pipelineServiceSpy },
+        { provide: JobService, useValue: jobServiceSpy },
+        { provide: MatSnackBar, useValue: snackBarSpy },
+        { provide: MatDialog, useValue: dialogSpy }
       ]
-    }).compileComponents();
+    })
+    .overrideComponent(PipelineList, {
+      remove: {
+        imports: [MatSnackBarModule, MatDialogModule]
+      }
+    })
+    .compileComponents();
 
     fixture = TestBed.createComponent(PipelineList);
     component = fixture.componentInstance;
@@ -114,7 +137,7 @@ describe('PipelineList', () => {
   }));
 
   it('should run pipeline', fakeAsync(() => {
-    pipelineServiceSpy.run.and.returnValue(of({ jobId: 'job-1' }));
+    pipelineServiceSpy.run.and.returnValue(of({ jobId: 'job-1', id: '1' }));
     const mockEvent = { stopPropagation: jasmine.createSpy() };
     component.runPipeline(mockPipelines[0], mockEvent as any);
     tick();
@@ -159,7 +182,6 @@ describe('PipelineList', () => {
 
   it('should confirm delete pipeline', fakeAsync(() => {
     pipelineServiceSpy.delete.and.returnValue(of(void 0));
-    spyOn(window, 'confirm').and.returnValue(true);
     const mockEvent = { stopPropagation: jasmine.createSpy() };
     component.confirmDelete(mockPipelines[0], mockEvent as any);
     tick();
@@ -168,7 +190,7 @@ describe('PipelineList', () => {
   }));
 
   it('should not delete pipeline if cancelled', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(false) } as any);
     const mockEvent = { stopPropagation: jasmine.createSpy() };
     component.confirmDelete(mockPipelines[0], mockEvent as any);
     expect(pipelineServiceSpy.delete).not.toHaveBeenCalled();

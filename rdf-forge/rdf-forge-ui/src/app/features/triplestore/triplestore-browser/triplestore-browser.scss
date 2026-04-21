@@ -39,12 +39,12 @@
   font-size: 0.75rem;
 
   &.status-primary {
-    background-color: #4caf50;
+    background-color: var(--rdf-status-success);
     color: white;
   }
 
   &.status-warn {
-    background-color: #ff9800;
+    background-color: var(--rdf-status-warning);
     color: white;
   }
 }
@@ -61,12 +61,12 @@
   padding: 2px 8px !important;
 
   &.status-primary {
-    background-color: #4caf50 !important;
+    background-color: var(--rdf-status-success) !important;
     color: white !important;
   }
 
   &.status-warn {
-    background-color: #ff9800 !important;
+    background-color: var(--rdf-status-warning) !important;
     color: white !important;
   }
 }
@@ -96,13 +96,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(63, 81, 181, 0.1);
+    background: var(--rdf-primary-light);
 
     mat-icon {
       font-size: 1.5rem;
       width: 1.5rem;
       height: 1.5rem;
-      color: #3f51b5;
+      color: var(--rdf-primary);
     }
   }
 
@@ -119,7 +119,7 @@
 
   .stat-label {
     font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--rdf-text-secondary);
   }
 }
 
@@ -146,7 +146,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(0, 0, 0, 0.02);
+    background: var(--rdf-surface-variant);
 
     mat-card-title {
       font-size: 0.875rem;
@@ -169,16 +169,16 @@
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   cursor: pointer;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid var(--rdf-border-color);
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--rdf-surface-hover);
   }
 
   &.selected {
-    background: rgba(63, 81, 181, 0.08);
-    border-left: 3px solid #3f51b5;
+    background: var(--rdf-primary-selected);
+    border-left: 3px solid var(--rdf-primary);
   }
 
   &:last-child {
@@ -199,7 +199,7 @@
   font-weight: 600;
 
   mat-icon {
-    color: #3f51b5;
+    color: var(--rdf-primary);
     font-size: 18px;
     width: 18px;
     height: 18px;
@@ -208,7 +208,7 @@
 
 .connection-url {
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
   font-family: monospace;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -243,16 +243,16 @@
   gap: 0.25rem;
   padding: 0.75rem 1rem;
   cursor: pointer;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid var(--rdf-border-color);
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--rdf-surface-hover);
   }
 
   &.selected {
-    background: rgba(63, 81, 181, 0.08);
-    border-left: 3px solid #3f51b5;
+    background: var(--rdf-primary-selected);
+    border-left: 3px solid var(--rdf-primary);
   }
 
   &:last-child {
@@ -274,7 +274,7 @@
 
 .graph-count {
   font-size: 0.7rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
 }
 
 .graph-actions {
@@ -310,12 +310,12 @@
   gap: 0.25rem;
   flex-wrap: wrap;
   padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--rdf-surface-variant);
   border-radius: 6px;
 
   .templates-label {
     font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--rdf-text-secondary);
     margin-right: 0.5rem;
   }
 }
@@ -356,7 +356,7 @@
 
 .results-info {
   font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
 }
 
 .table-container {
@@ -402,7 +402,7 @@
     transition: background 0.2s;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.04);
+      background: var(--rdf-surface-hover);
     }
   }
 
@@ -415,7 +415,7 @@
 .type-badge {
   font-size: 0.75rem;
   padding: 0.125rem 0.375rem;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--rdf-surface-selected);
   border-radius: 4px;
   font-family: monospace;
 }
@@ -434,7 +434,7 @@
     font-size: 4rem;
     width: 4rem;
     height: 4rem;
-    color: rgba(0, 0, 0, 0.26);
+    color: var(--rdf-text-hint);
   }
 
   h3 {
@@ -443,12 +443,12 @@
 
   p {
     margin: 0;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--rdf-text-secondary);
   }
 }
 
 .loading-state mat-icon {
-  color: #3f51b5;
+  color: var(--rdf-primary);
 }
 
 .empty-hint, .loading-hint {
@@ -457,13 +457,13 @@
   align-items: center;
   padding: 2rem;
   gap: 0.5rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
 
   mat-icon {
     font-size: 2rem;
     width: 2rem;
     height: 2rem;
-    color: rgba(0, 0, 0, 0.26);
+    color: var(--rdf-text-hint);
   }
 
   p {
@@ -476,7 +476,7 @@
   gap: 0.75rem;
 
   mat-icon {
-    color: #3f51b5;
+    color: var(--rdf-primary);
   }
 }
 
@@ -488,13 +488,13 @@
   padding: 4rem 2rem;
   gap: 0.75rem;
   height: 100%;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
 
   mat-icon {
     font-size: 2rem;
     width: 2rem;
     height: 2rem;
-    color: rgba(0, 0, 0, 0.26);
+    color: var(--rdf-text-hint);
   }
 
   p {
@@ -513,7 +513,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--rdf-z-modal);
 }
 
 .dialog-card {
@@ -551,7 +551,7 @@ mat-form-field {
 }
 
 .required {
-  color: #f44336;
+  color: var(--rdf-status-error);
 }
 
 .rdf-content-field {
@@ -576,7 +576,7 @@ mat-form-field {
 
   label {
     font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--rdf-text-secondary);
     font-weight: 600;
   }
 }
@@ -589,7 +589,7 @@ mat-form-field {
   code {
     flex: 1;
     font-size: 0.8rem;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--rdf-surface-hover);
     padding: 0.5rem;
     border-radius: 4px;
     word-break: break-all;
@@ -613,7 +613,7 @@ mat-form-field {
 }
 
 .uri-link {
-  color: #3f51b5;
+  color: var(--rdf-primary);
   text-decoration: none;
 
   &:hover {
@@ -624,7 +624,7 @@ mat-form-field {
 .lang-tag {
   font-size: 0.65rem;
   padding: 0.1rem 0.25rem;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--rdf-surface-selected);
   border-radius: 3px;
   margin-left: 0.25rem;
 }
@@ -649,7 +649,7 @@ mat-form-field {
 
   label {
     font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--rdf-text-secondary);
     font-weight: 500;
   }
 
@@ -677,7 +677,7 @@ mat-form-field {
 
 // Text utilities
 .text-muted {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--rdf-text-secondary);
 }
 
 .text-center {

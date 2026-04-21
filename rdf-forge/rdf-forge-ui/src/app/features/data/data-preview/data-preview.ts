@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, inject, signal, viewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, SimpleChanges, inject, signal, viewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -8,9 +8,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { DataService } from '../../../core/services';
 import { DataPreview as DataPreviewModel, UploadOptions } from '../../../core/models';
-import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader';
 import { LoggerService } from '../../../core/services/logger.service';
 
 @Component({
@@ -25,8 +26,7 @@ import { LoggerService } from '../../../core/services/logger.service';
     MatIconModule,
     MatTooltipModule,
     MatSnackBarModule,
-    ScrollingModule,
-    SkeletonLoaderComponent
+    ScrollingModule
   ],
   template: `
     <div class="data-preview">
@@ -251,10 +251,11 @@ import { LoggerService } from '../../../core/services/logger.service';
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DataPreviewComponent implements OnChanges, AfterViewInit {
+export class DataPreviewComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() dataSourceId: string | null = null;
   @Input() options: UploadOptions | null = null;
 
+  private readonly destroy$ = new Subject<void>();
   private readonly dataService = inject(DataService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly logger = inject(LoggerService);
@@ -273,6 +274,11 @@ export class DataPreviewComponent implements OnChanges, AfterViewInit {
   private startX = 0;
   private startWidth = 0;
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['dataSourceId'] || changes['options']) {
       this.loadPreview();
@@ -283,7 +289,7 @@ export class DataPreviewComponent implements OnChanges, AfterViewInit {
     // Setup sort after view init
     const sort = this.sort();
     if (sort) {
-      sort.sortChange.subscribe(() => {
+      sort.sortChange.pipe(takeUntil(this.destroy$)).subscribe(() => {
         // Re-sort data if needed
         this.sortData();
       });
@@ -307,7 +313,7 @@ export class DataPreviewComponent implements OnChanges, AfterViewInit {
       this.autoDetectDelimiter();
     }
 
-    this.dataService.preview(this.dataSourceId, { rows: 100, offset: 0 }).subscribe({
+    this.dataService.preview(this.dataSourceId, { rows: 100, offset: 0 }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.previewData.set(data);
         this.loading.set(false);

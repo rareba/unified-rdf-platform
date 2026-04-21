@@ -43,6 +43,7 @@ public class BuildCubeShapeOperation implements Operation {
     private static final String SHACL_NS = "http://www.w3.org/ns/shacl#";
     private static final String SCHEMA_NS = "https://schema.org/";
     private static final String META_NS = "https://cube.link/meta/";
+    private static final String QUDT_NS = "http://qudt.org/schema/qudt/";
 
     @Override
     public String getId() {
@@ -191,6 +192,7 @@ public class BuildCubeShapeOperation implements Operation {
         model.setNsPrefix("xsd", XSD.NS);
         model.setNsPrefix("schema", SCHEMA_NS);
         model.setNsPrefix("rdfs", RDFS.uri);
+        model.setNsPrefix("qudt", QUDT_NS);
 
         // Create the constraint resource
         Resource constraint = model.createResource(constraintUri);
@@ -286,6 +288,14 @@ public class BuildCubeShapeOperation implements Operation {
         model.add(property, model.createProperty(SCHEMA_NS, "name"),
             model.createLiteral(formatPropertyName(localName)));
 
+        // qudt:scaleType inference (inspired by Swiss FCh-Cube pattern)
+        // Infer measurement scale type based on data characteristics
+        String scaleType = inferScaleType(stats);
+        if (scaleType != null) {
+            model.add(propShape, model.createProperty(QUDT_NS, "scaleType"),
+                model.createResource(scaleType));
+        }
+
         return propShape;
     }
 
@@ -332,6 +342,57 @@ public class BuildCubeShapeOperation implements Operation {
             // Likely a key dimension
             model.add(property, RDF.type, model.createResource(CUBE_NS + "KeyDimension"));
         }
+    }
+
+    /**
+     * Infer qudt:scaleType from property statistics.
+     * Scale types follow QUDT ontology (borrowed from Swiss FCh-Cube pattern):
+     * - NominalScale: categorical data (names, codes, IRIs)
+     * - OrdinalScale: ordered categories (dates, ranked values)
+     * - RatioScale: continuous numeric data (counts, amounts)
+     * - IntervalScale: numeric data without true zero (temperatures, dates)
+     */
+    private String inferScaleType(PropertyStats stats) {
+        String datatype = stats.getDatatype();
+
+        if (stats.allValuesAreIris()) {
+            // IRI values are categorical (nominal)
+            return "http://qudt.org/vocab/scales/NominalScale";
+        }
+
+        if (datatype == null) {
+            return null;
+        }
+
+        // Date/time types are ordinal (ordered but not ratio)
+        if (datatype.equals(XSD.date.getURI()) ||
+            datatype.equals(XSD.dateTime.getURI()) ||
+            datatype.equals(XSD.gYear.getURI()) ||
+            datatype.equals(XSD.gYearMonth.getURI())) {
+            return "http://qudt.org/vocab/scales/OrdinalScale";
+        }
+
+        // Numeric types with many unique values are ratio scale
+        if (datatype.equals(XSD.integer.getURI()) ||
+            datatype.equals(XSD.decimal.getURI()) ||
+            datatype.equals(XSD.xdouble.getURI()) ||
+            datatype.equals(XSD.xfloat.getURI()) ||
+            datatype.equals(XSD.xint.getURI()) ||
+            datatype.equals(XSD.xlong.getURI())) {
+            return "http://qudt.org/vocab/scales/RatioScale";
+        }
+
+        // String types with small enumeration are nominal
+        if (datatype.equals(XSD.xstring.getURI()) && stats.hasEnumeratedValues()) {
+            return "http://qudt.org/vocab/scales/NominalScale";
+        }
+
+        // Boolean is nominal
+        if (datatype.equals(XSD.xboolean.getURI())) {
+            return "http://qudt.org/vocab/scales/NominalScale";
+        }
+
+        return null;
     }
 
     /**

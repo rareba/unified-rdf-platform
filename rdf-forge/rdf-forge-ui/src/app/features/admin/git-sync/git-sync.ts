@@ -1,6 +1,8 @@
-import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -446,11 +448,12 @@ import { ConfirmationService } from '../../../core/services/confirmation.service
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class GitSyncComponent implements OnInit {
+export class GitSyncComponent implements OnInit, OnDestroy {
   readonly gitSyncService = inject(GitSyncService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly destroy$ = new Subject<void>();
 
   readonly testing = signal(false);
   readonly editingConfig = signal<GitSyncConfig | null>(null);
@@ -458,7 +461,12 @@ export class GitSyncComponent implements OnInit {
   formConfig: Partial<GitSyncConfig> = this.getEmptyConfig();
 
   ngOnInit(): void {
-    this.gitSyncService.loadConfigs().subscribe();
+    this.gitSyncService.loadConfigs().pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   getEmptyConfig(): Partial<GitSyncConfig> {
@@ -484,7 +492,7 @@ export class GitSyncComponent implements OnInit {
     }
 
     this.testing.set(true);
-    this.gitSyncService.testConnection(this.formConfig as GitSyncConfig).subscribe({
+    this.gitSyncService.testConnection(this.formConfig as GitSyncConfig).pipe(takeUntil(this.destroy$)).subscribe({
       next: (result) => {
         this.testing.set(false);
         this.snackBar.open(
@@ -504,7 +512,7 @@ export class GitSyncComponent implements OnInit {
     const config = this.formConfig as GitSyncConfig;
 
     if (this.editingConfig()) {
-      this.gitSyncService.updateConfig(this.editingConfig()!.id!, config).subscribe({
+      this.gitSyncService.updateConfig(this.editingConfig()!.id!, config).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.snackBar.open('Configuration updated', 'Close', { duration: 3000 });
           this.cancelEdit();
@@ -514,7 +522,7 @@ export class GitSyncComponent implements OnInit {
         }
       });
     } else {
-      this.gitSyncService.createConfig(config).subscribe({
+      this.gitSyncService.createConfig(config).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.snackBar.open('Configuration created', 'Close', { duration: 3000 });
           this.formConfig = this.getEmptyConfig();
@@ -542,9 +550,9 @@ export class GitSyncComponent implements OnInit {
       message: `Delete configuration "${config.name}"?`,
       confirmText: 'Delete',
       confirmColor: 'warn'
-    }).subscribe(confirmed => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(confirmed => {
       if (!confirmed) return;
-      this.gitSyncService.deleteConfig(config.id!).subscribe({
+      this.gitSyncService.deleteConfig(config.id!).pipe(takeUntil(this.destroy$)).subscribe({
         next: () => {
           this.snackBar.open('Configuration deleted', 'Close', { duration: 3000 });
         },
@@ -559,7 +567,7 @@ export class GitSyncComponent implements OnInit {
     const message = prompt('Commit message:', 'Sync configurations from RDF Forge');
     if (message === null) return;
 
-    this.gitSyncService.push(config.id!, message).subscribe({
+    this.gitSyncService.push(config.id!, message).pipe(takeUntil(this.destroy$)).subscribe({
       next: (status) => {
         if (status.state === 'COMPLETED') {
           this.snackBar.open(`Pushed ${status.syncedFiles.length} files`, 'Close', { duration: 3000 });
@@ -574,7 +582,7 @@ export class GitSyncComponent implements OnInit {
   }
 
   pullFromGit(config: GitSyncConfig): void {
-    this.gitSyncService.pull(config.id!, false).subscribe({
+    this.gitSyncService.pull(config.id!, false).pipe(takeUntil(this.destroy$)).subscribe({
       next: (status) => {
         if (status.state === 'COMPLETED') {
           this.snackBar.open(`Pulled ${status.syncedFiles.length} files`, 'Close', { duration: 3000 });

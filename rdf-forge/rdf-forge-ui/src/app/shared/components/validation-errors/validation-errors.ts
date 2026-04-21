@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     @if (errors && errors.length > 0) {
-      <div class="validation-errors">
+      <div class="validation-errors" role="alert" aria-live="assertive" aria-label="Validation errors">
         @for (error of errors; track $index) {
           <div class="error-item">{{ error.message || 'Validation error' }}</div>
         }

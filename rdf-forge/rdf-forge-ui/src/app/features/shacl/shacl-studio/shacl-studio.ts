@@ -5,7 +5,8 @@ import {
   ViewChild,
   ElementRef,
   inject,
-  ChangeDetectionStrategy
+  ChangeDetectionStrategy,
+  ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -24,7 +25,15 @@ import { Subject, Observable, of } from 'rxjs';
 
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
 
 import { ShaclService } from '../../../core/services/shacl.service';
 import { ErrorHandlerService } from '../../../core/services/error-handler.service';
@@ -60,11 +69,20 @@ interface ShapeFile {
     ReactiveFormsModule,
     RouterModule,
     MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatCheckboxModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatCardModule,
+    MatChipsModule,
+    MatDividerModule,
     ShapeVisualizerComponent
   ],
   templateUrl: './shacl-studio.html',
+  styleUrl: './shacl-studio.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   animations: [
     trigger('slideInOut', [
@@ -80,6 +98,7 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
   private errorHandler = inject(ErrorHandlerService);
   private formBuilder = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   private destroy$ = new Subject<void>();
   private contentSubject = new Subject<string>();
@@ -187,9 +206,9 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
   private setupDebouncedValidation(): void {
     this.contentSubject
       .pipe(
-        debounceTime(1000),
+        debounceTime(1500),
         distinctUntilChanged(),
-        filter(content => content.length > 0),
+        filter(content => content.trim().length > 20),
         takeUntil(this.destroy$)
       )
       .subscribe(() => {
@@ -205,6 +224,9 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
     }
 
     this.isValidating = true;
+    if (!showSuccess) {
+      this.validationResult = null;
+    }
     const options: ValidationOptions = {
       content,
       profile: this.selectedProfile || undefined
@@ -213,15 +235,20 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
     this.shaclService.validateContent(options)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => this.isValidating = false),
         catchError((error: unknown) => {
           if (error instanceof Error) this.errorHandler.handleError(error);
           return of(null);
-        })
+        }),
+        finalize(() => { this.isValidating = false; this.cdr.markForCheck(); })
       )
       .subscribe((response: any) => {
+        this.isValidating = false;
         if (response) {
           const data = response.data || response;
+          // Map API response field 'valid' to model field 'conforms' if needed
+          if (data.valid !== undefined && data.conforms === undefined) {
+            data.conforms = data.valid;
+          }
           this.validationResult = data;
           this.validationErrors = data.results || [];
           this.suggestedFixes = this.generateSuggestedFixes(this.validationErrors);
@@ -231,6 +258,7 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
             this.snackBar.open('Shapes are valid!', 'Close', { duration: 3000 });
           }
         }
+        this.cdr.markForCheck();
       });
   }
 
@@ -273,19 +301,21 @@ export class ShaclStudioComponent implements OnInit, OnDestroy {
     this.shaclService.saveShape(shapeData)
       .pipe(
         takeUntil(this.destroy$),
-        finalize(() => this.isSaving = false),
         catchError((error: unknown) => {
           if (error instanceof Error) this.errorHandler.handleError(error);
           return of(null);
-        })
+        }),
+        finalize(() => { this.isSaving = false; this.cdr.markForCheck(); })
       )
       .subscribe((response: any) => {
+        this.isSaving = false;
         if (response) {
           this.snackBar.open('Shape saved successfully!', 'Close', { duration: 3000 });
           this.shapeForm.reset({ autoValidate: true });
           this.validationErrors = [];
           this.validationResult = null;
         }
+        this.cdr.markForCheck();
       });
   }
 
@@ -315,7 +345,7 @@ ex:PersonShape
   sh:property [
     sh:path ex:email ;
     sh:datatype xsd:string ;
-    sh:pattern "^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$" ;
+    sh:pattern "^[\\\\w.%+-]+@[\\\\w.-]+\\\\.[A-Za-z]{2,}$" ;
     sh:minCount 1 ;
   ] ;
   sh:property [
@@ -403,7 +433,7 @@ ex:PersonShape
 
   toggleVisualization(): void {
     this.showVisualization = !this.showVisualization;
-    if (this.showVisualization && this.validationResult) {
+    if (this.showVisualization) {
       this.generateVisualizationData();
     }
   }
@@ -418,12 +448,14 @@ ex:PersonShape
     let currentShape: any = null;
     let currentProperty: any = null;
     let lineNum = 0;
+    let pendingSubject: string | null = null;
 
     for (const line of lines) {
       lineNum++;
       const trimmed = line.trim();
 
-      const shapeMatch = trimmed.match(/^(ex:)?(\w+)\s+a\s+sh:NodeShape/);
+      // Match shape declaration on a single line: ex:PersonShape a sh:NodeShape
+      const shapeMatch = trimmed.match(/^([\w-]+:)?([\w-]+)\s+a\s+sh:NodeShape/);
       if (shapeMatch) {
         const shapeId = shapeMatch[2];
         currentShape = {
@@ -433,7 +465,33 @@ ex:PersonShape
           group: 'shapes'
         };
         nodes.push(currentShape);
+        pendingSubject = null;
         continue;
+      }
+
+      // Track a subject URI on its own line (e.g., "ex:PersonShape")
+      const subjectMatch = trimmed.match(/^([\w-]+:)?([\w-]+)\s*$/);
+      if (subjectMatch && !trimmed.startsWith('@') && !trimmed.startsWith('#')) {
+        pendingSubject = subjectMatch[2];
+        continue;
+      }
+
+      // Match "a sh:NodeShape" on a continuation line after a subject
+      if (pendingSubject && trimmed.match(/^a\s+sh:NodeShape/)) {
+        currentShape = {
+          id: pendingSubject,
+          label: pendingSubject,
+          type: 'shape',
+          group: 'shapes'
+        };
+        nodes.push(currentShape);
+        pendingSubject = null;
+        continue;
+      }
+
+      // Reset pending subject if the line is not a continuation
+      if (pendingSubject && trimmed.length > 0) {
+        pendingSubject = null;
       }
 
       const propertyStart = trimmed.match(/sh:property\s*\[/);

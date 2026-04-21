@@ -29,10 +29,10 @@ public class KeycloakReadOnlyClient {
     @Value("${keycloak.admin.client-secret:}")
     private String clientSecret;
 
-    @Value("${keycloak.admin.username}")
+    @Value("${keycloak.admin.username:admin}")
     private String adminUsername;
 
-    @Value("${keycloak.admin.password}")
+    @Value("${keycloak.admin.password:admin}")
     private String adminPassword;
 
     private volatile String accessToken;

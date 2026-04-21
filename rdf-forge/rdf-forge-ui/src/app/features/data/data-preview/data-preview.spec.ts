@@ -56,7 +56,7 @@ describe('DataPreviewComponent', () => {
 
     tick();
 
-    expect(dataService.preview).toHaveBeenCalledWith('ds-1', { rows: 20 });
+    expect(dataService.preview).toHaveBeenCalledWith('ds-1', { rows: 100, offset: 0 });
     expect(component.previewData()).toEqual(mockPreviewData);
     expect(component.loading()).toBeFalse();
   }));
@@ -104,7 +104,7 @@ describe('DataPreviewComponent', () => {
 
     tick();
     expect(dataService.preview).toHaveBeenCalledTimes(2);
-    expect(dataService.preview).toHaveBeenCalledWith('ds-2', { rows: 20 });
+    expect(dataService.preview).toHaveBeenCalledWith('ds-2', { rows: 100, offset: 0 });
   }));
 
   it('should reload when options change', fakeAsync(() => {

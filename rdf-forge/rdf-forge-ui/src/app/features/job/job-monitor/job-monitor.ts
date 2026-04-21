@@ -18,7 +18,6 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { Subscription, Subject, takeUntil } from 'rxjs';
 import { JobService, ConnectionStatus, LogStreamMessage } from '../../../core/services';
 import { Job, JobLog } from '../../../core/models';
-import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader';
 import { LoggerService } from '../../../core/services/logger.service';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
@@ -50,8 +49,7 @@ interface LogFilter {
     MatFormFieldModule,
     MatInputModule,
     MatButtonToggleModule,
-    MatProgressSpinnerModule,
-    SkeletonLoaderComponent
+    MatProgressSpinnerModule
   ],
   templateUrl: './job-monitor.html',
   styleUrl: './job-monitor.scss',
@@ -427,7 +425,7 @@ export class JobMonitor implements OnInit, OnDestroy, AfterViewChecked {
 
   formatDuration(ms: number | undefined): string {
     if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60000) return `${Math.round(ms / 1000)}s`;
     if (ms < 3600000) return `${Math.round(ms / 60000)}m`;
     return `${Math.round(ms / 3600000)}h`;

@@ -210,7 +210,8 @@ describe('TriplestoreService', () => {
       });
 
       const req = httpMock.expectOne(r =>
-        r.url === `${baseUrl}/triplestores/conn-1/graphs/${encodeURIComponent('http://example.org/graph/1')}/resources` &&
+        r.url === `${baseUrl}/triplestores/conn-1/resources` &&
+        r.params.get('graphUri') === 'http://example.org/graph/1' &&
         r.params.has('limit') &&
         r.params.has('size')
       );
@@ -222,7 +223,8 @@ describe('TriplestoreService', () => {
       service.getGraphResources('conn-1', 'http://example.org/graph/1', { limit: 50 }).subscribe();
 
       const req = httpMock.expectOne(r =>
-        r.url === `${baseUrl}/triplestores/conn-1/graphs/${encodeURIComponent('http://example.org/graph/1')}/resources` &&
+        r.url === `${baseUrl}/triplestores/conn-1/resources` &&
+        r.params.get('graphUri') === 'http://example.org/graph/1' &&
         r.params.get('limit') === '50' &&
         r.params.has('size')
       );
@@ -235,7 +237,8 @@ describe('TriplestoreService', () => {
       service.searchResources('conn-1', 'http://example.org/graph', 'test').subscribe();
 
       const req = httpMock.expectOne(r =>
-        r.url === `${baseUrl}/triplestores/conn-1/graphs/${encodeURIComponent('http://example.org/graph')}/search` &&
+        r.url === `${baseUrl}/triplestores/conn-1/resources/search` &&
+        r.params.get('graphUri') === 'http://example.org/graph' &&
         r.params.get('q') === 'test' &&
         r.params.has('limit') &&
         r.params.has('size')
@@ -253,8 +256,10 @@ describe('TriplestoreService', () => {
         expect(r.uri).toBe('http://example.org/r/1');
       });
 
-      const req = httpMock.expectOne(
-        `${baseUrl}/triplestores/conn-1/graphs/${encodeURIComponent('http://example.org/graph')}/resources/${encodeURIComponent('http://example.org/r/1')}`
+      const req = httpMock.expectOne(r =>
+        r.url === `${baseUrl}/triplestores/conn-1/resource` &&
+        r.params.get('graphUri') === 'http://example.org/graph' &&
+        r.params.get('resourceUri') === 'http://example.org/r/1'
       );
       req.flush(resource);
     });
@@ -265,7 +270,7 @@ describe('TriplestoreService', () => {
       const result: QueryResult = {
         variables: ['s', 'p', 'o'],
         bindings: [],
-        executionTime: 100
+        executionTimeMs: 100
       };
 
       service.executeSparql('conn-1', 'SELECT * WHERE { ?s ?p ?o }').subscribe(r => {
@@ -285,7 +290,7 @@ describe('TriplestoreService', () => {
       service.executeSparqlOnDefault('SELECT * WHERE { ?s ?p ?o }').subscribe();
 
       const req = httpMock.expectOne(`${baseUrl}/triplestores/conn-1/sparql`);
-      req.flush({ variables: [], bindings: [], executionTime: 0 });
+      req.flush({ variables: [], bindings: [], executionTimeMs: 0 });
     });
   });
 
@@ -323,10 +328,13 @@ describe('TriplestoreService', () => {
         expect(content).toContain('@prefix');
       });
 
-      const req = httpMock.expectOne(
-        `${baseUrl}/triplestores/conn-1/graphs/${encodeURIComponent('http://example.org/graph')}/export?format=turtle`
+      const req = httpMock.expectOne(r =>
+        r.url === '/api/v1/triplestores/conn-1/export' &&
+        r.params.get('graphUri') === 'http://example.org/graph' &&
+        r.params.get('format') === 'turtle'
       );
       expect(req.request.method).toBe('GET');
+      expect(req.request.responseType).toBe('text');
       req.flush('@prefix : <http://example.org/> .');
     });
   });

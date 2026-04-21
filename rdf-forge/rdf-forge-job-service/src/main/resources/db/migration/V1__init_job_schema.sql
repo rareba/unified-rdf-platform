@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     pipeline_version INTEGER,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     priority INTEGER DEFAULT 5 CHECK (priority >= 1 AND priority <= 10),
-    dry_run BOOLEAN DEFAULT FALSE,
+    is_dry_run BOOLEAN DEFAULT FALSE,
     variables JSONB,
     triggered_by VARCHAR(50) DEFAULT 'MANUAL',
     started_at TIMESTAMP WITH TIME ZONE,
@@ -124,5 +124,5 @@ COMMENT ON TABLE job_schedules IS 'Stores scheduled job configurations';
 
 COMMENT ON COLUMN jobs.status IS 'Job status: PENDING, RUNNING, COMPLETED, FAILED, CANCELLED';
 COMMENT ON COLUMN jobs.priority IS 'Job priority 1-10, higher values processed first';
-COMMENT ON COLUMN jobs.dry_run IS 'If true, output operations are skipped';
+COMMENT ON COLUMN jobs.is_dry_run IS 'If true, output operations are skipped';
 COMMENT ON COLUMN jobs.metrics IS 'Job execution metrics as JSON';

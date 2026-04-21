@@ -34,7 +34,7 @@
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
 
-    <div class="status-filters" role="group" aria-label="Filter by status">
+    <mat-chip-listbox class="status-filters" role="group" aria-label="Filter by status" [multiple]="true">
       @for (opt of statusOptions; track opt.value) {
         <mat-chip-option
           [selected]="statusFilters().includes(opt.value)"
@@ -42,10 +42,10 @@
           {{ opt.label }}
         </mat-chip-option>
       }
-      @if (statusFilters().length > 0) {
-        <button mat-button (click)="clearStatusFilters()">Clear filters</button>
-      }
-    </div>
+    </mat-chip-listbox>
+    @if (statusFilters().length > 0) {
+      <button mat-button (click)="clearStatusFilters()">Clear filters</button>
+    }
   </div>
 
   <!-- Bulk Actions -->
@@ -83,14 +83,16 @@
           <th mat-header-cell *matHeaderCellDef>
             <mat-checkbox
               [checked]="isAllSelected()"
-              (change)="toggleAllRows()">
+              (change)="toggleAllRows()"
+              aria-label="Select all jobs">
             </mat-checkbox>
           </th>
           <td mat-cell *matCellDef="let job">
             <mat-checkbox
               [checked]="selection.isSelected(job)"
               (change)="toggleRow(job)"
-              (click)="$event.stopPropagation()">
+              (click)="$event.stopPropagation()"
+              [attr.aria-label]="'Select job ' + job.id.substring(0, 8)">
             </mat-checkbox>
           </td>
         </ng-container>
@@ -100,8 +102,8 @@
           <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
           <td mat-cell *matCellDef="let job">
             <span class="job-id" [matTooltip]="job.id">{{ job.id | slice:0:8 }}...</span>
-            <button mat-icon-button class="copy-btn" (click)="copyJobId(job, $event)" matTooltip="Copy ID">
-              <mat-icon>content_copy</mat-icon>
+            <button mat-icon-button class="copy-btn" (click)="copyJobId(job, $event)" matTooltip="Copy ID" aria-label="Copy job ID">
+              <mat-icon aria-hidden="true">content_copy</mat-icon>
             </button>
           </td>
         </ng-container>
@@ -127,11 +129,11 @@
           <th mat-header-cell *matHeaderCellDef>Progress</th>
           <td mat-cell *matCellDef="let job">
             @if (job.status?.toLowerCase() === 'running') {
-              <mat-progress-bar mode="determinate" [value]="job.progress || 0"></mat-progress-bar>
+              <mat-progress-bar mode="determinate" [value]="job.progress || 0" [attr.aria-label]="'Progress: ' + (job.progress || 0) + '%'"></mat-progress-bar>
             } @else if (job.status?.toLowerCase() === 'completed') {
-              <mat-icon color="primary">check_circle</mat-icon>
+              <mat-icon color="primary" aria-label="Completed">check_circle</mat-icon>
             } @else if (job.status?.toLowerCase() === 'failed') {
-              <mat-icon color="warn">error</mat-icon>
+              <mat-icon color="warn" aria-label="Failed">error</mat-icon>
             }
           </td>
         </ng-container>
@@ -145,7 +147,7 @@
         <!-- Started At Column -->
         <ng-container matColumnDef="startedAt">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Started</th>
-          <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt) }}</td>
+          <td mat-cell *matCellDef="let job">{{ formatDate(job.startedAt, job.status) }}</td>
         </ng-container>
 
         <!-- Duration Column -->
@@ -165,20 +167,20 @@
           <th mat-header-cell *matHeaderCellDef>Actions</th>
           <td mat-cell *matCellDef="let job">
             <div class="action-buttons">
-              <button mat-icon-button (click)="viewDetails(job, $event)" matTooltip="Details">
-                <mat-icon>info</mat-icon>
+              <button mat-icon-button (click)="viewDetails(job, $event)" matTooltip="Details" aria-label="View job details">
+                <mat-icon aria-hidden="true">info</mat-icon>
               </button>
-              <button mat-icon-button (click)="viewLogs(job, $event)" matTooltip="Logs">
-                <mat-icon>description</mat-icon>
+              <button mat-icon-button (click)="viewLogs(job, $event)" matTooltip="Logs" aria-label="View job logs">
+                <mat-icon aria-hidden="true">description</mat-icon>
               </button>
               @if (job.status?.toLowerCase() === 'running') {
-                <button mat-icon-button color="warn" (click)="cancelJob(job, $event)" matTooltip="Cancel">
-                  <mat-icon>stop</mat-icon>
+                <button mat-icon-button color="warn" (click)="cancelJob(job, $event)" matTooltip="Cancel" aria-label="Cancel job">
+                  <mat-icon aria-hidden="true">stop</mat-icon>
                 </button>
               }
               @if (job.status?.toLowerCase() === 'failed') {
-                <button mat-icon-button color="primary" (click)="retryJob(job, $event)" matTooltip="Retry">
-                  <mat-icon>replay</mat-icon>
+                <button mat-icon-button color="primary" (click)="retryJob(job, $event)" matTooltip="Retry" aria-label="Retry job">
+                  <mat-icon aria-hidden="true">replay</mat-icon>
                 </button>
               }
             </div>
@@ -217,9 +219,9 @@
 
   <!-- New Job Dialog -->
   @if (newJobDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeNewJobDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
-        <h2>Create New Job</h2>
+    <div class="dialog-backdrop" (click)="closeNewJobDialog()" (keydown.escape)="closeNewJobDialog()" role="presentation">
+      <div class="dialog-container" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="new-job-dialog-title" aria-modal="true" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+        <h2 id="new-job-dialog-title">Create New Job</h2>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Select Pipeline</mat-label>
           <mat-select [ngModel]="selectedPipelineId()" (ngModelChange)="selectedPipelineId.set($event)">
@@ -243,14 +245,14 @@
 
   <!-- Logs Dialog -->
   @if (logsDialogVisible()) {
-    <div class="dialog-backdrop" (click)="closeLogsDialog()">
-      <div class="dialog-container large-dialog" (click)="$event.stopPropagation()">
-        <h2>Logs: {{ selectedJob()?.id?.substring(0, 8) }}</h2>
+    <div class="dialog-backdrop" (click)="closeLogsDialog()" (keydown.escape)="closeLogsDialog()" role="presentation">
+      <div class="dialog-container large-dialog" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="logs-dialog-title" aria-modal="true" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+        <h2 id="logs-dialog-title">Logs: {{ selectedJob()?.id?.substring(0, 8) }}</h2>
         @if (logsLoading()) {
           <mat-spinner diameter="40"></mat-spinner>
         } @else {
           <div class="logs-container">
-            @for (log of jobLogs(); track $index) {
+            @for (log of jobLogs(); track log.id) {
               <div [class]="getLogClass(log.level)" class="log-entry">
                 <span class="log-time">{{ formatDate(log.timestamp) }}</span>
                 <span class="log-level">{{ log.level }}</span>
@@ -271,9 +273,9 @@
 
   <!-- Details Dialog -->
   @if (detailsDialogVisible() && selectedJob()) {
-    <div class="dialog-backdrop" (click)="closeDetailsDialog()">
-      <div class="dialog-container" (click)="$event.stopPropagation()">
-        <h2>Job Details</h2>
+    <div class="dialog-backdrop" (click)="closeDetailsDialog()" (keydown.escape)="closeDetailsDialog()" role="presentation">
+      <div class="dialog-container" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="details-dialog-title" aria-modal="true" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
+        <h2 id="details-dialog-title">Job Details</h2>
         <div class="details-grid">
           <div class="detail-item"><label>ID</label><code>{{ selectedJob()!.id }}</code></div>
           <div class="detail-item"><label>Pipeline</label><span>{{ selectedJob()!.pipelineName }}</span></div>

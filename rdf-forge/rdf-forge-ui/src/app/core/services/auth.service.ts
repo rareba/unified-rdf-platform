@@ -13,6 +13,10 @@ export class AuthService {
   private _userProfile: KeycloakProfile | undefined;
   private _initPromise: Promise<boolean> | undefined;
   private _initialized = false;
+  private _authFailed = false;
+
+  private static readonly AUTH_RETRY_KEY = 'rdf_forge_auth_retries';
+  private static readonly MAX_AUTH_RETRIES = 3;
 
   async init(): Promise<boolean> {
     // Return cached result if already initialized
@@ -65,6 +69,8 @@ export class AuthService {
         this._initialized = true;
 
         if (authenticated) {
+          // Success — clear retry counter
+          sessionStorage.removeItem(AuthService.AUTH_RETRY_KEY);
           // Try to load user profile, but don't fail auth if it fails
           try {
             this._userProfile = await this.keycloak.loadUserProfile();
@@ -86,7 +92,15 @@ export class AuthService {
             window.history.replaceState(null, '', window.location.pathname);
           }
         } else {
-          // Not authenticated - redirect to login
+          // Not authenticated — check retry limit before redirecting to login
+          if (this._hasExceededRetries()) {
+            this.logger.error('Authentication server appears unreachable after multiple attempts');
+            this._showAuthError();
+            this._initialized = true;
+            this._authFailed = true;
+            return false;
+          }
+          this._incrementRetryCount();
           this.keycloak.login();
           // Return a promise that never resolves since we're redirecting
           return new Promise(() => {});
@@ -96,6 +110,8 @@ export class AuthService {
       } catch (error) {
         this.logger.error('Failed to initialize Keycloak', error);
         this._initialized = true;
+        this._authFailed = true;
+        this._showAuthError();
         return false;
       }
     }
@@ -161,5 +177,68 @@ export class AuthService {
       return true;
     }
     return this.hasRole('admin');
+  }
+
+  get authFailed(): boolean {
+    return this._authFailed;
+  }
+
+  /**
+   * Retry authentication after a failure. Resets internal state and
+   * clears the retry counter so the user gets a fresh set of attempts.
+   */
+  retryAuth(): void {
+    sessionStorage.removeItem(AuthService.AUTH_RETRY_KEY);
+    this._authFailed = false;
+    this._initialized = false;
+    this._initPromise = undefined;
+    window.location.reload();
+  }
+
+  private _getRetryCount(): number {
+    return parseInt(sessionStorage.getItem(AuthService.AUTH_RETRY_KEY) ?? '0', 10);
+  }
+
+  private _incrementRetryCount(): void {
+    sessionStorage.setItem(
+      AuthService.AUTH_RETRY_KEY,
+      String(this._getRetryCount() + 1)
+    );
+  }
+
+  private _hasExceededRetries(): boolean {
+    return this._getRetryCount() >= AuthService.MAX_AUTH_RETRIES;
+  }
+
+  private _showAuthError(): void {
+    const container = document.createElement('div');
+    container.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f5f5f5;';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'text-align:center;max-width:480px;padding:2rem;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.12);';
+
+    const heading = document.createElement('h1');
+    heading.style.cssText = 'margin:0 0 .5rem;font-size:1.5rem;color:#d32f2f;';
+    heading.textContent = 'Authentication Server Unreachable';
+
+    const message = document.createElement('p');
+    message.style.cssText = 'color:#555;line-height:1.5;';
+    message.textContent = 'Unable to connect to the authentication server after multiple attempts. Please verify that the Keycloak server is running and try again.';
+
+    const retryBtn = document.createElement('button');
+    retryBtn.style.cssText = 'margin-top:1rem;padding:.6rem 1.5rem;font-size:1rem;color:#fff;background:#1976d2;border:none;border-radius:4px;cursor:pointer;';
+    retryBtn.textContent = 'Retry';
+    retryBtn.addEventListener('click', () => {
+      sessionStorage.removeItem(AuthService.AUTH_RETRY_KEY);
+      window.location.reload();
+    });
+
+    card.appendChild(heading);
+    card.appendChild(message);
+    card.appendChild(retryBtn);
+    container.appendChild(card);
+
+    const appRoot = document.querySelector('app-root') ?? document.body;
+    appRoot.replaceChildren(container);
   }
 }

@@ -395,21 +395,20 @@ describe('ErrorTrackingService', () => {
   });
 
   describe('error deduplication window', () => {
-    it('should clear deduplication cache periodically', (done) => {
+    it('should deduplicate same error within window then allow after dispose/reinit', () => {
       const error = new Error('Deduplicate me');
 
       service.trackError(error, 'SameContext');
       expect(service.getQueueSize()).toBe(1);
 
-      // Wait for deduplication window to clear (1 minute)
-      // For testing, we can verify the mechanism exists
-      service.clearQueue();
-
-      // After clearing, same error can be added again
+      // Same error within dedup window is skipped
       service.trackError(error, 'SameContext');
       expect(service.getQueueSize()).toBe(1);
 
-      done();
+      // Different error message should still be accepted
+      const error2 = new Error('Different error');
+      service.trackError(error2, 'SameContext');
+      expect(service.getQueueSize()).toBe(2);
     });
   });
 

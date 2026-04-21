@@ -170,23 +170,23 @@
   font-weight: 500;
 
   &.format-success {
-    background: rgba(34, 197, 94, 0.1);
+    background: var(--rdf-status-success-bg, rgba(34, 197, 94, 0.1));
     color: #16a34a;
   }
 
   &.format-info {
-    background: rgba(59, 130, 246, 0.1);
+    background: var(--rdf-status-info-bg, rgba(59, 130, 246, 0.1));
     color: #2563eb;
   }
 
   &.format-warn {
-    background: rgba(251, 146, 60, 0.1);
+    background: var(--rdf-status-warning-bg, rgba(251, 146, 60, 0.1));
     color: #ea580c;
   }
 
   &.format-danger {
-    background: rgba(239, 68, 68, 0.1);
-    color: #dc2626;
+    background: var(--rdf-status-error-bg, rgba(239, 68, 68, 0.1));
+    color: var(--rdf-danger, #dc2626);
   }
 
   &.format-secondary {
@@ -230,11 +230,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--rdf-z-modal, 1000);
 }
 
 .dialog-content {
-  background: white;
+  background: var(--rdf-surface, white);
   border-radius: 8px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-height: 90vh;
@@ -509,7 +509,7 @@
     background: var(--surface-50, #f9fafb);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: var(--rdf-z-dropdown, 10);
   }
 
   td {
@@ -522,6 +522,6 @@
     background: var(--surface-50, #f9fafb);
     position: sticky;
     left: 0;
-    z-index: 5;
+    z-index: var(--rdf-z-dropdown, 5);
   }
 }

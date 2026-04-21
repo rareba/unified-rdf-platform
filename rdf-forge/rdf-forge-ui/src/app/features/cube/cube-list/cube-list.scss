@@ -26,7 +26,7 @@
 
     .cube-count {
       font-size: 0.875rem;
-      color: rgba(0, 0, 0, 0.54);
+      color: var(--rdf-text-secondary);
     }
   }
 
@@ -59,7 +59,7 @@
   justify-content: center;
   min-height: 300px;
   text-align: center;
-  color: rgba(0, 0, 0, 0.54);
+  color: var(--rdf-text-secondary);
 
   .empty-icon {
     font-size: 72px;
@@ -136,30 +136,30 @@
   letter-spacing: 0.04em;
 
   &.status-draft {
-    background-color: #e0e0e0;
-    color: #424242;
+    background-color: var(--rdf-status-draft-bg);
+    color: var(--rdf-status-draft-fg);
   }
 
   &.status-mapped {
-    background-color: #ffe0b2;
-    color: #e65100;
+    background-color: var(--rdf-status-mapped-bg);
+    color: var(--rdf-status-mapped-fg);
   }
 
   &.status-transformed {
-    background-color: #bbdefb;
-    color: #0d47a1;
+    background-color: var(--rdf-status-transformed-bg);
+    color: var(--rdf-status-transformed-fg);
   }
 
   &.status-published {
-    background-color: #c8e6c9;
-    color: #1b5e20;
+    background-color: var(--rdf-status-published-bg);
+    color: var(--rdf-status-published-fg);
   }
 }
 
 // Description
 .cube-description {
   font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--rdf-text-primary);
   margin: 0 0 12px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -167,7 +167,7 @@
   overflow: hidden;
 
   &.no-description {
-    color: rgba(0, 0, 0, 0.38);
+    color: var(--rdf-text-disabled);
     font-style: italic;
   }
 }
@@ -183,7 +183,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.8rem;
-    color: rgba(0, 0, 0, 0.54);
+    color: var(--rdf-text-secondary);
 
     .meta-icon {
       font-size: 16px;
@@ -195,9 +195,9 @@
 
 // Delete action styling
 .delete-action {
-  color: #c62828;
+  color: var(--rdf-danger);
 
   mat-icon {
-    color: #c62828;
+    color: var(--rdf-danger);
   }
 }

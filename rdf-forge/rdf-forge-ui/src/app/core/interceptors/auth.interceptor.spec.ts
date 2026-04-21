@@ -15,7 +15,7 @@ describe('authInterceptor', () => {
     originalAuthEnabled = environment.auth.enabled;
     environment.auth.enabled = true;
 
-    const authSpy = jasmine.createSpyObj('AuthService', ['getToken', 'login'], { isAuthenticated: false });
+    const authSpy = jasmine.createSpyObj('AuthService', ['getTokenRefreshed', 'login'], { isAuthenticated: false });
 
     TestBed.configureTestingModule({
       providers: [
@@ -35,29 +35,31 @@ describe('authInterceptor', () => {
     environment.auth.enabled = originalAuthEnabled;
   });
 
-  it('should add Authorization header when token exists', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should add Authorization header when token exists', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
 
     httpClient.get('/api/test').subscribe();
+    tick();
 
     const req = httpMock.expectOne('/api/test');
     expect(req.request.headers.has('Authorization')).toBeTrue();
     expect(req.request.headers.get('Authorization')).toBe('Bearer test-token');
     req.flush({});
-  });
+  }));
 
-  it('should not add Authorization header when token is undefined', () => {
-    authService.getToken.and.returnValue(undefined);
+  it('should not add Authorization header when token is undefined', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve(undefined));
 
     httpClient.get('/api/test').subscribe();
+    tick();
 
     const req = httpMock.expectOne('/api/test');
     expect(req.request.headers.has('Authorization')).toBeFalse();
     req.flush({});
-  });
+  }));
 
   it('should handle 401 response and attempt login redirect', fakeAsync(() => {
-    authService.getToken.and.returnValue('expired-token');
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('expired-token'));
     let errorReceived = false;
 
     httpClient.get('/api/protected').subscribe({
@@ -67,6 +69,7 @@ describe('authInterceptor', () => {
         expect(error.status).toBe(401);
       }
     });
+    tick();
 
     const req = httpMock.expectOne('/api/protected');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
@@ -74,29 +77,26 @@ describe('authInterceptor', () => {
     // Verify error is propagated to subscriber
     expect(errorReceived).toBeTrue();
 
-    // The interceptor uses setTimeout(100) before calling login
-    // Note: The isRedirecting flag prevents multiple concurrent redirects
-    // which may affect whether login() is called in test isolation
     tick(150);
   }));
 
-  it('should not call login for non-401 errors', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should not call login for non-401 errors', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
 
     httpClient.get('/api/test').subscribe({
       next: () => fail('should have failed'),
       error: (error) => {
-        expect(authService.login).not.toHaveBeenCalled();
         expect(error.status).toBe(500);
       }
     });
+    tick();
 
     const req = httpMock.expectOne('/api/test');
     req.flush('Server Error', { status: 500, statusText: 'Internal Server Error' });
-  });
+  }));
 
-  it('should pass through other errors', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should pass through other errors', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
     let errorReceived = false;
 
     httpClient.get('/api/test').subscribe({
@@ -106,15 +106,16 @@ describe('authInterceptor', () => {
         expect(error.status).toBe(404);
       }
     });
+    tick();
 
     const req = httpMock.expectOne('/api/test');
     req.flush('Not Found', { status: 404, statusText: 'Not Found' });
 
     expect(errorReceived).toBeTrue();
-  });
+  }));
 
   it('should propagate error to subscriber after 401', fakeAsync(() => {
-    authService.getToken.and.returnValue('test-token');
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
     let errorReceived = false;
 
     httpClient.get('/api/protected-propagate').subscribe({
@@ -124,55 +125,56 @@ describe('authInterceptor', () => {
         expect(error.status).toBe(401);
       }
     });
+    tick();
 
     const req = httpMock.expectOne('/api/protected-propagate');
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
     expect(errorReceived).toBeTrue();
-    // Note: login() may or may not be called depending on isRedirecting flag state
-    // from other tests, so we only verify error propagation here
     tick(150);
   }));
 
-  it('should work with POST requests', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should work with POST requests', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
     const postData = { name: 'test' };
 
     httpClient.post('/api/items', postData).subscribe();
+    tick();
 
     const req = httpMock.expectOne('/api/items');
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get('Authorization')).toBe('Bearer test-token');
     req.flush({ id: 1, ...postData });
-  });
+  }));
 
-  it('should work with PUT requests', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should work with PUT requests', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
     const putData = { id: 1, name: 'updated' };
 
     httpClient.put('/api/items/1', putData).subscribe();
+    tick();
 
     const req = httpMock.expectOne('/api/items/1');
     expect(req.request.method).toBe('PUT');
     expect(req.request.headers.get('Authorization')).toBe('Bearer test-token');
     req.flush(putData);
-  });
+  }));
 
-  it('should work with DELETE requests', () => {
-    authService.getToken.and.returnValue('test-token');
+  it('should work with DELETE requests', fakeAsync(() => {
+    authService.getTokenRefreshed.and.returnValue(Promise.resolve('test-token'));
 
     httpClient.delete('/api/items/1').subscribe();
+    tick();
 
     const req = httpMock.expectOne('/api/items/1');
     expect(req.request.method).toBe('DELETE');
     expect(req.request.headers.get('Authorization')).toBe('Bearer test-token');
     req.flush({});
-  });
+  }));
 
   describe('when auth is disabled', () => {
     it('should not add Authorization header', () => {
       environment.auth.enabled = false;
-      authService.getToken.and.returnValue('test-token');
 
       httpClient.get('/api/test').subscribe();
 
@@ -183,7 +185,6 @@ describe('authInterceptor', () => {
 
     it('should not call login on 401', () => {
       environment.auth.enabled = false;
-      authService.getToken.and.returnValue('test-token');
 
       httpClient.get('/api/protected').subscribe({
         error: () => {

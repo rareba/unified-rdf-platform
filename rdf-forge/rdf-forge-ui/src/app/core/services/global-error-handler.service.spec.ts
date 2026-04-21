@@ -1,18 +1,37 @@
 import { TestBed } from '@angular/core/testing';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarRef } from '@angular/material/snack-bar';
 import { GlobalErrorHandlerService } from './global-error-handler.service';
+import { ErrorTrackingService } from './error-tracking.service';
+import { NotificationService } from './notification.service';
+import { of, Subject } from 'rxjs';
 
 describe('GlobalErrorHandlerService', () => {
   let service: GlobalErrorHandlerService;
   let snackBarSpy: jasmine.SpyObj<MatSnackBar>;
+  let errorTrackingSpy: jasmine.SpyObj<ErrorTrackingService>;
+  let notificationSpy: jasmine.SpyObj<NotificationService>;
+  let mockSnackBarRef: jasmine.SpyObj<MatSnackBarRef<unknown>>;
 
   beforeEach(() => {
     snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
 
+    errorTrackingSpy = jasmine.createSpyObj('ErrorTrackingService', [
+      'trackError', 'trackHttpError', 'trackAngularError'
+    ]);
+
+    mockSnackBarRef = jasmine.createSpyObj('MatSnackBarRef', ['onAction', 'dismiss']);
+    mockSnackBarRef.onAction.and.returnValue(new Subject<void>().asObservable());
+
+    notificationSpy = jasmine.createSpyObj('NotificationService', ['error', 'success', 'warning', 'info', 'show']);
+    notificationSpy.error.and.returnValue(mockSnackBarRef);
+    notificationSpy.show.and.returnValue(mockSnackBarRef);
+
     TestBed.configureTestingModule({
       providers: [
         GlobalErrorHandlerService,
-        { provide: MatSnackBar, useValue: snackBarSpy }
+        { provide: MatSnackBar, useValue: snackBarSpy },
+        { provide: ErrorTrackingService, useValue: errorTrackingSpy },
+        { provide: NotificationService, useValue: notificationSpy }
       ]
     });
 
@@ -27,16 +46,16 @@ describe('GlobalErrorHandlerService', () => {
     const error = new Error('Test error message');
     service.handleError(error);
 
-    expect(snackBarSpy.open).toHaveBeenCalled();
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toBe('Test error message');
   });
 
   it('should handle plain string errors', () => {
     service.handleError('String error');
 
-    expect(snackBarSpy.open).toHaveBeenCalled();
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toBe('String error');
   });
 
@@ -44,8 +63,8 @@ describe('GlobalErrorHandlerService', () => {
     const error = { message: 'Object error message' };
     service.handleError(error);
 
-    expect(snackBarSpy.open).toHaveBeenCalled();
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toBe('Object error message');
   });
 
@@ -53,15 +72,18 @@ describe('GlobalErrorHandlerService', () => {
     const error = { status: 401 };
     service.handleError(error);
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
-    expect(calledMessage).toContain('Authentication');
+    // 401 errors are suppressed from notification (handled by auth interceptor)
+    // but should still be logged
+    const errors = service.getRecentErrors();
+    expect(errors.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should handle HTTP 403 errors', () => {
     const error = { status: 403 };
     service.handleError(error);
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toContain('Access denied');
   });
 
@@ -69,7 +91,8 @@ describe('GlobalErrorHandlerService', () => {
     const error = { status: 404 };
     service.handleError(error);
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toContain('not found');
   });
 
@@ -77,7 +100,8 @@ describe('GlobalErrorHandlerService', () => {
     const error = { status: 500 };
     service.handleError(error);
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toContain('Server error');
   });
 
@@ -85,7 +109,8 @@ describe('GlobalErrorHandlerService', () => {
     const error = { status: 0 };
     service.handleError(error);
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
     expect(calledMessage).toContain('Network error');
   });
 
@@ -116,11 +141,13 @@ describe('GlobalErrorHandlerService', () => {
   });
 
   it('should truncate long error messages', () => {
-    const longMessage = 'A'.repeat(200);
+    const longMessage = 'A'.repeat(300);
     service.handleError(new Error(longMessage));
 
-    const calledMessage = snackBarSpy.open.calls.mostRecent().args[0];
-    expect(calledMessage.length).toBeLessThanOrEqual(150);
+    // The service truncates messages over 200 chars to 197 + '...'
+    expect(notificationSpy.error).toHaveBeenCalled();
+    const calledMessage = notificationSpy.error.calls.mostRecent().args[0];
+    expect(calledMessage.length).toBeLessThanOrEqual(200);
     expect(calledMessage.endsWith('...')).toBeTrue();
   });
 
@@ -135,7 +162,7 @@ describe('GlobalErrorHandlerService', () => {
     });
 
     it('should handle HTTP status codes', () => {
-      expect(GlobalErrorHandlerService.getErrorMessage({ status: 401 })).toBe('Authentication required');
+      expect(GlobalErrorHandlerService.getErrorMessage({ status: 401 })).toContain('session');
       expect(GlobalErrorHandlerService.getErrorMessage({ status: 403 })).toBe('Access denied');
       expect(GlobalErrorHandlerService.getErrorMessage({ status: 404 })).toBe('Resource not found');
       expect(GlobalErrorHandlerService.getErrorMessage({ status: 500 })).toBe('Server error. Please try again later.');

@@ -104,9 +104,10 @@ public class AdminController {
     }
 
     /**
-     * Check system health
+     * Check system health (public endpoint for monitoring)
      */
     @GetMapping("/system/health")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Map<String, Object>> getSystemHealth() {
         Map<String, Object> health = new HashMap<>();
         health.put("status", "UP");
@@ -116,9 +117,10 @@ public class AdminController {
     }
 
     /**
-     * Get system information
+     * Get system information (public endpoint for monitoring)
      */
     @GetMapping("/system/info")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Map<String, Object>> getSystemInfo() {
         Map<String, Object> info = new HashMap<>();
         info.put("version", "1.0.0");

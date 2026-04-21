@@ -332,7 +332,7 @@ describe('PipelineService', () => {
 
   describe('validate()', () => {
     it('should validate a pipeline definition in JSON format', () => {
-      const result: PipelineValidationResult = { valid: true, errors: [] };
+      const result: PipelineValidationResult = { valid: true, errors: [], warnings: [] };
 
       service.validate('{}', 'json').subscribe(r => {
         expect(r.valid).toBeTrue();
@@ -346,7 +346,7 @@ describe('PipelineService', () => {
 
     it('should validate a pipeline definition in YAML format', () => {
       const yaml = 'steps:\n  - id: step1';
-      const result: PipelineValidationResult = { valid: true, errors: [] };
+      const result: PipelineValidationResult = { valid: true, errors: [], warnings: [] };
 
       service.validate(yaml, 'yaml').subscribe(r => {
         expect(r.valid).toBeTrue();
@@ -359,7 +359,7 @@ describe('PipelineService', () => {
 
     it('should validate a pipeline definition in Turtle format', () => {
       const turtle = '@prefix ex: <http://example.org/> .';
-      const result: PipelineValidationResult = { valid: true, errors: [] };
+      const result: PipelineValidationResult = { valid: true, errors: [], warnings: [] };
 
       service.validate(turtle, 'turtle').subscribe(r => {
         expect(r.valid).toBeTrue();
@@ -371,9 +371,13 @@ describe('PipelineService', () => {
     });
 
     it('should handle validation errors', () => {
-      const result: PipelineValidationResult = { 
-        valid: false, 
-        errors: ['Missing required step', 'Invalid connection'] 
+      const result: PipelineValidationResult = {
+        valid: false,
+        errors: [
+          { path: 'steps[0]', message: 'Missing required step' },
+          { path: 'steps[1].connection', message: 'Invalid connection' }
+        ],
+        warnings: []
       };
 
       service.validate('{}', 'json').subscribe(r => {
@@ -389,23 +393,23 @@ describe('PipelineService', () => {
   describe('run()', () => {
     it('should run a pipeline', () => {
       service.run('pipeline-1', { key: 'value' }).subscribe(result => {
-        expect(result.jobId).toBe('job-1');
+        expect(result.jobId).toBeTruthy();
       });
 
-      const req = httpMock.expectOne(`${baseUrl}/pipelines/pipeline-1/run`);
+      const req = httpMock.expectOne(`${baseUrl}/jobs`);
       expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ variables: { key: 'value' } });
-      req.flush({ jobId: 'job-1' });
+      expect(req.request.body).toEqual({ pipelineId: 'pipeline-1', variables: { key: 'value' } });
+      req.flush({ id: 'job-1' });
     });
 
     it('should run a pipeline without variables', () => {
       service.run('pipeline-1').subscribe(result => {
-        expect(result.jobId).toBe('job-1');
+        expect(result.jobId).toBeTruthy();
       });
 
-      const req = httpMock.expectOne(`${baseUrl}/pipelines/pipeline-1/run`);
-      expect(req.request.body).toEqual({ variables: {} });
-      req.flush({ jobId: 'job-1' });
+      const req = httpMock.expectOne(`${baseUrl}/jobs`);
+      expect(req.request.body).toEqual({ pipelineId: 'pipeline-1', variables: {} });
+      req.flush({ id: 'job-1' });
     });
 
     it('should handle run for non-existent pipeline', () => {
@@ -415,7 +419,7 @@ describe('PipelineService', () => {
         }
       });
 
-      const req = httpMock.expectOne(`${baseUrl}/pipelines/non-existent/run`);
+      const req = httpMock.expectOne(`${baseUrl}/jobs`);
       req.flush('Not found', { status: 404, statusText: 'Not Found' });
     });
 
@@ -426,7 +430,7 @@ describe('PipelineService', () => {
         }
       });
 
-      const req = httpMock.expectOne(`${baseUrl}/pipelines/invalid-pipeline/run`);
+      const req = httpMock.expectOne(`${baseUrl}/jobs`);
       req.flush('Invalid pipeline definition', { status: 400, statusText: 'Bad Request' });
     });
   });
@@ -434,8 +438,8 @@ describe('PipelineService', () => {
   describe('getVersions()', () => {
     it('should return pipeline versions', () => {
       const versions: PipelineVersion[] = [
-        { version: 1, createdAt: new Date(), createdBy: 'user' },
-        { version: 2, createdAt: new Date(), createdBy: 'user' }
+        { version: 1, createdAt: new Date() },
+        { version: 2, createdAt: new Date() }
       ];
 
       service.getVersions('pipeline-1').subscribe(v => {

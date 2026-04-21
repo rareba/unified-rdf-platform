@@ -6,12 +6,15 @@ import { of, throwError } from 'rxjs';
 import { TriplestoreBrowser } from './triplestore-browser';
 import { TriplestoreService, ProviderService } from '../../../core/services';
 import { TriplestoreConnection, Graph } from '../../../core/models';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { MatDialogModule } from '@angular/material/dialog';
 
 describe('TriplestoreBrowser', () => {
   let component: TriplestoreBrowser;
   let fixture: ComponentFixture<TriplestoreBrowser>;
   let triplestoreServiceSpy: jasmine.SpyObj<TriplestoreService>;
   let providerServiceSpy: jasmine.SpyObj<ProviderService>;
+  let confirmationServiceSpy: jasmine.SpyObj<ConfirmationService>;
 
   const mockConnections: TriplestoreConnection[] = [
     { id: '1', name: 'Local GraphDB', type: 'GRAPHDB', url: 'http://localhost:7200/repositories/test', authType: 'none', isDefault: true, healthStatus: 'healthy', createdBy: 'user', createdAt: new Date() },
@@ -28,6 +31,8 @@ describe('TriplestoreBrowser', () => {
       'list', 'get', 'create', 'update', 'delete', 'getGraphs', 'getGraphResources', 'executeQuery', 'test'
     ]);
     providerServiceSpy = jasmine.createSpyObj('ProviderService', ['getDestinations', 'getTriplestoreProviders']);
+    confirmationServiceSpy = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
 
     triplestoreServiceSpy.list.and.returnValue(of(mockConnections));
     triplestoreServiceSpy.getGraphs.and.returnValue(of(mockGraphs));
@@ -42,9 +47,16 @@ describe('TriplestoreBrowser', () => {
         provideHttpClientTesting(),
         provideNoopAnimations(),
         { provide: TriplestoreService, useValue: triplestoreServiceSpy },
-        { provide: ProviderService, useValue: providerServiceSpy }
+        { provide: ProviderService, useValue: providerServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationServiceSpy }
       ]
-    }).compileComponents();
+    })
+    .overrideComponent(TriplestoreBrowser, {
+      remove: {
+        imports: [MatDialogModule as any]
+      }
+    })
+    .compileComponents();
 
     fixture = TestBed.createComponent(TriplestoreBrowser);
     component = fixture.componentInstance;
@@ -187,7 +199,7 @@ describe('TriplestoreBrowser', () => {
 
   it('should confirm delete connection', fakeAsync(() => {
     triplestoreServiceSpy.delete.and.returnValue(of(void 0));
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     tick();
     component.confirmDeleteConnection(mockConnections[0]);
     tick();
@@ -195,7 +207,7 @@ describe('TriplestoreBrowser', () => {
   }));
 
   it('should not delete connection if not confirmed', fakeAsync(() => {
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationServiceSpy.confirm.and.returnValue(of(false));
     tick();
     component.confirmDeleteConnection(mockConnections[0]);
     tick();

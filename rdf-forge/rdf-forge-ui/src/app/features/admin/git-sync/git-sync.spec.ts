@@ -4,10 +4,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
 import { GitSyncComponent } from './git-sync';
 import { GitSyncService, GitSyncConfig, GitSyncStatus } from '../../../core/services/git-sync.service';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 
 describe('GitSyncComponent', () => {
   let component: GitSyncComponent;
@@ -15,6 +16,7 @@ describe('GitSyncComponent', () => {
   let gitSyncService: jasmine.SpyObj<GitSyncService>;
   let snackBar: jasmine.SpyObj<MatSnackBar>;
   let dialog: jasmine.SpyObj<MatDialog>;
+  let confirmationService: jasmine.SpyObj<ConfirmationService>;
 
   const mockConfig: GitSyncConfig = {
     id: 'config-1',
@@ -64,6 +66,8 @@ describe('GitSyncComponent', () => {
 
     snackBar = jasmine.createSpyObj('MatSnackBar', ['open']);
     dialog = jasmine.createSpyObj('MatDialog', ['open']);
+    confirmationService = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationService.confirm.and.returnValue(of(true));
 
     await TestBed.configureTestingModule({
       imports: [GitSyncComponent, NoopAnimationsModule],
@@ -72,9 +76,16 @@ describe('GitSyncComponent', () => {
         provideHttpClientTesting(),
         { provide: GitSyncService, useValue: gitSyncService },
         { provide: MatSnackBar, useValue: snackBar },
-        { provide: MatDialog, useValue: dialog }
+        { provide: MatDialog, useValue: dialog },
+        { provide: ConfirmationService, useValue: confirmationService }
       ]
-    }).compileComponents();
+    })
+    .overrideComponent(GitSyncComponent, {
+      remove: {
+        imports: [MatDialogModule as any]
+      }
+    })
+    .compileComponents();
 
     fixture = TestBed.createComponent(GitSyncComponent);
     component = fixture.componentInstance;
@@ -264,7 +275,7 @@ describe('GitSyncComponent', () => {
   describe('deleteConfig', () => {
     beforeEach(() => {
       fixture.detectChanges();
-      spyOn(window, 'confirm').and.returnValue(true);
+      confirmationService.confirm.and.returnValue(of(true));
     });
 
     it('should delete config when confirmed', fakeAsync(() => {
@@ -272,6 +283,7 @@ describe('GitSyncComponent', () => {
 
       tick();
 
+      expect(confirmationService.confirm).toHaveBeenCalled();
       expect(gitSyncService.deleteConfig).toHaveBeenCalledWith('config-1');
       expect(snackBar.open).toHaveBeenCalledWith(
         'Configuration deleted',
@@ -281,7 +293,7 @@ describe('GitSyncComponent', () => {
     }));
 
     it('should not delete if not confirmed', () => {
-      (window.confirm as jasmine.Spy).and.returnValue(false);
+      confirmationService.confirm.and.returnValue(of(false));
       component.deleteConfig(mockConfig);
 
       expect(gitSyncService.deleteConfig).not.toHaveBeenCalled();

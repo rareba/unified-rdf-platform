@@ -3,16 +3,21 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { JobList } from './job-list';
 import { JobService, PipelineService } from '../../../core/services';
 import { Job, Pipeline } from '../../../core/models';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogModule } from '@angular/material/dialog';
 
 describe('JobList', () => {
   let component: JobList;
   let fixture: ComponentFixture<JobList>;
   let jobServiceSpy: jasmine.SpyObj<JobService>;
   let pipelineServiceSpy: jasmine.SpyObj<PipelineService>;
+  let confirmationServiceSpy: jasmine.SpyObj<ConfirmationService>;
+  let snackBarSpy: jasmine.SpyObj<MatSnackBar>;
 
   const mockPipelines: Pipeline[] = [
     { id: 'p1', name: 'Pipeline 1', status: 'active', stepsCount: 3, tags: [], description: '', definition: '{}', definitionFormat: 'JSON', variables: {}, createdBy: 'user', createdAt: new Date(), updatedAt: new Date() }
@@ -29,6 +34,11 @@ describe('JobList', () => {
   beforeEach(async () => {
     jobServiceSpy = jasmine.createSpyObj('JobService', ['list', 'cancel', 'retry', 'create', 'getLogs']);
     pipelineServiceSpy = jasmine.createSpyObj('PipelineService', ['list']);
+    confirmationServiceSpy = jasmine.createSpyObj('ConfirmationService', ['confirm']);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
+    snackBarSpy = jasmine.createSpyObj('MatSnackBar', ['open']);
+    const mockSnackBarRef = { onAction: () => new Subject<void>().asObservable(), dismiss: () => {} };
+    snackBarSpy.open.and.returnValue(mockSnackBarRef as any);
 
     jobServiceSpy.list.and.returnValue(of(mockJobs));
     pipelineServiceSpy.list.and.returnValue(of(mockPipelines));
@@ -42,9 +52,17 @@ describe('JobList', () => {
         provideNoopAnimations(),
         provideRouter([]),
         { provide: JobService, useValue: jobServiceSpy },
-        { provide: PipelineService, useValue: pipelineServiceSpy }
+        { provide: PipelineService, useValue: pipelineServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationServiceSpy },
+        { provide: MatSnackBar, useValue: snackBarSpy }
       ]
-    }).compileComponents();
+    })
+    .overrideComponent(JobList, {
+      remove: {
+        imports: [MatSnackBarModule, MatDialogModule] as any[]
+      }
+    })
+    .compileComponents();
 
     fixture = TestBed.createComponent(JobList);
     component = fixture.componentInstance;
@@ -81,7 +99,7 @@ describe('JobList', () => {
     fixture.detectChanges();
     tick();
     discardPeriodicTasks();
-    component.statusFilter.set('completed');
+    component.statusFilters.set(['COMPLETED']);
     expect(component.filteredJobs().length).toBe(2);
     expect(component.filteredJobs()[0].status).toBe('completed');
   }));
@@ -210,7 +228,7 @@ describe('JobList', () => {
     tick();
     discardPeriodicTasks();
     const mockEvent = { stopPropagation: jasmine.createSpy() };
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     jobServiceSpy.cancel.and.returnValue(of(void 0));
 
     component.cancelJob(mockJobs[0], mockEvent as any);
@@ -226,7 +244,7 @@ describe('JobList', () => {
     tick();
     discardPeriodicTasks();
     const mockEvent = { stopPropagation: jasmine.createSpy() };
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationServiceSpy.confirm.and.returnValue(of(false));
 
     component.cancelJob(mockJobs[0], mockEvent as any);
     tick();
@@ -240,7 +258,7 @@ describe('JobList', () => {
     tick();
     discardPeriodicTasks();
     const mockEvent = { stopPropagation: jasmine.createSpy() };
-    spyOn(window, 'confirm').and.returnValue(true);
+    confirmationServiceSpy.confirm.and.returnValue(of(true));
     jobServiceSpy.cancel.and.returnValue(throwError(() => new Error('Cancel failed')));
 
     component.cancelJob(mockJobs[0], mockEvent as any);
@@ -339,7 +357,10 @@ describe('JobList', () => {
     fixture.detectChanges();
     tick();
     discardPeriodicTasks();
-    expect(component.formatDate(undefined)).toBe('Pending');
+    expect(component.formatDate(undefined)).toBe('-');
+    expect(component.formatDate(undefined, 'pending')).toBe('Pending');
+    expect(component.formatDate(undefined, 'running')).toBe('Pending');
+    expect(component.formatDate(undefined, 'failed')).toBe('-');
     expect(component.formatDate(fixedDate).length).toBeGreaterThan(0);
   }));
 
@@ -414,7 +435,7 @@ describe('JobList', () => {
 
   it('should have status options', () => {
     expect(component.statusOptions.length).toBeGreaterThan(0);
-    expect(component.statusOptions.map(o => o.value)).toContain('running');
+    expect(component.statusOptions.map(o => o.value)).toContain('RUNNING');
   });
 
   it('should have displayed columns', () => {

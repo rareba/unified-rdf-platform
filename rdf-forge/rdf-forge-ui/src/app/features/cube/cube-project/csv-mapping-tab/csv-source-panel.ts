@@ -92,7 +92,6 @@ import { Cube, CsvColumnPreview } from '../../../../core/models/cube.model';
           <span class="columns-label">Columns</span>
           <button
             mat-button
-            [disabled]="selectedCount() === 0"
             (click)="toggleSelectAll()">
             {{ allSelected() ? 'Deselect All' : 'Select All' }}
           </button>

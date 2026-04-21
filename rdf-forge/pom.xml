@@ -198,17 +198,11 @@
                 <version>${gcs.version}</version>
             </dependency>
 
-            <!-- Hypersistence Utils for Hibernate 6.6 (Spring Boot 3.4.x) -->
+            <!-- Hypersistence Utils for Hibernate 6.3+ (covers Spring Boot 3.4.x / Hibernate 6.6) -->
             <dependency>
                 <groupId>io.hypersistence</groupId>
-                <artifactId>hypersistence-utils-hibernate-66</artifactId>
+                <artifactId>hypersistence-utils-hibernate-63</artifactId>
                 <version>3.8.3</version>
-            </dependency>
-
-            <!-- Distributed Tracing (auto-populates traceId/spanId MDC fields) -->
-            <dependency>
-                <groupId>io.micrometer</groupId>
-                <artifactId>micrometer-tracing-bridge-brave</artifactId>
             </dependency>
 
             <!-- Testcontainers BOM for integration testing -->

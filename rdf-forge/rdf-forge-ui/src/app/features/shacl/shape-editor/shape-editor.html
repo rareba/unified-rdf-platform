@@ -1,4 +1,4 @@
-<div class="shape-editor">
+<div class="shape-editor" role="main" aria-label="Shape Editor">
   <!-- Template Selector (shown for new shapes) -->
   @if (isNew() && showTemplateSelector()) {
     <div class="template-selector">
@@ -16,7 +16,12 @@
               @for (template of group.templates; track template.id) {
                 <mat-card class="template-card"
                      [class.selected]="selectedTemplate()?.id === template.id"
-                     (click)="selectTemplate(template)">
+                     (click)="selectTemplate(template)"
+                     role="option"
+                     tabindex="0"
+                     (keydown.enter)="selectTemplate(template)"
+                     [attr.aria-selected]="selectedTemplate()?.id === template.id"
+                     [attr.aria-label]="template.name + ': ' + template.description">
                   <mat-card-content>
                     <mat-icon class="template-icon">{{ template.icon }}</mat-icon>
                     <div class="template-name">{{ template.name }}</div>
@@ -42,13 +47,13 @@
   <div class="header">
     <h1>{{ isNew() ? 'Create Shape' : 'Edit Shape' }}</h1>
     <div class="actions">
-      <mat-button-toggle-group [(ngModel)]="visualMode" class="mode-toggle">
-        <mat-button-toggle [value]="true">
-          <mat-icon>visibility</mat-icon>
+      <mat-button-toggle-group [(ngModel)]="visualMode" class="mode-toggle" aria-label="Editor mode">
+        <mat-button-toggle [value]="true" aria-label="Visual Mode">
+          <mat-icon aria-hidden="true">visibility</mat-icon>
           Visual Mode
         </mat-button-toggle>
-        <mat-button-toggle [value]="false">
-          <mat-icon>code</mat-icon>
+        <mat-button-toggle [value]="false" aria-label="Code Mode">
+          <mat-icon aria-hidden="true">code</mat-icon>
           Code Mode
         </mat-button-toggle>
       </mat-button-toggle-group>
@@ -67,19 +72,31 @@
         <mat-card-content>
           <div class="form-grid">
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Name</mat-label>
-              <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)" />
+              <mat-label>Shape Name</mat-label>
+              <input matInput [ngModel]="name()" (ngModelChange)="name.set($event)" placeholder="e.g., Person Validator" />
+              <mat-hint>Give your shape a friendly name so you can find it later</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Target Class</mat-label>
-              <input matInput [ngModel]="targetClass()" (ngModelChange)="targetClass.set($event)" placeholder="http://example.org/Person" />
+              <mat-label>What kind of data does this validate?</mat-label>
+              <input matInput [ngModel]="targetClass()" (ngModelChange)="targetClass.set($event)" placeholder="e.g., http://schema.org/Person" />
+              <mat-icon matSuffix matTooltip="The RDF class (type) that this shape checks. For example, if you want to validate Person records, enter the Person class URI.">help_outline</mat-icon>
+              <mat-hint>Enter the RDF class URI, or pick one from a template above</mat-hint>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Shape URI (Optional)</mat-label>
-              <input matInput [ngModel]="uri()" (ngModelChange)="uri.set($event)" placeholder="http://example.org/shapes/PersonShape" />
-            </mat-form-field>
+            <mat-expansion-panel class="advanced-metadata">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>tune</mat-icon>
+                  Advanced Settings
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Shape URI (auto-generated if empty)</mat-label>
+                <input matInput [ngModel]="uri()" (ngModelChange)="uri.set($event)" placeholder="http://example.org/shapes/PersonShape" />
+                <mat-hint>A unique identifier for this shape. Leave blank to auto-generate.</mat-hint>
+              </mat-form-field>
+            </mat-expansion-panel>
           </div>
         </mat-card-content>
       </mat-card>
@@ -93,40 +110,52 @@
         <div class="property-list-panel">
           <mat-card>
             <mat-card-header>
-              <mat-card-title>Properties</mat-card-title>
+              <mat-card-title>
+                <mat-icon>checklist</mat-icon>
+                Fields to Validate
+              </mat-card-title>
+              <mat-card-subtitle>Each field is a rule that your data must follow</mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
               <button mat-raised-button color="primary" class="add-property-btn" (click)="addProperty()">
                 <mat-icon>add</mat-icon>
-                Add Property
+                Add a Field Rule
               </button>
 
-              <div class="property-list">
+              <div class="property-list" role="listbox" aria-label="Property fields">
                 @for (prop of properties(); track prop.id) {
                   <div class="property-item"
                        [class.selected]="selectedProperty()?.id === prop.id"
-                       (click)="selectProperty(prop)">
+                       (click)="selectProperty(prop)"
+                       role="option"
+                       tabindex="0"
+                       (keydown.enter)="selectProperty(prop)"
+                       [attr.aria-selected]="selectedProperty()?.id === prop.id"
+                       [attr.aria-label]="(prop.name || 'Unnamed Field') + ' - ' + getConstraintSummary(prop)">
                     <div class="property-header">
                       <div class="property-info">
-                        <mat-icon class="property-icon">{{ getIconForKind(prop.kind) }}</mat-icon>
+                        <mat-icon class="property-icon" [matTooltip]="prop.kind === 'LITERAL' ? 'Text/Number value' : 'Link to another resource'">{{ getIconForKind(prop.kind) }}</mat-icon>
                         <div>
-                          <div class="property-name">{{ prop.name || 'Unnamed Property' }}</div>
-                          <div class="property-path">{{ prop.path || 'No path' }}</div>
+                          <div class="property-name">{{ prop.name || 'Unnamed Field' }}</div>
+                          <div class="property-summary">{{ getConstraintSummary(prop) }}</div>
                         </div>
                       </div>
                       <div class="property-actions">
                         @if (prop.minCount && prop.minCount > 0) {
-                          <mat-chip class="required-chip">Req</mat-chip>
+                          <mat-chip class="required-chip" matTooltip="This field is required">Required</mat-chip>
                         }
-                        <button mat-icon-button (click)="removeProperty(prop); $event.stopPropagation()">
-                          <mat-icon color="warn">delete</mat-icon>
+                        <button mat-icon-button (click)="removeProperty(prop); $event.stopPropagation()" matTooltip="Remove this field rule" [attr.aria-label]="'Remove field rule: ' + (prop.name || 'Unnamed')">
+                          <mat-icon aria-hidden="true" color="warn">delete</mat-icon>
                         </button>
                       </div>
                     </div>
                   </div>
                 }
                 @if (properties().length === 0) {
-                  <div class="empty-state">No properties defined. Click 'Add Property' to start.</div>
+                  <div class="empty-state">
+                    <mat-icon>lightbulb</mat-icon>
+                    <p>No field rules yet. Click "Add a Field Rule" to define what your data should look like.</p>
+                  </div>
                 }
               </div>
             </mat-card-content>
@@ -149,51 +178,54 @@
                   <!-- Basic Info Section -->
                   <div class="editor-section">
                     <h4 class="section-title">
-                      <mat-icon>info</mat-icon>
-                      Basic Information
+                      <mat-icon>edit</mat-icon>
+                      What is this field?
                     </h4>
                     <div class="form-row">
                       <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Property Name</mat-label>
+                        <mat-label>Field Name</mat-label>
                         <input matInput [(ngModel)]="prop.name" placeholder="e.g., Email Address" />
-                        <mat-hint>Human-readable label</mat-hint>
+                        <mat-hint>A friendly name for this field</mat-hint>
                       </mat-form-field>
 
                       <mat-form-field appearance="outline" class="flex-1">
-                        <mat-label>Value Type</mat-label>
+                        <mat-label>What kind of value?</mat-label>
                         <mat-select [(ngModel)]="prop.kind">
                           <mat-option value="LITERAL">
                             <mat-icon>text_fields</mat-icon>
-                            Text/Number (Literal)
+                            Text, number, or date
                           </mat-option>
                           <mat-option value="RESOURCE">
                             <mat-icon>link</mat-icon>
-                            Link to Resource
+                            Link to another thing
                           </mat-option>
                         </mat-select>
+                        <mat-hint>Is this a simple value or a reference?</mat-hint>
                       </mat-form-field>
                     </div>
 
                     <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Property Path (URI)</mat-label>
-                      <input matInput [(ngModel)]="prop.path" placeholder="e.g., http://schema.org/email or schema:email" />
-                      <mat-hint>The RDF predicate this property validates</mat-hint>
+                      <mat-label>Field Identifier (URI)</mat-label>
+                      <input matInput [(ngModel)]="prop.path" placeholder="e.g., http://schema.org/email" />
+                      <mat-icon matSuffix matTooltip="This is the RDF property URI that identifies this field in your data. If you used a template, this is already filled in for you.">help_outline</mat-icon>
+                      <mat-hint>The RDF property this rule checks (from your data vocabulary)</mat-hint>
                     </mat-form-field>
 
                     @if (prop.kind === 'LITERAL') {
                       <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Data Type</mat-label>
+                        <mat-label>Expected data format</mat-label>
                         <mat-select [(ngModel)]="prop.datatype">
                           @for (option of datatypeOptions; track option.value) {
                             <mat-option [value]="option.value">{{ option.label }}</mat-option>
                           }
                         </mat-select>
+                        <mat-hint>What type of value should this field contain?</mat-hint>
                       </mat-form-field>
                     } @else {
                       <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Target Class (optional)</mat-label>
+                        <mat-label>What type of thing should it link to? (optional)</mat-label>
                         <input matInput [(ngModel)]="prop.datatype" placeholder="e.g., http://schema.org/Person" />
-                        <mat-hint>The type of resource this should link to</mat-hint>
+                        <mat-icon matSuffix matTooltip="If you want to restrict links to a specific type, enter the class URI here. Leave blank to allow any link.">help_outline</mat-icon>
                       </mat-form-field>
                     }
                   </div>
@@ -204,10 +236,11 @@
                   <div class="editor-section">
                     <h4 class="section-title">
                       <mat-icon>rule</mat-icon>
-                      Requirements
+                      Rules for this field
                     </h4>
 
                     <!-- Quick Presets -->
+                    <p class="section-hint">Click a preset to quickly set common rules:</p>
                     <div class="quick-presets">
                       @for (preset of constraintPresets; track preset.id) {
                         <button mat-stroked-button class="preset-btn"
@@ -224,39 +257,40 @@
                         <mat-checkbox
                           [checked]="prop.minCount !== null && prop.minCount > 0"
                           (change)="$event.checked ? prop.minCount = 1 : prop.minCount = 0">
-                          <span class="option-label">Required field</span>
+                          <span class="option-label">This field is required</span>
                         </mat-checkbox>
-                        <span class="option-hint">Must have at least one value</span>
+                        <span class="option-hint">Data must include this field</span>
                       </div>
 
                       <div class="requirement-option">
                         <mat-checkbox
                           [checked]="prop.maxCount === 1"
                           (change)="prop.maxCount = $event.checked ? 1 : null">
-                          <span class="option-label">Single value only</span>
+                          <span class="option-label">Allow only one value</span>
                         </mat-checkbox>
-                        <span class="option-hint">Can have at most one value</span>
+                        <span class="option-hint">Prevents multiple values for this field</span>
                       </div>
                     </div>
 
                     @if (prop.kind === 'LITERAL') {
                       <!-- Pattern Matching -->
                       <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Pattern (optional)</mat-label>
+                        <mat-label>Must match a pattern (optional)</mat-label>
                         <input matInput [(ngModel)]="prop.pattern" placeholder="e.g., ^[A-Z][0-9]+$ for codes like A123" />
-                        <mat-icon matSuffix matTooltip="Regular expression that values must match">help_outline</mat-icon>
+                        <mat-icon matSuffix matTooltip="A regular expression pattern. For example, use ^[^@]+@[^@]+$ to check for email format.">help_outline</mat-icon>
+                        <mat-hint>A pattern (regex) that every value must match</mat-hint>
                       </mat-form-field>
 
                       <!-- Length Constraints -->
                       <div class="form-row">
                         <mat-form-field appearance="outline" class="flex-1">
-                          <mat-label>Min Length</mat-label>
-                          <input matInput type="number" [(ngModel)]="prop.minLength" min="0" placeholder="None" />
+                          <mat-label>Minimum characters</mat-label>
+                          <input matInput type="number" [(ngModel)]="prop.minLength" min="0" placeholder="No limit" />
                         </mat-form-field>
 
                         <mat-form-field appearance="outline" class="flex-1">
-                          <mat-label>Max Length</mat-label>
-                          <input matInput type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="None" />
+                          <mat-label>Maximum characters</mat-label>
+                          <input matInput type="number" [(ngModel)]="prop.maxLength" min="0" placeholder="No limit" />
                         </mat-form-field>
                       </div>
                     }
@@ -306,11 +340,11 @@
           } @else {
             <div class="empty-property-state">
               <mat-icon class="empty-icon">touch_app</mat-icon>
-              <div class="empty-title">Select a Property</div>
-              <div class="empty-message">Click on a property from the list to edit it, or click "Add Property" to create a new one.</div>
+              <div class="empty-title">Select a Field to Edit</div>
+              <div class="empty-message">Click on a field from the list on the left, or add your first validation rule.</div>
               <button mat-raised-button color="primary" (click)="addProperty()">
                 <mat-icon>add</mat-icon>
-                Add First Property
+                Add Your First Rule
               </button>
             </div>
           }
@@ -362,13 +396,13 @@
             <!-- Data Source Selector -->
             <div class="data-source-selector">
               <label class="panel-label">Data Source</label>
-              <mat-button-toggle-group [value]="testDataSource()" (change)="onDataSourceChange($event.value)">
-                <mat-button-toggle value="manual">
-                  <mat-icon>edit</mat-icon>
+              <mat-button-toggle-group [value]="testDataSource()" (change)="onDataSourceChange($event.value)" aria-label="Test data source">
+                <mat-button-toggle value="manual" aria-label="Manual Input">
+                  <mat-icon aria-hidden="true">edit</mat-icon>
                   Manual Input
                 </mat-button-toggle>
-                <mat-button-toggle value="triplestore">
-                  <mat-icon>storage</mat-icon>
+                <mat-button-toggle value="triplestore" aria-label="From Triplestore">
+                  <mat-icon aria-hidden="true">storage</mat-icon>
                   From Triplestore
                 </mat-button-toggle>
               </mat-button-toggle-group>

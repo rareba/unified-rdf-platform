@@ -8,14 +8,16 @@ CREATE TABLE IF NOT EXISTS triplestore_connections (
     project_id UUID,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    endpoint_type VARCHAR(50) NOT NULL,
-    query_endpoint VARCHAR(1000) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    url VARCHAR(1000) NOT NULL,
     update_endpoint VARCHAR(1000),
     graph_store_endpoint VARCHAR(1000),
     username VARCHAR(255),
     password_encrypted TEXT,
-    auth_type VARCHAR(50) DEFAULT 'BASIC',
-    default_graph_uri VARCHAR(1000),
+    auth_type VARCHAR(50) DEFAULT 'NONE',
+    auth_config JSONB,
+    default_graph VARCHAR(1000),
+    is_default BOOLEAN DEFAULT FALSE,
     max_connections INTEGER DEFAULT 5,
     connection_timeout_ms INTEGER DEFAULT 30000,
     read_timeout_ms INTEGER DEFAULT 60000,
@@ -29,12 +31,12 @@ CREATE TABLE IF NOT EXISTS triplestore_connections (
 );
 
 -- Endpoint type check
-ALTER TABLE triplestore_connections ADD CONSTRAINT triplestore_connections_endpoint_type_check 
-    CHECK (endpoint_type IN ('FUSEKI', 'GRAPHDB', 'STARDOG', 'VIRTUOSO', 'BLAZEGRAPH', 'GENERIC'));
+ALTER TABLE triplestore_connections ADD CONSTRAINT triplestore_connections_type_check
+    CHECK (type IN ('FUSEKI', 'GRAPHDB', 'STARDOG', 'VIRTUOSO', 'BLAZEGRAPH', 'NEPTUNE'));
 
 -- Auth type check
 ALTER TABLE triplestore_connections ADD CONSTRAINT triplestore_connections_auth_type_check 
-    CHECK (auth_type IN ('NONE', 'BASIC', 'BEARER', 'API_KEY'));
+    CHECK (auth_type IN ('NONE', 'BASIC', 'API_KEY', 'OAUTH2'));
 
 -- Health status check
 ALTER TABLE triplestore_connections ADD CONSTRAINT triplestore_connections_health_status_check 
