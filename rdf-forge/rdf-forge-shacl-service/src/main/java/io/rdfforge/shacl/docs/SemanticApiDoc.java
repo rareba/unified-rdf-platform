@@ -63,13 +63,27 @@ public record SemanticApiDoc(
             int version
     ) {}
 
-    /** A SPARQL/graph endpoint the project publishes to. */
+    /**
+     * A SPARQL/graph endpoint the project publishes to.
+     *
+     * <p>{@code synthetic=true} means no PUBLISHED release was found for the
+     * project, so the URI follows a conventional scheme rather than a real
+     * configured target. Rendering code MUST surface this to humans — the
+     * URI is an example, not something a client can dereference.
+     */
     public record EndpointInfo(
             String kind,
             String sparqlEndpoint,
             String publishedGraph,
+            boolean synthetic,
             Map<String, String> metadata
-    ) {}
+    ) {
+        /** Back-compat constructor — legacy callers get {@code synthetic=false}. */
+        public EndpointInfo(String kind, String sparqlEndpoint, String publishedGraph,
+                            Map<String, String> metadata) {
+            this(kind, sparqlEndpoint, publishedGraph, false, metadata);
+        }
+    }
 
     /** An executable example query with its expected top-level outcome. */
     public record ExampleQuery(
