@@ -64,7 +64,7 @@ class HierarchyServiceTest {
         sampleHierarchy.setUri("http://example.org/hierarchies/time");
         sampleHierarchy.setName("Time Hierarchy");
         sampleHierarchy.setDescription("Temporal hierarchy for years and quarters");
-        sampleHierarchy.setHierarchyType(HierarchyScheme.SKOS_NARROWER);
+        sampleHierarchy.setHierarchyType(HierarchyScheme.SKOS_CONCEPT_SCHEME);
         sampleHierarchy.setMaxDepth(3);
         sampleHierarchy.setIsDefault(true);
         sampleHierarchy.setCreatedAt(Instant.now());

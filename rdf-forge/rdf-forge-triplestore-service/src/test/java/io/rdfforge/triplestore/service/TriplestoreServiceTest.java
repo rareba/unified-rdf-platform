@@ -28,6 +28,9 @@ class TriplestoreServiceTest {
     @Mock
     private TriplestoreConnectionRepository repository;
 
+    @Mock
+    private io.rdfforge.triplestore.connector.TriplestoreProviderRegistry providerRegistry;
+
     private TriplestoreService triplestoreService;
 
     private UUID connectionId;
@@ -37,7 +40,11 @@ class TriplestoreServiceTest {
 
     @BeforeEach
     void setUp() {
-        triplestoreService = new TriplestoreService(repository);
+        triplestoreService = new TriplestoreService(
+                repository,
+                providerRegistry,
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+        );
         
         connectionId = UUID.randomUUID();
         projectId = UUID.randomUUID();

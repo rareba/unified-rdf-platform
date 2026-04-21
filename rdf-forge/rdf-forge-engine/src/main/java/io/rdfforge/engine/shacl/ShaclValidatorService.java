@@ -174,7 +174,12 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
     @Override
     public ValidationReport validate(Model dataModel, String shapesContent) {
         Model shapesModel = org.apache.jena.rdf.model.ModelFactory.createDefaultModel();
-        shapesModel.read(new java.io.StringReader(shapesContent), null, "TURTLE");
+        try {
+            shapesModel.read(new java.io.StringReader(shapesContent), null, "TURTLE");
+        } catch (RiotException e) {
+            throw new ShaclValidationException(
+                "Invalid SHACL shapes Turtle: " + e.getMessage(), e);
+        }
         return validate(dataModel, shapesModel);
     }
 
@@ -192,10 +197,7 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
             return true;
         } catch (RiotException e) {
             // RDF parsing error
-            log.warn("Invalid RDF syntax: {}. Line: {}, Column: {}",
-                e.getMessage(),
-                e.getLine() > 0 ? e.getLine() : "unknown",
-                e.getCol() > 0 ? e.getCol() : "unknown");
+            log.warn("Invalid RDF syntax: {}", e.getMessage());
             return false;
         } catch (Exception e) {
             log.warn("Invalid SHACL syntax: {}", e.getMessage());
@@ -217,11 +219,8 @@ public class ShaclValidatorService implements io.rdfforge.engine.shacl.ShaclVali
             Shapes.parse(shapesModel.getGraph());
             return new ValidationSyntaxResult(true, "Valid SHACL syntax", null, null);
         } catch (RiotException e) {
-            String message = String.format("RDF parsing error at line %d, column %d: %s",
-                e.getLine() > 0 ? e.getLine() : 0,
-                e.getCol() > 0 ? e.getCol() : 0,
-                e.getMessage());
-            return new ValidationSyntaxResult(false, message, e.getLine(), e.getCol());
+            String message = String.format("RDF parsing error: %s", e.getMessage());
+            return new ValidationSyntaxResult(false, message, null, null);
         } catch (Exception e) {
             return new ValidationSyntaxResult(false, e.getMessage(), null, null);
         }

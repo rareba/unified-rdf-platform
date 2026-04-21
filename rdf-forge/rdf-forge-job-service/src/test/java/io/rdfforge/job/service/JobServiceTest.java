@@ -51,7 +51,13 @@ class JobServiceTest {
 
     @BeforeEach
     void setUp() {
-        jobService = new JobService(jobRepository, jobLogRepository, executorService);
+        jobService = new JobService(
+                jobRepository,
+                jobLogRepository,
+                executorService,
+                org.mockito.Mockito.mock(io.rdfforge.job.service.JobLogWebSocketService.class),
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry()
+        );
         
         jobId = UUID.randomUUID();
         pipelineId = UUID.randomUUID();

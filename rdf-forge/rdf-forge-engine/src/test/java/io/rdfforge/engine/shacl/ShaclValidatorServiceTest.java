@@ -87,7 +87,7 @@ class ShaclValidatorServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        service = new ShaclValidatorService();
+        service = new ShaclValidatorService(new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         // Inject the default timeout (60 s) since Spring is not present to process @Value.
         java.lang.reflect.Field timeoutField =
             ShaclValidatorService.class.getDeclaredField("validationTimeoutSeconds");

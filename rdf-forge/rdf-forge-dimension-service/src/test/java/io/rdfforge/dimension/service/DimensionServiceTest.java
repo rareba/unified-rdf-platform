@@ -67,7 +67,7 @@ class DimensionServiceTest {
         sampleDimension.setName("Time Dimension");
         sampleDimension.setDescription("Time-based dimension");
         sampleDimension.setType(DimensionType.TEMPORAL);
-        sampleDimension.setHierarchyType(HierarchyType.SINGLE);
+        sampleDimension.setHierarchyType(HierarchyType.FLAT);
         sampleDimension.setBaseUri("http://example.org/dimensions/time/");
         sampleDimension.setVersion(1);
         sampleDimension.setValueCount(0L);
@@ -172,7 +172,7 @@ class DimensionServiceTest {
         void search_WithFilters_ReturnsMatchingDimensions() {
             Pageable pageable = PageRequest.of(0, 10);
             Page<DimensionEntity> page = new PageImpl<>(List.of(sampleDimension), pageable, 1);
-            when(dimensionRepository.findByFilters(projectId, DimensionType.TEMPORAL, "Time", pageable))
+            when(dimensionRepository.findByFilters(projectId, DimensionType.TEMPORAL.name(), "Time", pageable))
                 .thenReturn(page);
 
             Page<DimensionEntity> result = dimensionService.search(projectId, DimensionType.TEMPORAL, "Time", pageable);

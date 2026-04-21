@@ -28,7 +28,7 @@ class OperationRegistryTest {
     void testGetOperation() {
         // Assuming we have at least one operation registered or can mock one
         // For now just checking the registry exists and methods are callable
-        Optional<Operation> op = registry.getOperation("unknown-op");
+        Optional<Operation> op = registry.get("unknown-op");
         assertTrue(op.isEmpty());
     }
     

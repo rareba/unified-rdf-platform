@@ -53,6 +53,10 @@ public class LoadJsonOperation implements Operation {
     @Override
     public OperationResult execute(OperationContext context) throws OperationException {
         String filePath = (String) context.parameters().get("file");
+        if (filePath == null || filePath.isBlank()) {
+            throw new OperationException(getId(),
+                "'file' parameter is required for load-json operation");
+        }
         String jsonPath = (String) context.parameters().get("jsonPath");
         boolean streaming = (boolean) context.parameters().getOrDefault("streaming", false);
 

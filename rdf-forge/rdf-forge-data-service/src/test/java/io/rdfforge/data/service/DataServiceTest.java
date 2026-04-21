@@ -98,7 +98,7 @@ class DataServiceTest {
         @DisplayName("Should return page of data sources with filters")
         void getDataSources_WithFilters_ReturnsPageOfDataSources() {
             Page<DataSourceEntity> page = new PageImpl<>(List.of(sampleEntity), PageRequest.of(0, 10), 1);
-            when(dataSourceRepository.findWithFilters(eq(projectId), eq(DataFormat.CSV), eq("test"), any()))
+            when(dataSourceRepository.findWithFilters(eq(projectId), eq(DataFormat.CSV.name()), eq("test"), any()))
                 .thenReturn(page);
 
             Page<DataSourceEntity> result = dataService.getDataSources(projectId, DataFormat.CSV, "test", 0, 10);

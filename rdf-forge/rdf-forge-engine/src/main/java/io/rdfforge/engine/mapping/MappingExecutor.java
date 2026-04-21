@@ -219,7 +219,7 @@ public class MappingExecutor {
     private org.apache.jena.graph.Node buildLiteralObject(MappingRuleSpec rule, String value) {
         if (rule.datatype() != null && !rule.datatype().isBlank()) {
             String dt = expandPrefix(rule.datatype());
-            return NodeFactory.createLiteralDT(value, org.apache.jena.datatypes.TypeMapper.getInstance().getSafeTypeByName(dt));
+            return NodeFactory.createLiteral(value, org.apache.jena.datatypes.TypeMapper.getInstance().getSafeTypeByName(dt));
         }
         if (rule.language() != null && !rule.language().isBlank()) {
             return NodeFactory.createLiteralLang(value, rule.language());

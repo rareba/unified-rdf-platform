@@ -1,18 +1,25 @@
 package io.rdfforge.engine.operation.source;
 
+import io.rdfforge.engine.operation.Operation.OperationContext;
+import io.rdfforge.engine.operation.OperationException;
 import org.junit.jupiter.api.Test;
+
 import java.util.Map;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LoadJsonOperationTest {
 
     @Test
-    void testValidateParams() {
+    void execute_withoutFile_throws() {
         LoadJsonOperation op = new LoadJsonOperation();
-        
-        // Should fail without file
-        assertThrows(IllegalArgumentException.class, () -> {
-            op.execute(Map.of());
-        });
+        OperationContext ctx = new OperationContext(
+                Map.of(),   // parameters
+                null,       // inputStream
+                null,       // inputModel
+                Map.of(),   // variables
+                null        // callback
+        );
+        assertThrows(OperationException.class, () -> op.execute(ctx));
     }
 }
