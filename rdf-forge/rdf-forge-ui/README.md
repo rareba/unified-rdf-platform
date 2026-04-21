@@ -526,7 +526,7 @@ if (environment.auth.enabled) {
 
 ### Authentication
 
-- **Keycloak Angular 20** - Keycloak integration
+- **keycloak-js 24** - Keycloak integration (+ `angular-oauth2-oidc` for OIDC flows)
 - **Keycloak JS 26** - JavaScript adapter
 
 ### Additional Libraries
@@ -539,7 +539,7 @@ if (environment.auth.enabled) {
 - **ESLint** - Code linting
 - **Prettier** - Code formatting
 - **Karma/Jasmine** - Unit testing
-- **Vitest** - Alternative test runner
+- **Playwright** - End-to-end testing
 
 ---
 

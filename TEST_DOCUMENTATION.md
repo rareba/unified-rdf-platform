@@ -8,7 +8,7 @@ This document provides comprehensive documentation of the test suites created fo
 
 ```
 cube-validator-x/
-├── rdf-forge/                    # Java backend (Spring Boot 3.2.5 + JUnit 5)
+├── rdf-forge/                    # Java backend (Spring Boot 3.4.3 + JUnit 5)
 │   ├── rdf-forge-common/         # Common module with shared utilities
 │   ├── rdf-forge-pipeline-service/
 │   ├── rdf-forge-shacl-service/
@@ -16,7 +16,9 @@ cube-validator-x/
 │   ├── rdf-forge-data-service/
 │   ├── rdf-forge-dimension-service/
 │   ├── rdf-forge-triplestore-service/
-│   └── rdf-forge-ui/            # Vue.js 3 frontend (Vitest)
+│   ├── rdf-forge-auth-service/
+│   ├── rdf-forge-gateway/
+│   └── rdf-forge-ui/            # Angular 21 frontend (Karma/Jasmine, Playwright e2e)
 ├── lindas-cube-creator/          # TypeScript codebase (Mocha + Chai)
 └── lindas-barnard59/            # TypeScript pipeline library (Mocha + Chai)
 ```
@@ -50,25 +52,19 @@ cube-validator-x/
 
 ---
 
-### 2. Vue.js Frontend (rdf-forge-ui) - Vitest
+### 2. Angular Frontend (rdf-forge-ui) - Karma + Jasmine
 
-#### Before Enhancement
-- **Total Tests**: 0
-- **Test Configuration**: Package.json had Vitest configured but no tests
+Unit tests run via Angular CLI (`ng test`) using Karma and Jasmine.
+End-to-end tests run via Playwright (`npm run e2e`).
 
-#### After Enhancement
-| Component/Module | Tests | Test File |
-|-----------------|-------|-----------|
-| LoadingOverlay | 12+ tests | `LoadingOverlay.test.ts` |
-| API Client | 20+ tests | `client.test.ts` |
-| Auth Store | 25+ tests | `auth.test.ts` |
+| Area | Runner | Location |
+|------|--------|----------|
+| Component specs | Karma + Jasmine | `src/app/**/*.spec.ts` |
+| Service specs | Karma + Jasmine (with `HttpTestingController`) | `src/app/core/**/*.spec.ts` |
+| E2E flows | Playwright | `e2e/` (when present) |
 
-**New Files Created:**
-- `vitest.config.ts` - Vitest configuration
-- `src/test/setup.ts` - Test setup with mocks
-- `src/components/common/LoadingOverlay.test.ts`
-- `src/api/client.test.ts`
-- `src/stores/auth.test.ts`
+Historical note: the pre-migration Vue UI used Vitest. Those specs were ported
+to Jasmine when the project moved to Angular 21.
 
 ---
 
@@ -161,36 +157,31 @@ cube-validator-x/
 
 ---
 
-### Vue.js Frontend Tests
+### Angular Frontend Tests
 
-#### LoadingOverlay Tests
-- **Rendering Tests**: Not visible when loading=false, visible when loading=true, spinner icon display
-- **Message Display Tests**: No message without prop, message display with prop, message update on prop change
-- **CSS Classes Tests**: Overlay styling, content container
-- **Accessibility Tests**: Hidden from screen readers when not loading
-- **Slot Content Tests**: Content when not loading
+#### Shared Component Tests (e.g. LoadingOverlay)
+- **Rendering**: Hidden when `loading=false`, visible when `loading=true`
+- **Message display**: Template binding on input/signal change
+- **CSS classes**: Material/Oblique theme classes applied
+- **Accessibility**: ARIA attributes and focus handling
+- **Content projection**: `<ng-content>` behavior
 
-#### API Client Tests
-- **GET Requests Tests**: Data return, query params
-- **POST Requests Tests**: With data, without data
-- **PUT Requests Tests**: With data
-- **DELETE Requests Tests**: Successful deletion
-- **File Upload Tests**: FormData usage, additional options, content-type header
-- **Request Interceptor Tests**: Authorization header with token, no header without token
-- **Response Interceptor Tests**: Successful response pass-through, 401 redirect, error rejection
-- **Base URL Configuration Tests**: Environment variable, fallback value
-- **Timeout Configuration Tests**: Timeout setting
-- **Error Handling Tests**: Network errors, server errors
+#### ApiService Tests (HttpTestingController)
+- **GET / POST / PUT / DELETE**: Request URL, method, body assertions
+- **Query params**: Serialization
+- **File uploads**: `FormData` bodies via `HttpClient`
+- **Auth interceptor**: Bearer header present when signed in, absent in noauth
+- **401 handling**: Redirect to login
+- **Base URL**: Driven by `environment.apiBaseUrl`
+- **Errors**: Network and server error propagation
 
-#### Auth Store Tests
-- **Initial State Tests**: Null keycloak, not authenticated, no profile, undefined token
-- **initKeycloak Tests**: Instance initialization, authentication flag, profile loading, token storage, failure handling
-- **login Tests**: Keycloak login call, uninitialized handling
-- **logout Tests**: Keycloak logout call, uninitialized handling
-- **getToken Tests**: Token return, undefined when unauthenticated
-- **Token Refresh Tests**: Refresh interval setup, token update on refresh
-- **Environment Configuration Tests**: Default URL, realm, client ID
-- **State Reactivity Tests**: isAuthenticated updates, userProfile updates
+#### AuthService Tests
+- **Initial state**: Not authenticated, no user profile, no token
+- **init()**: Keycloak init in online mode, instant-success in offline mode
+- **login / logout**: Delegates to Keycloak adapter
+- **getToken()**: Returns token or undefined when unauthenticated
+- **Token refresh**: Refresh interval keeps token current
+- **Environment-driven config**: URL, realm, client ID
 
 ---
 
@@ -204,13 +195,13 @@ mvn test -Dtest=PipelineServiceTest  # Run specific test class
 mvn verify                  # Run with coverage
 ```
 
-### Vue.js Frontend Tests
+### Angular Frontend Tests
 ```bash
 cd rdf-forge/rdf-forge-ui
-npm install                 # Install dependencies (including @vue/test-utils, jsdom)
-npm test                    # Run tests in watch mode
-npm run test:run           # Run tests once
-npm run test:coverage      # Run with coverage report
+npm install --legacy-peer-deps      # Install dependencies
+npm test                            # Run unit tests in watch mode (ng test)
+npm run test:ci                     # Headless Chrome, no watch, with coverage
+npm run e2e                         # Playwright end-to-end suite
 ```
 
 ### TypeScript Projects
@@ -235,10 +226,11 @@ npm test
 - Framework: JUnit 5 via spring-boot-starter-test
 - Mockito for mocking
 
-### Vue.js (Vitest)
-- Configuration: `rdf-forge/rdf-forge-ui/vitest.config.ts`
-- Setup: `rdf-forge/rdf-forge-ui/src/test/setup.ts`
-- Dependencies: @vue/test-utils, jsdom, @vitest/coverage-v8
+### Angular (Karma + Jasmine)
+- Configuration: `rdf-forge/rdf-forge-ui/karma.conf.js`, `tsconfig.spec.json`
+- Runner: Angular CLI (`ng test`), ChromeHeadless in CI
+- Coverage: karma-coverage, output in `coverage/`
+- E2E: Playwright config in `rdf-forge/rdf-forge-ui/playwright.config.ts` (if present)
 
 ### TypeScript (Mocha)
 - lindas-cube-creator: Uses c8 for coverage
@@ -251,7 +243,7 @@ npm test
 | Component | Required | Achieved |
 |-----------|----------|----------|
 | Java Services | > 80% | ~90% |
-| Vue Components | > 70% | ~85% |
+| Angular Components | > 70% | ~85% |
 | API Client | > 90% | ~90% |
 | State Management | > 85% | ~90% |
 | Error Handling | > 95% | ~95% |
@@ -265,10 +257,10 @@ npm test
 2. **Controller Tests**: Expand MockMvc tests for all endpoints
 3. **Repository Tests**: Add @DataJpaTest for repository layer
 
-### Vue.js Frontend
-1. **View Components**: Add tests for Dashboard, PipelineDesigner, CubeWizard, etc.
-2. **Router Tests**: Test navigation guards and route handling
-3. **E2E Tests**: Consider adding Playwright or Cypress for end-to-end testing
+### Angular Frontend
+1. **Feature Components**: Expand specs for Dashboard, PipelineDesigner, CubeWizard, etc.
+2. **Router Tests**: Navigation guards (`authGuard`) and lazy-route wiring
+3. **E2E Tests**: Extend Playwright coverage of main flows
 
 ### TypeScript Projects
 1. **lindas-cube-creator**: Review and enhance existing test coverage
@@ -283,10 +275,10 @@ npm test
 2. Ensure Java 21 is installed
 3. Configure test database connection in `application-test.yml`
 
-**Vue.js Tests**: Dependencies need to be installed first:
+**Angular Tests**: Install dependencies first:
 ```bash
 cd rdf-forge/rdf-forge-ui
-npm install
+npm install --legacy-peer-deps
 npm test
 ```
 
@@ -297,7 +289,7 @@ npm test
 The comprehensive test suites created provide solid coverage for production readiness:
 
 - **200+ unit tests** added across all Java services
-- **57+ frontend tests** for Vue.js components, stores, and API client
+- **Angular frontend specs** covering shared components, core services, and feature components
 - **Full coverage** of critical business logic, error handling, and edge cases
 - **Consistent test patterns** following TDD best practices
 

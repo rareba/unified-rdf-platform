@@ -19,7 +19,7 @@ RDF Forge is a microservices-based RDF data platform built with Spring Boot and 
 | **rdf-forge-data-service** | 8004 | Data source & file management | PostgreSQL, MinIO |
 | **rdf-forge-dimension-service** | 8005 | Shared dimension management | PostgreSQL |
 | **rdf-forge-triplestore-service** | 8006 | Multi-triplestore connector | PostgreSQL, Apache Jena |
-| **rdf-forge-ui** | 3000 | Angular 20 frontend | Gateway API |
+| **rdf-forge-ui** | 4200 / 3000 | Angular 21 frontend (Material + Oblique + Keycloak JS) | Gateway API |
 | **rdf-forge-common** | N/A | Shared models, DTOs, utilities | - |
 | **rdf-forge-engine** | N/A | Core ETL engine with Jena & Camel | - |
 | **rdf-forge-cli** | N/A | Command-line tool | Spring Shell |
@@ -36,13 +36,13 @@ RDF Forge is a microservices-based RDF data platform built with Spring Boot and 
 
 ### 1.3 Technology Stack
 
-- **Backend**: Java 21, Spring Boot 3.2.5, Spring Cloud 2023.0.1
+- **Backend**: Java 21, Spring Boot 3.4.3, Spring Cloud 2024.0.1
 - **ETL Engine**: Apache Camel 4.5.0, Apache Jena 5.0.0
 - **Database**: PostgreSQL 16 with Flyway migrations
 - **Message Queue**: Redis 7
 - **Object Storage**: MinIO
 - **API Documentation**: SpringDoc OpenAPI 2.5.0
-- **Frontend**: Angular 20 with Keycloak-JS
+- **Frontend**: Angular 21 with Keycloak-JS, Angular Material, and `@oblique/oblique`
 - **Containerization**: Docker with multi-stage builds
 
 ---

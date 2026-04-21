@@ -1,5 +1,13 @@
 # Task: Build Unified RDF Data Platform
 
+> **Status (2026-04):** This document is the original product brief. Some
+> technology choices have since shifted. The canonical implementation is now
+> **`rdf-forge/`**, which uses **Java 21 + Spring Boot 3.4.3** on the backend
+> and **Angular 21** (Material + Oblique + Keycloak JS) on the frontend. Where
+> this file mentions Vue.js, Vuex/Pinia, Vue Router, Vite, Vitest, or
+> Express/GraphQL, treat it as historical design context; see
+> `rdf-forge/ARCHITECTURE.md` for the current state of truth.
+
 ## Executive Summary
 
 Create a next-generation, unified platform that combines the best capabilities of **Cube Creator** (user-friendly RDF cube generation) and **Barnard59** (powerful ETL pipeline engine) into a single, high-performance, user-friendly system for converting tabular and document data into RDF format and managing RDF triplestores.
@@ -135,7 +143,7 @@ Create a next-generation, unified platform that combines the best capabilities o
 │                      USER INTERFACES                         │
 ├──────────────┬──────────────┬──────────────┬────────────────┤
 │  Web UI      │  CLI Tool    │  REST API    │  GraphQL API   │
-│  (Vue.js 3)  │  (Commander) │  (Express)   │  (Apollo)      │
+│  (Angular 21)│  (Spring Shl)│ (Spring Cld) │  (SpringDoc)   │
 └──────────────┴──────────────┴──────────────┴────────────────┘
                               │
                               ▼
@@ -178,7 +186,7 @@ Create a next-generation, unified platform that combines the best capabilities o
 
 ### Component Breakdown
 
-#### 1. Web UI (Vue.js 3 + TypeScript)
+#### 1. Web UI (Angular 21 + TypeScript)
 
 **Features:**
 - **Dashboard**: Project overview, recent jobs, system health
@@ -198,15 +206,15 @@ Create a next-generation, unified platform that combines the best capabilities o
 - **Triplestore Manager**: Browse, query, manage graphs
 - **Settings**: Authentication, integrations, system configuration
 
-**Technologies:**
-- Vue.js 3 with Composition API
-- Vuex or Pinia for state management
-- Vue Router for routing
-- Vue Flow or React Flow (via wrapper) for pipeline visualization
-- Monaco Editor for code editing (RDF, SPARQL)
-- Oruga + Bulma or Vuetify for UI components
-- Axios for API calls
-- Socket.io for real-time updates
+**Technologies (as implemented in `rdf-forge-ui/`):**
+- Angular 21 with standalone components
+- Angular Signals + RxJS for state/reactivity
+- Angular Router with lazy-loaded feature modules
+- ngx-graph / Dagre for pipeline visualization
+- Angular Material + `@oblique/oblique` for UI components
+- Angular `HttpClient` + interceptors for API calls
+- STOMP over SockJS (`@stomp/stompjs`) for real-time updates
+- Keycloak JS adapter (+ `angular-oauth2-oidc`) for authentication
 
 #### 2. API Layer (Express + TypeScript)
 
@@ -486,7 +494,7 @@ Send Notification (Email/Webhook)
 - Version control for pipelines
 
 **Technical Implementation:**
-- Vue Flow for graph visualization
+- ngx-graph / Dagre for graph visualization
 - Monaco Editor for code view
 - Real-time validation service
 - RDF/Turtle parser and serializer
@@ -678,19 +686,18 @@ Send Notification (Email/Webhook)
 - **RDF Libraries**: RDF/JS, Clownface, SPARQL HTTP Client
 - **Storage**: S3-compatible (MinIO, AWS S3), Redis
 
-### Frontend
-- **Framework**: Vue.js 3 (Composition API)
-- **State**: Pinia (Vuex successor)
-- **Router**: Vue Router 4
-- **UI Components**: Vuetify 3 or PrimeVue
-- **Pipeline Visualization**: Vue Flow or D3.js
-- **Code Editor**: Monaco Editor
-- **Charts**: Chart.js or ECharts
-- **Forms**: VeeValidate + Yup
-- **HTTP Client**: Axios
-- **Real-time**: Socket.io-client
-- **Testing**: Vitest + Vue Test Utils, Cypress
-- **Build**: Vite
+### Frontend (current implementation)
+- **Framework**: Angular 21 (standalone components)
+- **State**: Angular Signals + RxJS (~7.8)
+- **Router**: Angular Router with lazy-loaded routes
+- **UI Components**: Angular Material + `@oblique/oblique`
+- **Pipeline Visualization**: ngx-graph + Dagre
+- **Charts**: ngx-charts
+- **Forms**: Angular Reactive Forms
+- **HTTP Client**: `HttpClient` + interceptors
+- **Real-time**: STOMP over SockJS (`@stomp/stompjs`)
+- **Testing**: Karma + Jasmine (unit), Playwright (e2e)
+- **Build**: Angular CLI (esbuild)
 
 ### Infrastructure
 - **Containerization**: Docker + Docker Compose
@@ -702,13 +709,12 @@ Send Notification (Email/Webhook)
 - **Monitoring**: Prometheus + Grafana + Jaeger
 
 ### Development
-- **Package Manager**: npm or pnpm
-- **Monorepo**: npm workspaces or Turborepo
-- **Linting**: ESLint
-- **Formatting**: Prettier
-- **Git Hooks**: Husky + lint-staged
-- **Changesets**: Changesets for versioning
-- **Documentation**: Markdown + VitePress or Docusaurus
+- **Package Manager**: npm (Angular UI); Maven for Java modules
+- **Monorepo**: Maven multi-module for Java; single Angular app under `rdf-forge-ui/`
+- **Linting**: ESLint (JS/TS); Checkstyle/Spotless as configured per module
+- **Formatting**: Prettier (JS/TS)
+- **Git Hooks**: Husky + lint-staged (when configured)
+- **Documentation**: Markdown under `rdf-forge/` and `rdf-forge/docs/`
 
 ---
 
@@ -760,7 +766,7 @@ Send Notification (Email/Webhook)
 **Goal**: Build user interface
 
 **Tasks:**
-1. Set up Vue.js 3 project structure
+1. Set up Angular 21 project structure (see `rdf-forge/rdf-forge-ui/`)
 2. Implement authentication UI (OIDC login)
 3. Build Dashboard view
 4. Create Pipeline Designer (visual editor)

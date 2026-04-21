@@ -104,12 +104,14 @@ npm run build -- --configuration=standalone
 
 ## Architecture
 
-- **Backend**: Spring Boot 3.2.5 microservices (Java 21)
-- **Frontend**: Angular 21 with PrimeNG
-- **Data Processing**: Apache Camel pipelines
-- **RDF Storage**: GraphDB triplestore
+- **Backend**: Spring Boot 3.4.3 microservices (Java 21, Spring Cloud 2024.0.1)
+- **Frontend**: Angular 21 with Angular Material + Oblique + Keycloak JS adapter
+- **Data Processing**: Apache Camel 4.5 + Apache Jena 5.0 pipelines
+- **RDF Storage**: GraphDB (default) / Fuseki triplestore
 - **Object Storage**: MinIO S3-compatible storage
-- **Database**: PostgreSQL for metadata
+- **Database**: PostgreSQL 16 + Flyway migrations
+- **Cache / Queue**: Redis 7
+- **Auth**: Keycloak (online); `noauth` profile locked to dev via ALLOWED_PROFILES
 
 ## Recent Fixes (December 2025)
 

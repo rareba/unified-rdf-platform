@@ -1,8 +1,18 @@
-# RDF Forge UI - Vue.js Frontend Migration Analysis
+# RDF Forge UI - Vue-to-Angular Migration Analysis (Historical)
+
+> **Status (2026-04):** The Vue-to-Angular migration described below is
+> **complete**. `rdf-forge/rdf-forge-ui/` is now a pure Angular 21 SPA
+> (Material + Oblique + Keycloak JS) and the old Vue codebase has been
+> removed from the active tree. This document is retained as historical
+> context for the migration; consult `rdf-forge/ARCHITECTURE.md` for the
+> current frontend description.
 
 ## Executive Summary
 
-This document provides a comprehensive analysis of the Vue.js frontend application located in `rdf-forge/rdf-forge-ui/`. The application is a sophisticated RDF data management platform built with Vue 3, featuring pipeline design, SHACL validation, cube creation, job monitoring, and triplestore browsing capabilities.
+This document originally analyzed the Vue.js frontend that once lived in
+`rdf-forge/rdf-forge-ui/` (Vue 3, Pinia, PrimeVue, Vue Flow, Vite, Vitest).
+It captures the views, stores, routes, and component-library choices of the
+Vue app, and the mapping used when porting each piece to Angular.
 
 ---
 
@@ -170,7 +180,7 @@ rdf-forge/rdf-forge-ui/
 | `defineProps()` | @Input() |
 | `defineEmits()` | @Output() + EventEmitter |
 | Pinia | NgRx / Services |
-| PrimeVue | PrimeNG |
+| PrimeVue | Angular Material + Oblique |
 | Vue Router | Angular Router |
 | axios | HttpClient |
 

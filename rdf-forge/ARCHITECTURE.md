@@ -1,465 +1,253 @@
 # RDF Forge - System Architecture
 
-## Overview
+> **Source of truth (2026-04).** This document describes what is actually
+> built and running today. Older design docs (`ARCHITECTURE_ANALYSIS.md`,
+> `MIGRATION_ANALYSIS.md`, `UNIFIED_RDF_PLATFORM_TASK.md`) retain historical
+> context; when they disagree with this file, this file wins.
 
-RDF Forge is a comprehensive RDF data transformation and publishing platform designed for creating, managing, and publishing Linked Data cubes. The architecture follows a microservices pattern with clear separation of concerns, enabling scalability, maintainability, and extensibility.
+RDF Forge (product name **Cube Creator X**) is a microservice platform for
+ingesting tabular / document data, transforming it to RDF, validating it
+against SHACL, and publishing it to one or more triplestores.
 
 ---
 
-## High-Level Architecture
+## Module inventory
+
+The Maven parent lives at `rdf-forge/pom.xml`. It lists 11 Java modules plus
+a sibling Angular UI:
+
+| Module | Port | Purpose |
+|--------|------|---------|
+| `rdf-forge-gateway` | 8000 | Spring Cloud Gateway; single entry point for `/api/v1/**`; auth, CORS, rate limiting, Resilience4j circuit breakers |
+| `rdf-forge-pipeline-service` | 8001 | Pipeline CRUD, versioning, validation, operation catalog, destinations |
+| `rdf-forge-shacl-service` | 8002 | SHACL shape CRUD, shape templates, on-demand and batch validation |
+| `rdf-forge-job-service` | 8003 | Job execution, logs, metrics, WebSocket updates, cron schedules, Redis-backed queue |
+| `rdf-forge-data-service` | 8004 | File upload / preview / download, storage provider + format registries, MinIO integration |
+| `rdf-forge-dimension-service` | 8005 | Shared cube dimensions, dimension values, hierarchies |
+| `rdf-forge-triplestore-service` | 8006 | Triplestore connection registry, SPARQL, graph upload/export, multi-provider |
+| `rdf-forge-auth-service` | 8086 | Personal Access Tokens (PAT), Keycloak read-only client, admin endpoints |
+| `rdf-forge-engine` | n/a (lib) | Core ETL engine: Apache Jena + Apache Camel, operation registry, cube/shacl operations |
+| `rdf-forge-common` | n/a (lib) | Shared DTOs, exceptions (`ResourceNotFoundException`, `ShaclValidationException`, `TriplestoreConnectionException`, `RdfForgeException`), global exception handler (RFC 7807 ProblemDetail), audit log schema |
+| `rdf-forge-cli` | n/a | Spring Shell CLI that talks to the gateway |
+| `rdf-forge-ui` | 4200 (dev) / 3000 or 80 (container) | Angular 21 SPA |
+
+All services speak REST over `/api/v1/**` via the gateway. The gateway routes
+`/api/v1/pipelines|operations|templates → 8001`,
+`/api/v1/shapes|validation → 8002`, `/api/v1/jobs|schedules → 8003`,
+`/api/v1/data → 8004`, `/api/v1/dimensions|hierarchies → 8005`,
+`/api/v1/triplestores|sparql|graphs → 8006`, and auth routes to 8086.
+
+---
+
+## Frontend stack (`rdf-forge/rdf-forge-ui/`)
+
+- **Angular 21** with standalone components (`bootstrapApplication(App, appConfig)`).
+- **Routing**: Lazy-loaded standalone components in `src/app/app.routes.ts`
+  for dashboard, pipelines, jobs, shacl, cubes, data, dimensions,
+  triplestore, settings.
+- **Reactivity**: Angular **Signals** for component-local state; **RxJS ~7.8**
+  for HTTP streams, WebSocket events, interceptor composition.
+- **UI**: **Angular Material 21** + **`@oblique/oblique` ^15.1** (Swiss Admin
+  design system) as the primary component / theming layer; `ngx-charts` and
+  `ngx-graph` (+ `dagre`) for visualization.
+- **HTTP**: `HttpClient` + custom interceptors (`auth.interceptor`) for bearer
+  token injection and offline-mode no-op. Base URL driven by
+  `environment.apiBaseUrl`.
+- **Auth**: **Keycloak JS 24** adapter (+ `angular-oauth2-oidc` ^20) for
+  online/OIDC flows. `AuthService` short-circuits when
+  `environment.auth.enabled === false` (standalone / offline mode).
+- **Real-time**: `@stomp/stompjs` + `sockjs-client` for job log streaming.
+- **Build/dev tooling**: Angular CLI 21 (esbuild), ESLint 9, Prettier,
+  TypeScript ~5.9.
+- **Tests**: **Karma + Jasmine** for units (`ng test` / `npm test`);
+  **Playwright** ^1.49 for e2e (`npm run e2e`).
+
+Development loop:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              Client Layer                                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    Angular SPA (RDF Forge UI)                    │   │
-│  │  - Dashboard, Pipeline Designer, Cube Wizard, Data Manager      │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-└───────────────────────────────────┬─────────────────────────────────────┘
-                                    │ HTTPS/WebSocket
-┌───────────────────────────────────▼─────────────────────────────────────┐
-│                           Gateway Layer                                  │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              Spring Cloud Gateway (Port 8000)                    │   │
-│  │  - Routing, Load Balancing, Authentication, Rate Limiting       │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-└───────────────────────────────────┬─────────────────────────────────────┘
-                                    │ Internal Network
-┌───────────────────────────────────▼─────────────────────────────────────┐
-│                         Microservices Layer                              │
-│                                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │   Pipeline   │  │    SHACL     │  │     Job      │  │    Data     │ │
-│  │   Service    │  │   Service    │  │   Service    │  │   Service   │ │
-│  │   :8001      │  │    :8002     │  │    :8003     │  │    :8004    │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────┘ │
-│                                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │  Dimension   │  │ Triplestore  │  │     Auth     │                   │
-│  │   Service    │  │   Service    │  │   Service    │                   │
-│  │   :8005      │  │    :8006     │  │   :8086      │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
-└───────────────────────────────────┬─────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼─────────────────────────────────────┐
-│                          Data Layer                                      │
-│                                                                          │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐             │
-│  │   PostgreSQL   │  │     Redis      │  │     MinIO      │             │
-│  │   (Primary)    │  │   (Caching)    │  │  (Object Store)│             │
-│  └────────────────┘  └────────────────┘  └────────────────┘             │
-│                                                                          │
-│  ┌────────────────┐  ┌────────────────┐                                  │
-│  │    Fuseki      │  │    Keycloak    │                                  │
-│  │ (Triplestore)  │  │     (Auth)     │                                  │
-│  └────────────────┘  └────────────────┘                                  │
-└─────────────────────────────────────────────────────────────────────────┘
+cd rdf-forge/rdf-forge-ui
+npm install --legacy-peer-deps
+npm start                                  # ng serve (default dev)
+ng serve --configuration offline           # dev server against offline backend
+ng serve --configuration online            # dev server against Keycloak/online
+npm test                                   # Karma + Jasmine watch
+npm run test:ci                            # headless, coverage
+npm run e2e                                # Playwright
+ng build --configuration production        # production bundle in dist/rdf-forge-ui/browser
 ```
 
----
-
-## Service Descriptions
-
-### Gateway Service (Port 8000)
-**Technology:** Spring Cloud Gateway
-
-**Responsibilities:**
-- Single entry point for all client requests
-- JWT token validation
-- Request routing to appropriate microservices
-- Load balancing
-- CORS configuration
-- Rate limiting
-
-**Key Components:**
-- `SecurityConfig`: Security configuration
-- `PatAuthenticationFilter`: Personal Access Token authentication
-- `AuthenticationFilter`: JWT validation
+Container build: `Dockerfile` uses Node 20 → Nginx; Nginx proxies `/api` to
+the gateway and falls back to `index.html` for SPA routing.
 
 ---
 
-### Pipeline Service (Port 8001)
-**Technology:** Spring Boot
+## Backend stack
 
-**Responsibilities:**
-- Pipeline CRUD operations
-- Pipeline versioning
-- Operation registry
-- Pipeline validation
-- Pipeline execution triggers
-
-**Key Entities:**
-- `Pipeline`: Pipeline definition and metadata
-- `PipelineVersion`: Version history
-- `Operation`: Available operations registry
+- **Java 21 (LTS)**, compiled with the Maven compiler plugin; Maven 3.9.
+- **Spring Boot 3.4.3**, **Spring Cloud 2024.0.1**.
+- **Apache Jena 5.0** for RDF parsing, SHACL, and SPARQL.
+- **Apache Camel 4.5** inside `rdf-forge-engine` for pipeline orchestration.
+- **Spring Cloud Gateway** for routing; **Resilience4j** for circuit breakers
+  and retries; **Bucket4j** for rate limiting.
+- **SpringDoc OpenAPI 2.8** for API docs.
+- **Lombok** + **MapStruct** for boilerplate reduction.
+- Graceful shutdown enabled on every service (30s timeout). Job locking
+  uses `ConcurrentHashMap<UUID, ReentrantLock>` in `JobService`.
 
 ---
 
-### SHACL Service (Port 8002)
-**Technology:** Spring Boot, Apache Jena
+## Data plane
 
-**Responsibilities:**
-- SHACL shape management
-- RDF validation
-- Shape templates
-- Validation reporting
+| Store | Purpose |
+|-------|---------|
+| **PostgreSQL 16** | Primary relational DB for every service (service-owned schemas; Flyway-managed) |
+| **MinIO** | S3-compatible object storage for raw data, shapes, pipeline artifacts (buckets: `rdf-forge-data`, `rdf-forge-shapes`, `rdf-forge-pipelines`) |
+| **Redis 7** | Job queue, distributed cache, STOMP broker relay for WebSocket fan-out |
+| **Apache Fuseki / Ontotext GraphDB** | Default triplestores; GraphDB is the standalone-mode default, Fuseki is also supported |
+| **Keycloak 24** | IdP for online mode; not deployed in standalone |
 
-**Key Components:**
-- `ShaclValidator`: Validation engine
-- `ShapeController`: Shape management API
-
----
-
-### Job Service (Port 8003)
-**Technology:** Spring Boot, Redis, WebSocket
-
-**Responsibilities:**
-- Job execution management
-- Real-time log streaming (WebSocket)
-- Job scheduling (cron)
-- Job monitoring and metrics
-
-**Key Entities:**
-- `Job`: Job execution instance
-- `JobLog`: Log entries
-- `JobSchedule`: Scheduled job configuration
-
-**WebSocket:**
-- Endpoint: `/ws`
-- STOMP protocol
-- Topics: `/topic/jobs/{jobId}/logs`
+Credentials are externalized via env vars: `DB_URL`, `DB_USERNAME`,
+`DB_PASSWORD`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, etc.
 
 ---
 
-### Data Service (Port 8004)
-**Technology:** Spring Boot, MinIO, PostgreSQL
+## Extension seams
 
-**Responsibilities:**
-- File upload/download
-- Data preview
-- Format conversion (CSV, JSON, Parquet)
-- Object storage management
+When adding functionality, prefer registering in these existing registries
+rather than hardwiring logic into controllers or services.
 
-**Key Components:**
-- `DataSource`: Metadata about uploaded files
-- `StorageService`: MinIO integration
+| Registry | File | Extends |
+|----------|------|---------|
+| Engine operations | `rdf-forge-engine/src/main/java/io/rdfforge/engine/operation/OperationRegistry.java` | Add new pipeline `Operation` implementations (load / transform / validate / output) |
+| Data formats | `rdf-forge-data-service/src/main/java/io/rdfforge/data/format/DataFormatRegistry.java` | Add parsers for new file formats (CSV, TSV, JSON, XLSX, Parquet, RDF) |
+| Storage providers | `rdf-forge-data-service/src/main/java/io/rdfforge/data/storage/StorageProviderRegistry.java` | Add blob-store backends (MinIO is default; S3 / Azure / GCS are scaffolded) |
+| Publish destinations | `rdf-forge-pipeline-service/src/main/java/io/rdfforge/pipeline/destination/DestinationRegistry.java` | Add new sinks for pipeline output |
+| Triplestore providers | `rdf-forge-triplestore-service/src/main/java/io/rdfforge/triplestore/connector/TriplestoreProviderRegistry.java` | Add connectors for Fuseki / GraphDB / Stardog / Virtuoso / Blazegraph |
 
----
-
-### Dimension Service (Port 8005)
-**Technology:** Spring Boot
-
-**Responsibilities:**
-- Dimension management
-- Cube dimension mapping
-- Dimensional analysis
-- Integration with SHACL and Pipeline services
+Engine operations are auto-discovered as Spring `@Component`s and registered
+at startup; see `OperationRegistryTest.java` for the contract.
 
 ---
 
-### Triplestore Service (Port 8006)
-**Technology:** Spring Boot, Apache Jena
+## Auth
 
-**Responsibilities:**
-- Triplestore connection management
-- SPARQL query execution
-- Graph management
-- Publishing to external triplestores
+Two modes, selected via Spring profiles:
 
-**Supported Triplestores:**
-- Apache Fuseki
-- GraphDB
-- Stardog
-- Virtuoso
-- BlazeGraph
+- **Online (Keycloak)** — default in production. Gateway is a Spring Security
+  OAuth2 resource server validating JWTs issued by Keycloak realm `rdfforge`.
+  Clients: `rdf-forge-ui` (public) and `rdf-forge-gateway` (confidential).
+  Roles: `admin`, `user`. `rdf-forge-auth-service` issues and manages PATs
+  and exposes admin endpoints.
+- **NoAuth (`noauth` profile)** — dev/demo only. `NoAuthSecurityConfig` and
+  `NoAuthUserFilter` are `@Profile("noauth")`. Both have a
+  `@PostConstruct` guard that throws `IllegalStateException` unless the
+  active profile is in
+  `ALLOWED_PROFILES = {"noauth", "test", "local"}` — this prevents the
+  noauth wiring from ever activating in prod, even if misconfigured. Both
+  components log loud security warnings.
 
----
+Header hygiene at the gateway: `NoAuthUserFilter` always **strips**
+`X-User-Id`, `X-User-Email`, `X-User-Roles`, `X-Auth-Type`, and
+`X-Token-Name` from every incoming request before injecting its own
+`X-User-Id` default. This prevents header-spoofing attacks where a caller
+attaches fake identity headers and expects backends to trust them. In
+online mode the JWT-validating filter performs the equivalent
+strip-then-inject after successful verification.
 
-### Auth Service (Port 8086)
-**Technology:** Spring Boot, Keycloak
-
-**Responsibilities:**
-- Personal Access Token (PAT) management
-- User authentication
-- Role management
-- Token validation
-
----
-
-## Data Flow
-
-### Pipeline Execution Flow
-
-```
-User -> Gateway -> Pipeline Service -> Job Service
-                                      |
-                                      v
-Redis (Job Queue) -> Pipeline Engine -> Triplestore Service
-                                             |
-                                             v
-                                        Data Service
-                                             |
-                                             v
-                                          MinIO
-```
-
-### Data Upload Flow
-
-```
-User -> Gateway -> Data Service -> MinIO (Store file)
-                     |
-                     v
-               PostgreSQL (Metadata)
-```
-
-### Cube Creation Flow
-
-```
-User -> Cube Wizard -> Pipeline Service -> Pipeline Definition
-                            |
-                            v
-                     Job Service (Execute)
-                            |
-                            v
-                     Data Service (Load Data)
-                            |
-                            v
-                     Triplestore Service (Publish)
-```
+CORS is configured per controller via
+`@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:4200}")`.
+Wildcards were removed during the 2026-03-08 production-readiness review.
 
 ---
 
-## Technology Stack
+## Flyway migration conventions
 
-### Backend
-| Component | Technology |
-|-----------|------------|
-| Framework | Spring Boot 3.x |
-| Language | Java 21 (LTS) |
-| Database | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Object Storage | MinIO |
-| Authentication | Keycloak |
-| Message Broker | Redis Pub/Sub |
-| Build Tool | Maven 3.9 |
+Each service owns its schema and its own migration folder under
+`src/main/resources/db/migration/`:
 
-### Frontend
-| Component | Technology |
-|-----------|------------|
-| Framework | Angular 18 |
-| Language | TypeScript 5.x |
-| UI Library | Angular Material |
-| Styling | SCSS, Tailwind CSS |
-| State | Angular Signals |
-| Testing | Karma, Jasmine |
-| E2E Testing | Playwright |
+- `rdf-forge-common` — `V100__init_audit_log.sql` (reserved high
+  version to keep service-local migrations separated from shared ones).
+- `rdf-forge-auth-service` — `V1__create_personal_access_tokens.sql`.
+- `rdf-forge-data-service` — `V1__init_data_schema.sql`.
+- `rdf-forge-dimension-service` — `V1__init_dimension_schema.sql` through
+  `V6__add_cube_project_fields.sql`.
+- `rdf-forge-job-service` — `V1__init_job_schema.sql`,
+  `V2__add_job_progress.sql`.
+- `rdf-forge-pipeline-service` — `V1__init_pipeline_schema.sql` through
+  `V5__add_updated_by_column.sql`.
+- `rdf-forge-shacl-service` — `V1__init_shacl_schema.sql`.
+- `rdf-forge-triplestore-service` — `V1__init_triplestore_schema.sql`
+  through `V3__update_fuseki_auth_to_basic.sql`.
 
-### Infrastructure
-| Component | Technology |
-|-----------|------------|
-| Container | Docker |
-| Orchestration | Docker Compose / Kubernetes |
-| Gateway | Spring Cloud Gateway |
-| Monitoring | Prometheus, Grafana |
-| Logging | ELK Stack |
+Rules:
+
+1. Never rewrite a migration that has shipped; add a new `V{n+1}__*.sql`.
+2. Service-local versions start at `V1`; platform-wide shared tables
+   (e.g. the audit log in `rdf-forge-common`) use `V100+` so they cannot
+   collide with any single service's timeline.
+3. All DDL changes must land via Flyway; do not hand-edit schemas.
+4. Keep migrations idempotent-safe where possible (`CREATE TABLE IF NOT
+   EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) so reruns are safe
+   in dev.
 
 ---
 
-## Database Schema
+## Active-development phases
 
-### Core Tables
+The following UI/product tracks are in active development. Implementations,
+routes, and APIs are moving targets; update this section as each phase lands.
 
-#### pipelines
-- `id`: UUID (PK)
-- `name`: VARCHAR(255)
-- `description`: TEXT
-- `definition`: JSONB
-- `status`: ENUM('draft', 'active', 'archived')
-- `created_by`: UUID
-- `created_at`: TIMESTAMP
-- `updated_at`: TIMESTAMP
+### Phase 1 — Project Workspace
+Multi-project scoping: every pipeline, shape, dimension, data source, and
+job should live under a project with its own membership and access controls.
+Backend project entity exists partially in `rdf-forge-common`; UI workspace
+switcher and project-scoped routing are in progress.
 
-#### jobs
-- `id`: UUID (PK)
-- `pipeline_id`: UUID (FK)
-- `status`: ENUM('pending', 'running', 'completed', 'failed', 'cancelled')
-- `progress`: INTEGER
-- `variables`: JSONB
-- `metrics`: JSONB
-- `created_at`: TIMESTAMP
-- `started_at`: TIMESTAMP
-- `completed_at`: TIMESTAMP
+### Phase 2 — Ontology Studio
+Interactive browser for the target ontology / vocabularies: class
+hierarchies, property inspection, namespace management, and import from
+external vocabularies. Will plug into the shape editor (Phase 5) and the
+mapping studio (Phase 3).
 
-#### job_logs
-- `id`: UUID (PK)
-- `job_id`: UUID (FK)
-- `level`: ENUM('debug', 'info', 'warn', 'error')
-- `message`: TEXT
-- `step`: VARCHAR(255)
-- `timestamp`: TIMESTAMP
+### Phase 3 — Mapping Studio
+Visual mapping between tabular source columns and target RDF classes /
+properties. Replaces ad-hoc JSON mapping configs. Will emit engine
+operations registered via `OperationRegistry`.
 
-#### data_sources
-- `id`: UUID (PK)
-- `name`: VARCHAR(255)
-- `original_filename`: VARCHAR(255)
-- `format`: VARCHAR(50)
-- `size_bytes`: BIGINT
-- `storage_path`: VARCHAR(1000)
-- `column_metadata`: JSONB
-- `uploaded_by`: UUID
-- `uploaded_at`: TIMESTAMP
+### Phase 4 — Preview
+Run a short segment of a pipeline against a sample of the source data and
+show the resulting RDF triples + validation deltas live, without committing
+to the triplestore. Depends on mapping studio and shape editor.
+
+### Phase 5 — Validation / SHACL Studio
+Authoring, versioning, and running SHACL shapes. The existing
+`rdf-forge-shacl-service` already provides CRUD + validation; the studio
+adds a form-based editor, template shapes, and integration with Preview so
+violations show up before publish.
 
 ---
 
-## API Design
+## Related docs
 
-### REST API Standards
-- Base URL: `/api/v1`
-- Content-Type: `application/json`
-- Authentication: Bearer token (JWT)
-- Pagination: Page-based with `page` and `size` parameters
+- `rdf-forge/DEPLOYMENT.md` — compose files, Kubernetes, port matrix,
+  environment variables, Windows port notes.
+- `rdf-forge/CONTRIBUTING.md` — plugin authoring (how to add an operation).
+- `rdf-forge/docs/plugin-development.md` — deeper plugin internals.
+- `rdf-forge/docs/operations-catalog.md` — catalog of shipped engine
+  operations.
+- `rdf-forge/SECURITY_AUDIT.md`, `rdf-forge/PRODUCTION_READINESS.md` —
+  hardening status and remaining work.
+- `rdf-forge/USER_GUIDE.md` — end-user walkthroughs.
+- `WARP.md`, `QUICKSTART.md` (repo root) — environment-agnostic getting
+  started.
 
-### WebSocket API
-- Endpoint: `/ws`
-- Protocol: STOMP over SockJS
-- Authentication: Token passed in connection headers
+## Historical context
 
-### Example Endpoints
-
-#### Pipelines
-```
-GET    /api/v1/pipelines          # List pipelines
-POST   /api/v1/pipelines          # Create pipeline
-GET    /api/v1/pipelines/{id}     # Get pipeline
-PUT    /api/v1/pipelines/{id}     # Update pipeline
-DELETE /api/v1/pipelines/{id}     # Delete pipeline
-POST   /api/v1/pipelines/{id}/run # Run pipeline
-```
-
-#### Jobs
-```
-GET    /api/v1/jobs               # List jobs
-GET    /api/v1/jobs/{id}          # Get job
-DELETE /api/v1/jobs/{id}          # Cancel job
-POST   /api/v1/jobs/{id}/retry    # Retry job
-GET    /api/v1/jobs/{id}/logs     # Get job logs
-GET    /api/v1/jobs/{id}/metrics  # Get job metrics
-```
-
----
-
-## Security Architecture
-
-### Authentication Flow
-```
-User -> Keycloak (Login)
-           |
-           v
-      JWT Token
-           |
-           v
-User -> Gateway (Validate JWT)
-           |
-           v
-      Route to Service
-```
-
-### Authorization
-- Role-based access control (RBAC)
-- Roles: `admin`, `editor`, `viewer`
-- Resource-level permissions
-- Personal Access Tokens (PAT) for API access
-
-### Data Protection
-- TLS 1.3 for all communications
-- Database encryption at rest
-- Password hashing (bcrypt)
-- Secrets management (Docker secrets)
-
----
-
-## Scalability
-
-### Horizontal Scaling
-- All services are stateless
-- Services can be replicated
-- Load balancing via Gateway
-- Session stored in Redis
-
-### Vertical Scaling
-- JVM heap size configurable
-- Database connection pooling (HikariCP)
-- Resource limits in Docker
-
-### Performance Optimizations
-- Database indexes on frequently queried columns
-- Redis caching for job status
-- Batch processing for large datasets
-- Streaming for file uploads
-
----
-
-## Deployment Architecture
-
-### Docker Compose (Development)
-- All services in single compose file
-- Local development setup
-- Hot reloading for UI
-
-### Docker Compose (Production)
-- Multi-replica services
-- Resource limits
-- Health checks
-- Read-only filesystems
-- Non-root users
-
-### Kubernetes (Optional)
-- Helm charts provided
-- Horizontal Pod Autoscaling
-- Rolling updates
-- Secrets management
-
----
-
-## Monitoring & Observability
-
-### Metrics
-- JVM metrics (Micrometer)
-- Database connection pool metrics
-- HTTP request metrics
-- Custom business metrics
-
-### Health Checks
-- `/actuator/health`: Overall health
-- `/actuator/health/liveness`: Liveness probe
-- `/actuator/health/readiness`: Readiness probe
-
-### Logging
-- Structured logging (JSON)
-- Correlation IDs
-- Log aggregation (ELK)
-
----
-
-## Future Enhancements
-
-### Planned Features
-1. **GraphQL API**: Alternative to REST
-2. **Federation**: Join data across pipelines
-3. **ML Integration**: Auto-suggest mappings
-4. **Collaboration**: Real-time collaboration in designer
-5. **Plugins**: Third-party operation support
-
-### Architecture Improvements
-1. **Event Sourcing**: For pipeline execution
-2. **CQRS**: Separate read/write models
-3. **Service Mesh**: Istio for advanced traffic management
-4. **Multi-cloud**: Support for AWS/GCP/Azure
-
----
-
-## Conclusion
-
-RDF Forge's microservices architecture provides a robust, scalable foundation for RDF data transformation and publishing. The clear separation of concerns enables independent development and deployment of services, while the shared data layer ensures consistency across the platform.
-
-For questions or contributions, please refer to the [Contributing Guide](CONTRIBUTING.md).
+- `MIGRATION_ANALYSIS.md` — analysis of the Vue UI that preceded the
+  current Angular 21 SPA. The Vue app has been removed; the Angular
+  migration is complete.
+- `UNIFIED_RDF_PLATFORM_TASK.md` — original product brief, written when a
+  TypeScript/Express stack was still on the table. Superseded by this
+  document.
+- `TECHNICAL_ANALYSIS.md` — comparison of the legacy Zazuko TypeScript
+  stack vs the current Java stack.

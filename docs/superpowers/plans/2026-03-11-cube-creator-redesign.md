@@ -6,7 +6,7 @@
 
 **Architecture:** Pipeline Factory pattern — the Cube Creator is a guided UI that produces a real pipeline + SHACL shape + column mappings + cube metadata, each independently editable. The 4-tab layout mirrors Zazuko's Cube Creator for user familiarity, with a "View Pipeline" escape hatch on every tab.
 
-**Tech Stack:** Angular 21 (standalone components, Signals, OnPush), Angular Material, Spring Boot 3.2.5, PostgreSQL (Flyway), Apache Jena, Resilience4j
+**Tech Stack:** Angular 21 (standalone components, Signals, OnPush), Angular Material + Oblique, Keycloak JS, Spring Boot 3.4.3, Spring Cloud 2024.0.1, PostgreSQL (Flyway), Apache Jena 5.0, Apache Camel 4.5, Resilience4j
 
 **Spec:** `docs/superpowers/specs/2026-03-11-cube-creator-redesign.md`
 

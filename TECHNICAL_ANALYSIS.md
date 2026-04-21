@@ -170,30 +170,30 @@ Pipelines are defined in RDF/Turtle format using manifest files:
 | Component | Technology | Version |
 |-----------|------------|---------|
 | **Language** | Java | 21 |
-| **Framework** | Spring Boot | 3.2.5 |
+| **Framework** | Spring Boot | 3.4.3 |
 | **Build Tool** | Maven | Multi-module |
-| **Cloud** | Spring Cloud | 2023.0.1 |
+| **Cloud** | Spring Cloud | 2024.0.1 |
 | **RDF Library** | Apache Jena | 5.0.0 |
 | **Pipeline Engine** | Apache Camel | 4.5.0 |
 | **Object Storage** | MinIO | 8.5.9 |
 | **Database** | PostgreSQL + Flyway | 10.10.0 |
-| **API Docs** | SpringDoc OpenAPI | 2.5.0 |
+| **API Docs** | SpringDoc OpenAPI | 2.8.4 |
 | **Code Generation** | Lombok + MapStruct | Various |
 
 ### Frontend Technology Stack
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| **Framework** | Vue.js 3 | ^3.4.21 |
-| **State Management** | Pinia | ^2.1.7 |
-| **Router** | Vue Router | ^4.3.0 |
-| **UI Components** | PrimeVue | ^3.52.0 |
-| **Pipeline Visualization** | Vue Flow | ^1.33.0 |
-| **Code Editor** | Monaco Editor | ^0.47.0 |
-| **Build Tool** | Vite | ^5.2.8 |
-| **Testing** | Vitest | ^1.5.0 |
-| **HTTP Client** | Axios | ^1.6.8 |
-| **Authentication** | Keycloak | ^24.0.0 |
+| **Framework** | Angular | ^21.0.0 |
+| **State Management** | Angular Signals + RxJS | RxJS ~7.8.0 |
+| **Router** | Angular Router | ^21.0.0 |
+| **UI Components** | Angular Material + Oblique | Material ^21.0.1, Oblique ^15.1.1 |
+| **Pipeline Visualization** | ngx-graph + Dagre | ngx-graph ^11.0.0 |
+| **Charts** | ngx-charts | ^23.1.0 |
+| **Build Tool** | Angular CLI (esbuild) | ^21.0.1 |
+| **Testing** | Karma + Jasmine; Playwright (e2e) | jasmine ^5.1, Playwright ^1.49 |
+| **HTTP Client** | Angular HttpClient | built-in |
+| **Authentication** | Keycloak JS + angular-oauth2-oidc | keycloak-js ^24.0.5 |
 
 ### Microservices Architecture
 
@@ -209,7 +209,7 @@ rdf-forge/
 ├── rdf-forge-shacl-service/    # SHACL shape management
 ├── rdf-forge-triplestore-service/ # Triplestore connections
 ├── rdf-forge-cli/              # Command-line interface
-└── rdf-forge-ui/               # Vue.js 3 frontend
+└── rdf-forge-ui/               # Angular 21 frontend
 ```
 
 ### Service Details
@@ -250,7 +250,7 @@ rdf-forge-engine/
 | View | Purpose |
 |------|---------|
 | Dashboard | Overview and metrics |
-| PipelineDesigner | Visual pipeline builder (Vue Flow) |
+| PipelineDesigner | Visual pipeline builder (ngx-graph / Dagre) |
 | PipelineList | Pipeline management |
 | CubeWizard | Guided cube creation |
 | DataManager | File upload and management |
@@ -270,7 +270,7 @@ rdf-forge-engine/
 
 | Zazuko Component | lindas-cube-creator | rdf-forge |
 |------------------|---------------------|-----------|
-| UI (Vue.js) | ✅ Forked | ✅ New (PrimeVue) |
+| UI (Vue.js) | ✅ Forked | ✅ New (Angular 21 + Material/Oblique) |
 | Core API (Hydra) | ✅ Forked | ✅ REST/OpenAPI |
 | Shared Dimensions | ✅ Forked | ✅ Dimension Service |
 | Job Runner (CLI) | ✅ Forked | ✅ Job Service |
@@ -395,7 +395,7 @@ rdf-forge-engine/
 1. **Enterprise Features**: Multi-tenancy, RBAC, audit logs
 2. **Advanced Features**: GraphQL, scheduled jobs, webhooks
 3. **Format Extensions**: Parquet, Avro, XML
-4. **Visual Pipeline Designer**: Complete Vue Flow integration
+4. **Visual Pipeline Designer**: Complete ngx-graph-based integration
 5. **User Training**: Documentation and tutorials
 
 ---
@@ -412,11 +412,11 @@ Given the analysis, I recommend:
    - Apache Camel provides robust pipeline orchestration
    - Easier to scale with microservices
 
-2. **Use rdf-forge-ui (Vue.js 3) for Frontend**:
-   - Modern stack (Vite, Pinia, PrimeVue)
-   - Vue Flow for pipeline visualization
-   - Monaco Editor for code editing
-   - Better maintained UI components
+2. **Use rdf-forge-ui (Angular 21) for Frontend**:
+   - Modern stack (Angular CLI esbuild, Signals, RxJS)
+   - Angular Material + Oblique for UI components
+   - ngx-graph / Dagre for pipeline visualization
+   - Keycloak JS adapter for authentication
 
 3. **Keep lindas-barnard59 packages as reference**:
    - Port operation logic to Java equivalents
@@ -424,8 +424,8 @@ Given the analysis, I recommend:
 
 4. **Deprecate lindas-cube-creator UI**:
    - Old Vue CLI setup
-   - Vuex (deprecated in favor of Pinia)
-   - Oruga/Bulma less maintained than PrimeVue
+   - Vuex-based stack superseded by the Angular 21 SPA in `rdf-forge-ui/`
+   - Oruga/Bulma less maintained than Angular Material + Oblique
 
 ---
 
@@ -441,13 +441,23 @@ Given the analysis, I recommend:
 ## Appendix B: Dependency Summary
 
 ### Java Dependencies (rdf-forge)
-- Spring Boot 3.2.5
+- Spring Boot 3.4.3
+- Spring Cloud 2024.0.1
 - Apache Jena 5.0.0
 - Apache Camel 4.5.0
 - MinIO 8.5.9
 - Flyway 10.10.0
 
-### Node.js Dependencies (lindas-*)
+### Node.js Dependencies (rdf-forge-ui — Angular 21)
+- Angular 21 (core, router, forms, material, cdk)
+- @oblique/oblique ^15.1.1
+- keycloak-js ^24.0.5
+- angular-oauth2-oidc ^20
+- ngx-graph / ngx-charts / dagre
+- RxJS ~7.8
+- Playwright ^1.49 (e2e)
+
+### Node.js Dependencies (lindas-*, legacy)
 - Vue.js 3.x
 - Express 4.x
 - Barnard59 5.x

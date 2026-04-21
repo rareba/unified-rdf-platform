@@ -34,13 +34,14 @@ This document provides a comprehensive analysis of Zazuko's cube-creator, barnar
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Java 21, Spring Boot 3.2.5 |
+| Backend | Java 21, Spring Boot 3.4.3, Spring Cloud 2024.0.1 |
 | RDF Processing | Apache Jena 5.0.0 |
 | ETL Engine | Custom PipelineExecutor + Apache Camel 4.5.0 |
-| Frontend | Angular 20, Material Design |
+| Frontend | Angular 21, Angular Material + Oblique, Keycloak JS |
 | Database | PostgreSQL 16 + Flyway |
 | Identity | Keycloak 24.0 |
 | Object Storage | MinIO |
+| Cache / Queue | Redis 7 |
 
 ---
 
