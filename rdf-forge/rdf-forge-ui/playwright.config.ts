@@ -5,7 +5,11 @@ import { defineConfig, devices } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './e2e/tests',
+  // Picks up all three groups:
+  //   e2e/tests      -> legacy / stable specs that neither stub nor require the stack
+  //   e2e/mocked     -> UI-only smoke (page.route stubs) — safe without a backend
+  //   e2e/real-stack -> true end-to-end against the live compose gateway
+  testDir: './e2e',
 
   /* Run tests in files in parallel */
   fullyParallel: true,

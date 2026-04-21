@@ -177,6 +177,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-rdfforge}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Firefox on Windows resolves localhost to ::1 first and the Docker
+      # port mapping only binds IPv4; its fallback to 127.0.0.1 is what
+      # browser clients actually see from Playwright's firefox build, so
+      # both loopback forms must be in the CORS allowlist for the
+      # real-stack E2E suite.
+      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://127.0.0.1:4200,http://localhost:8080,http://127.0.0.1:8080
       # Service discovery - internal Docker network names
       PIPELINE_SERVICE_URL: http://pipeline-service:8080
       SHACL_SERVICE_URL: http://shacl-service:8080
