@@ -43,7 +43,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * including multipart upload and streaming download.
  */
 @WebMvcTest(DataController.class)
-@Import({TestSecurityConfig.class, io.rdfforge.common.exception.GlobalExceptionHandler.class})
+@Import({
+    TestSecurityConfig.class,
+    io.rdfforge.common.exception.GlobalExceptionHandler.class,
+    io.rdfforge.common.security.CurrentUserAutoConfiguration.class
+})
 @DisplayName("DataController Tests")
 class DataControllerTest {
 

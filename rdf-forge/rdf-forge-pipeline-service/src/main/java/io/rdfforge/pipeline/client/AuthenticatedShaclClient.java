@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
+@org.springframework.context.annotation.Lazy
 public class AuthenticatedShaclClient {
 
     public static final String HEADER_USER_ID = "X-User-Id";

@@ -1,6 +1,8 @@
 package io.rdfforge.job.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Import;
+import io.rdfforge.common.security.CurrentUserAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -12,6 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * request/response logic without interference from the production security chain.
  */
 @TestConfiguration
+@Import(CurrentUserAutoConfiguration.class)
 public class TestSecurityConfig {
 
     @Bean
