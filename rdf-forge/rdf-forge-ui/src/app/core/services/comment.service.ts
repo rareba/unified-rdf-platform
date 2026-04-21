@@ -16,9 +16,13 @@ import {
 export class CommentService {
   private readonly api = inject(ApiService);
 
-  /** All non-deleted comments for the given asset, oldest first. */
-  list(assetKind: AssetKind, assetId: string): Observable<Comment[]> {
-    return this.api.getArray<Comment>('/comments', { assetKind, assetId });
+  /**
+   * All non-deleted comments for the given asset, oldest first.
+   * {@code projectId} is the authorization anchor — the backend rejects the
+   * request unless the caller owns the project (or is admin).
+   */
+  list(projectId: string, assetKind: AssetKind, assetId: string): Observable<Comment[]> {
+    return this.api.getArray<Comment>('/comments', { projectId, assetKind, assetId });
   }
 
   create(request: CommentCreateRequest): Observable<Comment> {

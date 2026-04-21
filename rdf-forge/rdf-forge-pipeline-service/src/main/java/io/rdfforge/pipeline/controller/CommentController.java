@@ -37,10 +37,11 @@ public class CommentController {
     @GetMapping
     @Operation(summary = "List comments for an asset")
     public ResponseEntity<List<CommentDto>> list(
+            @RequestParam("projectId") UUID projectId,
             @RequestParam("assetKind") AssetKind assetKind,
             @RequestParam("assetId") UUID assetId,
             @CurrentUser AuthUser user) {
-        return ResponseEntity.ok(commentService.list(assetKind, assetId, user));
+        return ResponseEntity.ok(commentService.list(projectId, assetKind, assetId, user));
     }
 
     @PostMapping

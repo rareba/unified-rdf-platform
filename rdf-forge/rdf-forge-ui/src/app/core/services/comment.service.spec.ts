@@ -31,10 +31,11 @@ describe('CommentService', () => {
 
   afterEach(() => http.verify());
 
-  it('list requests /comments with query params', () => {
-    service.list('ONTOLOGY', 'o1').subscribe(list => expect(list).toEqual([sample]));
+  it('list requests /comments with query params including projectId', () => {
+    service.list('p1', 'ONTOLOGY', 'o1').subscribe(list => expect(list).toEqual([sample]));
     const req = http.expectOne(r =>
       r.url === `${environment.apiBaseUrl}/comments` &&
+      r.params.get('projectId') === 'p1' &&
       r.params.get('assetKind') === 'ONTOLOGY' &&
       r.params.get('assetId') === 'o1'
     );

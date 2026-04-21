@@ -46,6 +46,7 @@ describe('CommentThread', () => {
   it('loads comments on init', () => {
     const req = http.expectOne(r =>
       r.url === `${environment.apiBaseUrl}/comments` &&
+      r.params.get('projectId') === 'p1' &&
       r.params.get('assetKind') === 'ONTOLOGY' &&
       r.params.get('assetId') === 'o1'
     );

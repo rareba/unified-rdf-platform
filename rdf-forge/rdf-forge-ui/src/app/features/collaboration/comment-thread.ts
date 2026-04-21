@@ -223,10 +223,10 @@ export class CommentThread implements OnChanges {
   }
 
   reload(): void {
-    if (!this.assetKind || !this.assetId) return;
+    if (!this.projectId || !this.assetKind || !this.assetId) return;
     this.loading.set(true);
     this.error.set(null);
-    this.commentService.list(this.assetKind, this.assetId).subscribe({
+    this.commentService.list(this.projectId, this.assetKind, this.assetId).subscribe({
       next: list => { this.comments.set(list); this.loading.set(false); },
       error: err => {
         this.error.set(err?.message ?? 'Failed to load comments');
