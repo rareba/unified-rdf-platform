@@ -17,6 +17,14 @@ public class ManualEntryMatcher implements Matcher {
 
     @Override public String displayName() { return "Manual Entry"; }
 
+    @Override public String description() {
+        return "Allows reviewers to enter match candidates by hand; does not auto-suggest.";
+    }
+
+    @Override public List<String> capabilities() {
+        return List.of("manual", "reviewer-driven");
+    }
+
     @Override public boolean supports(MatchQuery query) { return false; }
 
     @Override public List<MatchCandidate> match(MatchQuery query, AuthUser user) { return List.of(); }

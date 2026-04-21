@@ -4,6 +4,8 @@ import io.rdfforge.common.extensions.ExtensionDescriptor;
 import io.rdfforge.common.extensions.ExtensionKind;
 import io.rdfforge.triplestore.connector.TriplestoreProviderInfo;
 import io.rdfforge.triplestore.connector.TriplestoreProviderRegistry;
+import io.rdfforge.triplestore.reconciliation.Matcher;
+import io.rdfforge.triplestore.reconciliation.MatcherRegistry;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,14 +15,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Exposes triplestore provider (and optionally matcher) registries of
- * triplestore-service for the Extension Catalog.
+ * Exposes the triplestore-service registries (triplestore providers and
+ * reconciliation matchers) to the Extension Catalog.
  *
- * <p>Matcher registry from Phase 8 is optional — looked up reflectively so
- * the controller compiles even if the Phase 8 scaffold is partial. When
- * a {@code MatcherRegistry} bean is present, {@code /api/v1/extensions/matchers}
- * returns its entries; otherwise it returns an empty list with HTTP 200 so the
- * catalog UI can still render the tab.
+ * <p>{@code /api/v1/extensions/matchers} reflects the actual {@link MatcherRegistry}
+ * state — every registered {@link Matcher} bean is reported with {@code available}
+ * set from its {@link Matcher#enabled()} flag. Disabled matchers (e.g. Wikidata
+ * when its property gate is not set) are still listed so operators can see what
+ * is available to switch on.
  */
 @RestController
 @RequestMapping("/api/v1/extensions")
@@ -32,6 +34,7 @@ public class ExtensionsController {
     private static final String MODULE = "rdf-forge-triplestore-service";
 
     private final TriplestoreProviderRegistry providerRegistry;
+    private final MatcherRegistry matcherRegistry;
 
     @GetMapping("/triplestore-providers")
     public ResponseEntity<List<ExtensionDescriptor>> listTriplestoreProviders() {
@@ -67,15 +70,29 @@ public class ExtensionsController {
     }
 
     /**
-     * Phase 8 matcher registry integration — returns empty list when no
-     * MatcherRegistry bean is on the classpath. TODO(phase-8): wire to real
-     * MatcherRegistry once the Phase 8 implementation lands.
+     * Matcher catalog. Every registered {@link Matcher} bean is surfaced —
+     * whether enabled or not — so the operator can see the full inventory.
+     * {@code available} reflects {@link Matcher#enabled()} truthfully;
+     * description/capabilities are read from the matcher instance.
      */
     @GetMapping("/matchers")
     public ResponseEntity<List<ExtensionDescriptor>> listMatchers() {
-        // Intentionally tolerant: the Phase 8 matcher registry may not exist yet
-        // in every branch. Return [] so the UI tab renders without breaking.
-        return ResponseEntity.ok(List.of());
+        List<ExtensionDescriptor> out = matcherRegistry.getAll().stream()
+            .sorted(Comparator.comparing(Matcher::id))
+            .map(m -> new ExtensionDescriptor(
+                m.id(),
+                ExtensionKind.MATCHER,
+                m.displayName(),
+                "1.0",
+                m.description() == null ? "" : m.description(),
+                m.capabilities(),
+                Map.of(),
+                MODULE,
+                null,
+                m.enabled()
+            ))
+            .toList();
+        return ResponseEntity.ok(out);
     }
 
     private static String describeField(TriplestoreProviderInfo.ConfigField f) {

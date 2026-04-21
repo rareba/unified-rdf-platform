@@ -33,6 +33,15 @@ public class LocalDuplicateMatcher implements Matcher {
 
     @Override public String id() { return "local-duplicate"; }
 
+    @Override public String description() {
+        return "SPARQL-based label similarity search within the project's own graph.";
+    }
+
+    @Override public java.util.List<String> capabilities() {
+        return java.util.List.of("local-graph", "label-similarity", "levenshtein");
+    }
+
+
     @Override public String displayName() { return "Local Duplicate (same graph)"; }
 
     @Override

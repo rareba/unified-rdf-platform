@@ -128,8 +128,24 @@ public class VirtuosoProvider implements TriplestoreProvider {
 
 ### 6. MATCHER (Phase 8)
 
-Phase-8 TODO: once the matcher SPI lands, matchers will be discovered the
-same way via `@Component` beans implementing the matcher interface.
+Implement `io.rdfforge.triplestore.reconciliation.Matcher` as a `@Component`.
+`MatcherRegistry` auto-discovers every bean at startup. Override
+`enabled()`, `description()`, and `capabilities()` so the extension catalog
+reports the matcher truthfully (disabled matchers show as
+`available: false` with the `description` explaining how to enable them).
+
+Built-in matchers live in
+`rdf-forge-triplestore-service/src/main/java/io/rdfforge/triplestore/reconciliation/matchers/`:
+
+- `LocalDuplicateMatcher` — always enabled; SPARQL label similarity search
+  in the project graph.
+- `ManualEntryMatcher` — always enabled; marker bean for UI-entered
+  candidates, never auto-suggests.
+- `WikidataMatcher` — disabled by default. Set
+  `rdf-forge.matchers.wikidata.enabled=true` (plus optional
+  `rdf-forge.matchers.wikidata.api-url`, `.language`, `.timeout-seconds`)
+  to enable. Minimal `wbsearchentities` JSON parser is implemented;
+  rate limiting and response caching are follow-ups.
 
 ### 7. VALIDATOR / CUBE_PROFILE
 

@@ -20,6 +20,12 @@ public interface Matcher {
 
     default boolean enabled() { return true; }
 
+    /** Short description for the extension catalog. Override for detail. */
+    default String description() { return ""; }
+
+    /** Capability tags surfaced in the extension catalog. */
+    default java.util.List<String> capabilities() { return java.util.List.of(); }
+
     boolean supports(MatchQuery query);
 
     /**
